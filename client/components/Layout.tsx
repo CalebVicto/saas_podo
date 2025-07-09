@@ -98,19 +98,38 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
       >
         {/* Header */}
         <header
-          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 border-t-4 ${
+          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 border-t-4 shadow-sm ${
             viewMode === "admin" ? "border-t-blue-600" : "border-t-green-500"
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {/* Mobile Menu Button */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden"
+                className="lg:hidden hover:bg-accent transition-colors"
+                title="Abrir menú"
               >
                 <Menu className="w-5 h-5" />
+              </Button>
+
+              {/* Desktop Collapse Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleCollapse}
+                className="hidden lg:flex hover:bg-accent transition-colors"
+                title={
+                  sidebarCollapsed ? "Expandir sidebar" : "Contraer sidebar"
+                }
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="w-5 h-5" />
+                ) : (
+                  <ChevronLeft className="w-5 h-5" />
+                )}
               </Button>
               {title && (
                 <div>
