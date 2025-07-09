@@ -1432,7 +1432,7 @@ export function CreateAppointment() {
                   </CardHeader>
                   <CardContent className="p-0">
                     <Tabs defaultValue="general" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 m-4 mb-0 rounded-lg">
+                      <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 m-4 mb-0 rounded-lg">
                         <TabsTrigger
                           value="general"
                           className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -1467,6 +1467,21 @@ export function CreateAppointment() {
                               className="ml-1 h-5 text-xs"
                             >
                               1
+                            </Badge>
+                          )}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="payment"
+                          className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Pago
+                          {selectedAbonos.length > 0 && (
+                            <Badge
+                              variant="secondary"
+                              className="ml-1 h-5 text-xs"
+                            >
+                              {selectedAbonos.length}
                             </Badge>
                           )}
                         </TabsTrigger>
