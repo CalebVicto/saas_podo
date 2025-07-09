@@ -14,6 +14,8 @@ import {
   UserCheck,
   Package,
   BarChart,
+  Plus,
+  CalendarPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -148,6 +150,20 @@ export function Sidebar({
               </div>
             )}
           </div>
+
+          {/* Create Appointment Button (Worker Only) */}
+          {viewMode === "worker" && (
+            <div className="p-4">
+              <Button
+                onClick={() => handleNavigation("/appointments/create")}
+                className="w-full bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
+                size="lg"
+              >
+                <CalendarPlus className="w-5 h-5 mr-2" />
+                <span className="font-semibold">Nueva Cita</span>
+              </Button>
+            </div>
+          )}
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
