@@ -133,18 +133,39 @@ export function Sales() {
   }, [cart]);
 
   const loadData = async () => {
+    setIsLoadingProducts(true);
+    setProductError(null);
+
     try {
-      const mockProducts = getAllMockProducts().filter(
-        (p) => p.isActive && p.stock > 0,
-      );
+      // Simulate loading delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const allProducts = getAllMockProducts();
       const mockCategories = getMockProductCategories();
       const mockPatients = getMockPatients();
 
+      // Validate products data
+      if (!Array.isArray(allProducts)) {
+        throw new Error("Invalid products data structure");
+      }
+
+      const mockProducts = allProducts.filter(
+        (p) => p && p.isActive && p.stock > 0 && p.price > 0,
+      );
+
       setProducts(mockProducts);
-      setCategories(mockCategories);
-      setPatients(mockPatients);
+      setCategories(mockCategories || []);
+      setPatients(mockPatients || []);
     } catch (error) {
       console.error("Error loading data:", error);
+      setProductError(
+        "Error al cargar los productos. Por favor, recarga la página.",
+      );
+      setProducts([]);
+      setCategories([]);
+      setPatients([]);
+    } finally {
+      setIsLoadingProducts(false);
     }
   };
 
