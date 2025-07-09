@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 import Sales from "./pages/Sales";
 import CreateAppointment from "./pages/CreateAppointment";
 import Abonos from "./pages/Abonos";
+import PatientDetail from "./pages/PatientDetail";
 import NotFound from "./pages/NotFound";
 
 // Placeholder components for future implementation
