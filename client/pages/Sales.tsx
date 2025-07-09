@@ -412,19 +412,20 @@ export function Sales() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las categorías</SelectItem>
-                    {categories
-                      .filter(
-                        (category: any) =>
-                          category && category.id && category.name,
-                      )
-                      .map((category: any) => (
-                        <SelectItem
-                          key={category.id}
-                          value={category.id.toString()}
-                        >
-                          {category.name}
-                        </SelectItem>
-                      ))}
+                    {Array.isArray(categories) &&
+                      categories
+                        .filter(
+                          (category: any) =>
+                            category && category.id && category.name,
+                        )
+                        .map((category: any) => (
+                          <SelectItem
+                            key={category.id}
+                            value={category.id.toString()}
+                          >
+                            {category.name}
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>
