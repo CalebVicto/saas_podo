@@ -87,7 +87,7 @@ export function Sales() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
-  const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+    const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
 
@@ -100,16 +100,12 @@ export function Sales() {
     loadData();
   }, [user, navigate]);
 
-  // Update sale form when cart changes
+    // Update sale form when cart changes
   useEffect(() => {
     try {
       const totalAmount = cart.reduce((sum, item) => {
         // Validate item data
-        if (
-          !item ||
-          typeof item.subtotal !== "number" ||
-          isNaN(item.subtotal)
-        ) {
+        if (!item || typeof item.subtotal !== 'number' || isNaN(item.subtotal)) {
           console.warn("Invalid cart item:", item);
           return sum;
         }
@@ -132,13 +128,13 @@ export function Sales() {
     }
   }, [cart]);
 
-  const loadData = async () => {
+    const loadData = async () => {
     setIsLoadingProducts(true);
     setProductError(null);
 
     try {
       // Simulate loading delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const allProducts = getAllMockProducts();
       const mockCategories = getMockProductCategories();
@@ -158,9 +154,7 @@ export function Sales() {
       setPatients(mockPatients || []);
     } catch (error) {
       console.error("Error loading data:", error);
-      setProductError(
-        "Error al cargar los productos. Por favor, recarga la página.",
-      );
+      setProductError("Error al cargar los productos. Por favor, recarga la página.");
       setProducts([]);
       setCategories([]);
       setPatients([]);
@@ -178,7 +172,7 @@ export function Sales() {
     return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (product: Product, event?: React.MouseEvent) => {
+    const addToCart = (product: Product, event?: React.MouseEvent) => {
     // Prevent event bubbling if called from button
     if (event) {
       event.stopPropagation();
@@ -199,10 +193,7 @@ export function Sales() {
 
         if (existingItem) {
           // Update existing item
-          const newQuantity = Math.min(
-            existingItem.quantity + 1,
-            product.stock,
-          );
+          const newQuantity = Math.min(existingItem.quantity + 1, product.stock);
           if (newQuantity === existingItem.quantity) {
             // Already at max stock
             return prevCart;
@@ -381,10 +372,45 @@ export function Sales() {
             </CardContent>
           </Card>
 
-          {/* Products Grid */}
+                    {/* Products Grid */}
           <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredProducts.map((product) => (
+            {isLoadingProducts ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-muted-foreground">Cargando productos...</p>
+                </div>
+              </div>
+            ) : productError ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+                    <X className="w-8 h-8 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="text-destructive font-medium">Error al cargar</p>
+                    <p className="text-sm text-muted-foreground">{productError}</p>
+                  </div>
+                  <Button onClick={loadData} variant="outline" size="sm">
+                    Reintentar
+                  </Button>
+                </div>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <Package className="w-16 h-16 text-muted-foreground mx-auto" />
+                  <div>
+                    <p className="text-muted-foreground font-medium">No hay productos</p>
+                    <p className="text-sm text-muted-foreground">
+                      No se encontraron productos disponibles
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {filteredProducts.map((product) => (
                 <Card
                   key={product.id}
                   className="card-modern hover:shadow-lg transition-all duration-200"
@@ -424,11 +450,7 @@ export function Sales() {
                           className="h-8 w-8 p-0 hover:scale-110 transition-transform"
                           onClick={(e) => addToCart(product, e)}
                           disabled={product.stock <= 0}
-                          title={
-                            product.stock <= 0
-                              ? "Sin stock"
-                              : "Agregar al carrito"
-                          }
+                          title={product.stock <= 0 ? "Sin stock" : "Agregar al carrito"}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
