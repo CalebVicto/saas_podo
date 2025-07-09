@@ -155,7 +155,7 @@ export function Sidebar({
           {viewMode === "worker" && (
             <div className="p-4">
               <Button
-                onClick={() => handleNavigation("/appointments/create")}
+                onClick={() => handleNavigation("/appointments/new")}
                 className="w-full bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
                 size="lg"
               >
