@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Sidebar from "./Sidebar";
 
@@ -34,6 +34,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const stored = localStorage.getItem("podocare_sidebar_collapsed");
+    return stored ? JSON.parse(stored) : false;
+  });
   const [viewMode, setViewMode] = useState<"admin" | "worker">(
     user?.role || "worker",
   );
