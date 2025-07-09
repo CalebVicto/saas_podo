@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Search,
   Check,
+  CheckCircle,
   Package,
   ShoppingBag,
   Plus,
