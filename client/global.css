@@ -142,6 +142,13 @@
     @apply border-border;
   }
 
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground font-inter antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -149,6 +156,10 @@
 
   html {
     scroll-behavior: smooth;
+  }
+
+  #root {
+    height: 100%;
   }
 }
 

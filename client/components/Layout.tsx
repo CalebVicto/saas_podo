@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Sidebar from "./Sidebar";
 
@@ -34,6 +34,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const stored = localStorage.getItem("podocare_sidebar_collapsed");
+    return stored ? JSON.parse(stored) : false;
+  });
   const [viewMode, setViewMode] = useState<"admin" | "worker">(
     user?.role || "worker",
   );
@@ -61,10 +65,19 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
     }
   };
 
+  const handleToggleCollapse = () => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    localStorage.setItem(
+      "podocare_sidebar_collapsed",
+      JSON.stringify(newCollapsed),
+    );
+  };
+
   if (!user) return null;
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen bg-background flex overflow-hidden m-0 p-0">
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -73,25 +86,48 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
         onLogout={handleLogout}
         viewMode={viewMode}
         onSwitchView={user.role === "admin" ? handleSwitchView : undefined}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleCollapse}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0 min-w-0">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
-          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 border-t-4 ${
-            viewMode === "admin" ? "border-t-blue-600" : "border-t-green-500"
+          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 shadow-sm relative ${
+            viewMode === "admin"
+              ? "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-blue-600"
+              : "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-green-500"
           }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              {/* Mobile Menu Button */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden"
+                className="lg:hidden hover:bg-accent transition-colors"
+                title="Abrir menú"
               >
                 <Menu className="w-5 h-5" />
+              </Button>
+
+              {/* Desktop Collapse Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleCollapse}
+                className="hidden lg:flex hover:bg-accent transition-colors"
+                title={
+                  sidebarCollapsed ? "Expandir sidebar" : "Contraer sidebar"
+                }
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="w-5 h-5" />
+                ) : (
+                  <ChevronLeft className="w-5 h-5" />
+                )}
               </Button>
               {title && (
                 <div>

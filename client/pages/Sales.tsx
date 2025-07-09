@@ -56,7 +56,22 @@ interface SaleForm {
   notes?: string;
 }
 
+interface User {
+  id: string;
+  name: string;
+  role: "admin" | "worker";
+}
+
+const useAuth = () => {
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("podocare_user");
+    return stored ? JSON.parse(stored) : null;
+  });
+  return { user };
+};
+
 export function Sales() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState([]);
@@ -73,39 +88,93 @@ export function Sales() {
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productError, setProductError] = useState<string | null>(null);
 
   // Load data on component mount
   useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     loadData();
-  }, []);
+  }, [user, navigate]);
 
   // Update sale form when cart changes
   useEffect(() => {
-    const totalAmount = cart.reduce((sum, item) => sum + item.subtotal, 0);
-    setSaleForm((prev) => ({
-      ...prev,
-      items: cart,
-      totalAmount,
-    }));
+    try {
+      const totalAmount = cart.reduce((sum, item) => {
+        // Validate item data
+        if (
+          !item ||
+          typeof item.subtotal !== "number" ||
+          isNaN(item.subtotal)
+        ) {
+          console.warn("Invalid cart item:", item);
+          return sum;
+        }
+        return sum + item.subtotal;
+      }, 0);
+
+      setSaleForm((prev) => ({
+        ...prev,
+        items: cart,
+        totalAmount: Math.max(0, totalAmount), // Ensure non-negative
+      }));
+    } catch (error) {
+      console.error("Error updating sale form:", error);
+      // Reset to safe state if there's an error
+      setSaleForm((prev) => ({
+        ...prev,
+        items: [],
+        totalAmount: 0,
+      }));
+    }
   }, [cart]);
 
   const loadData = async () => {
+    setIsLoadingProducts(true);
+    setProductError(null);
+
     try {
-      const mockProducts = getAllMockProducts().filter(
-        (p) => p.isActive && p.stock > 0,
-      );
+      // Simulate loading delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const allProducts = getAllMockProducts();
       const mockCategories = getMockProductCategories();
       const mockPatients = getMockPatients();
 
+      // Validate products data
+      if (!Array.isArray(allProducts)) {
+        throw new Error("Invalid products data structure");
+      }
+
+      const mockProducts = allProducts.filter(
+        (p) => p && p.isActive && p.stock > 0 && p.price > 0,
+      );
+
       setProducts(mockProducts);
-      setCategories(mockCategories);
-      setPatients(mockPatients);
+      setCategories(mockCategories || []);
+      setPatients(mockPatients || []);
     } catch (error) {
       console.error("Error loading data:", error);
+      setProductError(
+        "Error al cargar los productos. Por favor, recarga la página.",
+      );
+      setProducts([]);
+      setCategories([]);
+      setPatients([]);
+    } finally {
+      setIsLoadingProducts(false);
     }
   };
 
   const filteredProducts = products.filter((product) => {
+    // Ensure product has required fields
+    if (!product || !product.id || !product.name || !product.sku) {
+      return false;
+    }
+
     const matchesSearch =
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchTerm.toLowerCase());
@@ -114,33 +183,60 @@ export function Sales() {
     return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (product: Product) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find(
-        (item) => item.product.id === product.id,
-      );
-      if (existingItem) {
-        return prevCart.map((item) =>
-          item.product.id === product.id
-            ? {
-                ...item,
-                quantity: Math.min(item.quantity + 1, product.stock),
-                subtotal:
-                  Math.min(item.quantity + 1, product.stock) * product.price,
-              }
-            : item,
+  const addToCart = (product: Product, event?: React.MouseEvent) => {
+    // Prevent event bubbling if called from button
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    // Validate product data
+    if (!product || !product.id || product.stock <= 0) {
+      console.warn("Invalid product or no stock available:", product);
+      return;
+    }
+
+    try {
+      setCart((prevCart) => {
+        const existingItem = prevCart.find(
+          (item) => item.product.id === product.id,
         );
-      } else {
-        return [
-          ...prevCart,
-          {
-            product,
-            quantity: 1,
-            subtotal: product.price,
-          },
-        ];
-      }
-    });
+
+        if (existingItem) {
+          // Update existing item
+          const newQuantity = Math.min(
+            existingItem.quantity + 1,
+            product.stock,
+          );
+          if (newQuantity === existingItem.quantity) {
+            // Already at max stock
+            return prevCart;
+          }
+
+          return prevCart.map((item) =>
+            item.product.id === product.id
+              ? {
+                  ...item,
+                  quantity: newQuantity,
+                  subtotal: newQuantity * product.price,
+                }
+              : item,
+          );
+        } else {
+          // Add new item
+          return [
+            ...prevCart,
+            {
+              product,
+              quantity: 1,
+              subtotal: product.price,
+            },
+          ];
+        }
+      });
+    } catch (error) {
+      console.error("Error adding product to cart:", error);
+    }
   };
 
   const updateCartItemQuantity = (productId: string, newQuantity: number) => {
@@ -172,13 +268,50 @@ export function Sales() {
   };
 
   const clearCart = () => {
-    setCart([]);
-    setSaleForm({
-      items: [],
-      totalAmount: 0,
-      paymentMethod: "cash",
-    });
+    try {
+      setCart([]);
+      setSaleForm({
+        items: [],
+        totalAmount: 0,
+        paymentMethod: "cash",
+      });
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      // Force reset even if there's an error
+      window.location.reload();
+    }
   };
+
+  // Validate cart integrity
+  const validateCart = () => {
+    try {
+      const validItems = cart.filter(
+        (item) =>
+          item &&
+          item.product &&
+          item.product.id &&
+          typeof item.quantity === "number" &&
+          item.quantity > 0 &&
+          typeof item.subtotal === "number" &&
+          item.subtotal >= 0,
+      );
+
+      if (validItems.length !== cart.length) {
+        console.warn("Cart contains invalid items, cleaning up...");
+        setCart(validItems);
+      }
+    } catch (error) {
+      console.error("Error validating cart:", error);
+      setCart([]);
+    }
+  };
+
+  // Validate cart on changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      validateCart();
+    }
+  }, [cart.length]);
 
   const processSale = async () => {
     if (cart.length === 0) return;
@@ -204,7 +337,7 @@ export function Sales() {
         ),
         totalAmount: saleForm.totalAmount,
         customerId: saleForm.customerId,
-        sellerId: "1", // Current user
+        sellerId: user?.id || "1", // Current authenticated user
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -247,6 +380,11 @@ export function Sales() {
     return labels[method as keyof typeof labels] || method;
   };
 
+  // Prevent rendering if user is not authenticated
+  if (!user) {
+    return null;
+  }
+
   return (
     <Layout title="Punto de Venta" subtitle="Venta de productos y medicamentos">
       <div className="h-full flex gap-6 p-6">
@@ -274,11 +412,20 @@ export function Sales() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las categorías</SelectItem>
-                    {categories.map((category: any) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
+                    {Array.isArray(categories) &&
+                      categories
+                        .filter(
+                          (category: any) =>
+                            category && category.id && category.name,
+                        )
+                        .map((category: any) => (
+                          <SelectItem
+                            key={category.id}
+                            value={category.id.toString()}
+                          >
+                            {category.name}
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -287,49 +434,103 @@ export function Sales() {
 
           {/* Products Grid */}
           <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  className="card-modern hover:shadow-lg transition-all duration-200 cursor-pointer"
-                  onClick={() => addToCart(product)}
-                >
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Package className="w-6 h-6 text-primary" />
+            {isLoadingProducts ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-muted-foreground">Cargando productos...</p>
+                </div>
+              </div>
+            ) : productError ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto">
+                    <X className="w-8 h-8 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="text-destructive font-medium">
+                      Error al cargar
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {productError}
+                    </p>
+                  </div>
+                  <Button onClick={loadData} variant="outline" size="sm">
+                    Reintentar
+                  </Button>
+                </div>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <Package className="w-16 h-16 text-muted-foreground mx-auto" />
+                  <div>
+                    <p className="text-muted-foreground font-medium">
+                      No hay productos
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      No se encontraron productos disponibles
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {filteredProducts.map((product) => (
+                  <Card
+                    key={product.id}
+                    className="card-modern hover:shadow-lg transition-all duration-200"
+                  >
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                            <Package className="w-6 h-6 text-primary" />
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            Stock: {product.stock}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          Stock: {product.stock}
-                        </Badge>
-                      </div>
 
-                      <div>
-                        <h3 className="font-semibold text-sm leading-tight">
-                          {product.name}
-                        </h3>
-                        <p className="text-xs text-muted-foreground">
-                          {product.category?.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {product.sku}
-                        </p>
-                      </div>
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => addToCart(product)}
+                        >
+                          <h3 className="font-semibold text-sm leading-tight hover:text-primary transition-colors">
+                            {product.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {product.category?.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {product.sku}
+                          </p>
+                        </div>
 
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-primary">
-                          S/ {product.price.toFixed(2)}
-                        </span>
-                        <Button size="sm" className="h-8 w-8 p-0">
-                          <Plus className="w-4 h-4" />
-                        </Button>
+                        <div className="flex items-center justify-between">
+                          <span className="text-lg font-bold text-primary">
+                            S/ {product.price.toFixed(2)}
+                          </span>
+                          <Button
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:scale-110 transition-transform"
+                            onClick={(e) => addToCart(product, e)}
+                            disabled={product.stock <= 0}
+                            title={
+                              product.stock <= 0
+                                ? "Sin stock"
+                                : "Agregar al carrito"
+                            }
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -453,11 +654,11 @@ export function Sales() {
                 <div className="space-y-2">
                   <Label htmlFor="customer">Cliente (Opcional)</Label>
                   <Select
-                    value={saleForm.customerId || ""}
+                    value={saleForm.customerId || "no-customer"}
                     onValueChange={(value) =>
                       setSaleForm({
                         ...saleForm,
-                        customerId: value || undefined,
+                        customerId: value === "no-customer" ? undefined : value,
                       })
                     }
                   >
@@ -465,12 +666,21 @@ export function Sales() {
                       <SelectValue placeholder="Seleccionar cliente..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin cliente</SelectItem>
-                      {patients.map((patient: any) => (
-                        <SelectItem key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="no-customer">Sin cliente</SelectItem>
+                      {Array.isArray(patients) &&
+                        patients
+                          .filter(
+                            (patient: any) =>
+                              patient && patient.id && patient.firstName,
+                          )
+                          .map((patient: any) => (
+                            <SelectItem
+                              key={patient.id}
+                              value={patient.id.toString()}
+                            >
+                              {patient.firstName} {patient.lastName || ""}
+                            </SelectItem>
+                          ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -558,12 +768,15 @@ export function Sales() {
                 <div className="flex justify-between">
                   <span>Cliente:</span>
                   <span>
-                    {saleForm.customerId
-                      ? patients.find((p: any) => p.id === saleForm.customerId)
-                          ?.firstName +
-                        " " +
-                        patients.find((p: any) => p.id === saleForm.customerId)
-                          ?.lastName
+                    {saleForm.customerId && Array.isArray(patients)
+                      ? (() => {
+                          const customer = patients.find(
+                            (p: any) => p && p.id === saleForm.customerId,
+                          );
+                          return customer
+                            ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim()
+                            : "Cliente no encontrado";
+                        })()
                       : "Venta general"}
                   </span>
                 </div>
