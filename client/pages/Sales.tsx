@@ -91,8 +91,12 @@ export function Sales() {
 
   // Load data on component mount
   useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     loadData();
-  }, []);
+  }, [user, navigate]);
 
   // Update sale form when cart changes
   useEffect(() => {
