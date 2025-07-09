@@ -20,6 +20,7 @@ import {
   PackageOpen,
   DollarSign,
   FileEdit,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -338,7 +339,7 @@ function SearchableTextInput({
             </div>
 
             <div className="text-xs text-muted-foreground text-center">
-              También puedes escribir un valor personalizado directamente en el
+              Tambi��n puedes escribir un valor personalizado directamente en el
               campo
             </div>
           </div>
