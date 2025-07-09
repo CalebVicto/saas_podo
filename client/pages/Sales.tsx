@@ -56,7 +56,22 @@ interface SaleForm {
   notes?: string;
 }
 
+interface User {
+  id: string;
+  name: string;
+  role: "admin" | "worker";
+}
+
+const useAuth = () => {
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("podocare_user");
+    return stored ? JSON.parse(stored) : null;
+  });
+  return { user };
+};
+
 export function Sales() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState([]);
