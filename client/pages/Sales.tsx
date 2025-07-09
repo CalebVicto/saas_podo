@@ -100,12 +100,34 @@ export function Sales() {
 
   // Update sale form when cart changes
   useEffect(() => {
-    const totalAmount = cart.reduce((sum, item) => sum + item.subtotal, 0);
-    setSaleForm((prev) => ({
-      ...prev,
-      items: cart,
-      totalAmount,
-    }));
+    try {
+      const totalAmount = cart.reduce((sum, item) => {
+        // Validate item data
+        if (
+          !item ||
+          typeof item.subtotal !== "number" ||
+          isNaN(item.subtotal)
+        ) {
+          console.warn("Invalid cart item:", item);
+          return sum;
+        }
+        return sum + item.subtotal;
+      }, 0);
+
+      setSaleForm((prev) => ({
+        ...prev,
+        items: cart,
+        totalAmount: Math.max(0, totalAmount), // Ensure non-negative
+      }));
+    } catch (error) {
+      console.error("Error updating sale form:", error);
+      // Reset to safe state if there's an error
+      setSaleForm((prev) => ({
+        ...prev,
+        items: [],
+        totalAmount: 0,
+      }));
+    }
   }, [cart]);
 
   const loadData = async () => {
