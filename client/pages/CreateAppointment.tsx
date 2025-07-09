@@ -650,7 +650,7 @@ export function CreateAppointment() {
                 </CardHeader>
                 <CardContent className="p-6">
                   <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-lg">
+                    <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
                       <TabsTrigger
                         value="general"
                         className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
@@ -671,6 +671,13 @@ export function CreateAppointment() {
                       >
                         <PackageOpen className="w-4 h-4" />
                         Paquete
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="payment"
+                        className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
+                      >
+                        <Wallet className="w-4 h-4" />
+                        Pago
                       </TabsTrigger>
                     </TabsList>
 
