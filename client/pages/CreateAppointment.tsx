@@ -47,6 +47,7 @@ import {
   Patient,
   Worker,
   Product,
+  ProductCategory,
   PatientPackage,
   PackageSession,
 } from "@shared/api";
@@ -54,6 +55,7 @@ import {
   getMockPatients,
   getMockWorkers,
   getAllMockProducts,
+  mockProductCategories,
   mockPatientPackages,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
@@ -360,6 +362,7 @@ export function CreateAppointment() {
     treatmentNotes: "",
     diagnosis: "",
     observations: "",
+    treatmentPrice: undefined,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -368,6 +371,8 @@ export function CreateAppointment() {
   const [selectedProducts, setSelectedProducts] = useState<
     Array<{ product: Product; quantity: number }>
   >([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Package state
   const [selectedPackage, setSelectedPackage] = useState<PatientPackage | null>(
