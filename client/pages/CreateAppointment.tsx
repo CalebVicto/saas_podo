@@ -1457,7 +1457,9 @@ export function CreateAppointment() {
 
                     {/* Total Cost Summary - Always at bottom */}
                     {(selectedProducts.length > 0 ||
-                      (selectedPackage && usePackageSession)) && (
+                      (selectedPackage && usePackageSession) ||
+                      (formData.treatmentPrice &&
+                        formData.treatmentPrice > 0)) && (
                       <div className="p-4 border-t bg-gradient-to-r from-green-50 to-emerald-50">
                         <div className="flex items-center gap-2 mb-3">
                           <DollarSign className="w-5 h-5 text-green-600" />
@@ -1466,6 +1468,17 @@ export function CreateAppointment() {
                           </h3>
                         </div>
                         <div className="space-y-2">
+                          {formData.treatmentPrice &&
+                            formData.treatmentPrice > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-sm">
+                                  Precio del tratamiento:
+                                </span>
+                                <span className="text-sm font-medium">
+                                  S/ {formData.treatmentPrice.toFixed(2)}
+                                </span>
+                              </div>
+                            )}
                           {selectedProducts.length > 0 && (
                             <div className="flex justify-between">
                               <span className="text-sm">Total productos:</span>
@@ -1495,13 +1508,14 @@ export function CreateAppointment() {
                             </span>
                             <span className="font-bold text-xl text-green-800">
                               S/{" "}
-                              {selectedProducts
-                                .reduce(
+                              {(
+                                (formData.treatmentPrice || 0) +
+                                selectedProducts.reduce(
                                   (sum, sp) =>
                                     sum + sp.product.price * sp.quantity,
                                   0,
                                 )
-                                .toFixed(2)}
+                              ).toFixed(2)}
                             </span>
                           </div>
                         </div>
