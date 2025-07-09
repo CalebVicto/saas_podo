@@ -11,6 +11,8 @@ import {
   PackageSession,
   Sale,
   SaleItem,
+  Abono,
+  AbonoUsage,
 } from "@shared/api";
 
 // Mock Patients
@@ -554,30 +556,31 @@ export const mockProductMovements: ProductMovement[] = [
 export const mockPackages: Package[] = [
   {
     id: "1",
-    name: "Tratamiento Completo de Hongos",
-    numberOfSessions: 5,
-    totalPrice: 150.0,
-    notes: "Incluye diagnóstico, tratamiento y seguimiento por 5 sesiones",
+    name: "Podology Starter Pack",
+    numberOfSessions: 3,
+    totalPrice: 120.0,
+    notes:
+      "Paquete inicial de podología con evaluación completa y tratamiento básico",
     isActive: true,
     createdAt: "2024-01-01T08:00:00Z",
     updatedAt: "2024-01-01T08:00:00Z",
   },
   {
     id: "2",
-    name: "Paquete Cuidado de Uñas",
-    numberOfSessions: 3,
-    totalPrice: 90.0,
-    notes: "Tratamiento para uñas encarnadas con seguimiento",
+    name: "Advanced Therapy",
+    numberOfSessions: 6,
+    totalPrice: 200.0,
+    notes: "Terapia avanzada para tratamientos especializados y complejos",
     isActive: true,
     createdAt: "2024-01-01T08:00:00Z",
     updatedAt: "2024-01-01T08:00:00Z",
   },
   {
     id: "3",
-    name: "Programa de Plantillas Ortopédicas",
-    numberOfSessions: 4,
-    totalPrice: 200.0,
-    notes: "Evaluación, diseño, entrega y ajustes de plantillas personalizadas",
+    name: "Foot Massage Combo",
+    numberOfSessions: 5,
+    totalPrice: 150.0,
+    notes: "Combinación de masajes terapéuticos y tratamientos relajantes",
     isActive: true,
     createdAt: "2024-01-01T08:00:00Z",
     updatedAt: "2024-01-01T08:00:00Z",
@@ -590,7 +593,7 @@ export const mockPatientPackages: PatientPackage[] = [
     id: "1",
     patientId: "1",
     packageId: "1",
-    remainingSessions: 3,
+    remainingSessions: 2,
     purchasedAt: "2024-01-15T10:00:00Z",
     isActive: true,
     package: mockPackages[0],
@@ -600,7 +603,7 @@ export const mockPatientPackages: PatientPackage[] = [
     id: "2",
     patientId: "2",
     packageId: "2",
-    remainingSessions: 1,
+    remainingSessions: 4,
     purchasedAt: "2024-01-10T14:00:00Z",
     isActive: true,
     package: mockPackages[1],
@@ -610,7 +613,7 @@ export const mockPatientPackages: PatientPackage[] = [
     id: "3",
     patientId: "3",
     packageId: "3",
-    remainingSessions: 4,
+    remainingSessions: 3,
     purchasedAt: "2024-01-05T09:00:00Z",
     isActive: true,
     package: mockPackages[2],
@@ -707,3 +710,127 @@ export const getProductStats = () => ({
   lowStock: mockProducts.filter((p) => p.stock <= 5).length,
   outOfStock: mockProducts.filter((p) => p.stock === 0).length,
 });
+
+// Mock Abonos
+export const mockAbonos: Abono[] = [
+  {
+    id: "1",
+    patientId: "1",
+    amount: 100.0,
+    method: "yape",
+    notes: "Prepago para tratamientos futuros",
+    registeredAt: "2024-01-20T10:00:00Z",
+    usedAmount: 25.0,
+    remainingAmount: 75.0,
+    isActive: true,
+    createdAt: "2024-01-20T10:00:00Z",
+    updatedAt: "2024-01-22T14:30:00Z",
+    patient: mockPatients[0],
+  },
+  {
+    id: "2",
+    patientId: "2",
+    amount: 150.0,
+    method: "transfer",
+    notes: "Abono para paquete de terapia",
+    registeredAt: "2024-01-18T16:00:00Z",
+    usedAmount: 0.0,
+    remainingAmount: 150.0,
+    isActive: true,
+    createdAt: "2024-01-18T16:00:00Z",
+    updatedAt: "2024-01-18T16:00:00Z",
+    patient: mockPatients[1],
+  },
+  {
+    id: "3",
+    patientId: "3",
+    amount: 80.0,
+    method: "cash",
+    notes: "Prepago en efectivo",
+    registeredAt: "2024-01-15T09:30:00Z",
+    usedAmount: 45.0,
+    remainingAmount: 35.0,
+    isActive: true,
+    createdAt: "2024-01-15T09:30:00Z",
+    updatedAt: "2024-01-19T11:15:00Z",
+    patient: mockPatients[2],
+  },
+  {
+    id: "4",
+    patientId: "1",
+    amount: 200.0,
+    method: "card",
+    notes: "Abono con tarjeta de crédito",
+    registeredAt: "2024-01-10T14:20:00Z",
+    usedAmount: 200.0,
+    remainingAmount: 0.0,
+    isActive: false,
+    createdAt: "2024-01-10T14:20:00Z",
+    updatedAt: "2024-01-21T16:45:00Z",
+    patient: mockPatients[0],
+  },
+];
+
+// Mock Abono Usage
+export const mockAbonoUsage: AbonoUsage[] = [
+  {
+    id: "1",
+    abonoId: "1",
+    appointmentId: "1",
+    amount: 25.0,
+    usedAt: "2024-01-22T14:30:00Z",
+    notes: "Descuento aplicado en cita de control",
+    abono: mockAbonos[0],
+    appointment: mockAppointments[0],
+  },
+  {
+    id: "2",
+    abonoId: "3",
+    appointmentId: "3",
+    amount: 45.0,
+    usedAt: "2024-01-19T11:15:00Z",
+    notes: "Pago parcial con abono",
+    abono: mockAbonos[2],
+    appointment: mockAppointments[2],
+  },
+  {
+    id: "3",
+    abonoId: "4",
+    appointmentId: "2",
+    amount: 65.0,
+    usedAt: "2024-01-21T16:45:00Z",
+    notes: "Uso completo del abono",
+    abono: mockAbonos[3],
+    appointment: mockAppointments[1],
+  },
+  {
+    id: "4",
+    abonoId: "4",
+    saleId: "1",
+    amount: 135.0,
+    usedAt: "2024-01-21T16:50:00Z",
+    notes: "Resto del abono usado en compra de productos",
+    abono: mockAbonos[3],
+    sale: mockSales[0],
+  },
+];
+
+// Helper functions for abonos
+export const getMockAbonos = () => [...mockAbonos];
+export const getMockAbonoUsage = () => [...mockAbonoUsage];
+
+export const getPatientAbonos = (patientId: string): Abono[] => {
+  return mockAbonos.filter(
+    (abono) =>
+      abono.patientId === patientId &&
+      abono.isActive &&
+      abono.remainingAmount > 0,
+  );
+};
+
+export const getPatientAbonoBalance = (patientId: string): number => {
+  return getPatientAbonos(patientId).reduce(
+    (total, abono) => total + abono.remainingAmount,
+    0,
+  );
+};

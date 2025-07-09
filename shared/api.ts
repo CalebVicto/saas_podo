@@ -119,6 +119,42 @@ export interface CreatePaymentRequest {
   method: "cash" | "yape" | "plin" | "transfer" | "card";
 }
 
+// Abonos (Partial Payments) Types
+export interface Abono {
+  id: string;
+  patientId: string;
+  amount: number;
+  method: "cash" | "yape" | "plin" | "transfer" | "card";
+  notes?: string;
+  registeredAt: string;
+  usedAmount: number; // Amount already used from this abono
+  remainingAmount: number; // Amount still available
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  patient?: Patient;
+}
+
+export interface CreateAbonoRequest {
+  patientId: string;
+  amount: number;
+  method: "cash" | "yape" | "plin" | "transfer" | "card";
+  notes?: string;
+}
+
+export interface AbonoUsage {
+  id: string;
+  abonoId: string;
+  appointmentId?: string;
+  saleId?: string;
+  amount: number;
+  usedAt: string;
+  notes?: string;
+  abono?: Abono;
+  appointment?: Appointment;
+  sale?: Sale;
+}
+
 // Product Types
 export interface Product {
   id: string;

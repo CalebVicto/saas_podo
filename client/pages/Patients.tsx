@@ -371,13 +371,13 @@ export function Patients() {
 
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => openViewDialog(patient)}
+                        onClick={() => navigate(`/patients/${patient.id}`)}
                         variant="outline"
                         size="sm"
                         className="flex-1"
                       >
                         <Eye className="w-4 h-4 mr-2" />
-                        Ver
+                        Ver Detalle
                       </Button>
                       <Button
                         onClick={() => openEditDialog(patient)}

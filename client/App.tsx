@@ -20,6 +20,8 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Sales from "./pages/Sales";
 import CreateAppointment from "./pages/CreateAppointment";
+import Abonos from "./pages/Abonos";
+import PatientDetail from "./pages/PatientDetail";
 import NotFound from "./pages/NotFound";
 
 // Placeholder components for future implementation
@@ -42,9 +44,11 @@ const App = () => (
           {/* Main Application Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/patients" element={<Patients />} />
+          <Route path="/patients/:id" element={<PatientDetail />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/appointments/new" element={<CreateAppointment />} />
           <Route path="/payments" element={<Payments />} />
+          <Route path="/abonos" element={<Abonos />} />
           <Route path="/products" element={<Products />} />
           <Route path="/packages" element={<Packages />} />
           <Route path="/kardex" element={<Kardex />} />

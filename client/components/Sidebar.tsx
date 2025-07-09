@@ -16,6 +16,7 @@ import {
   BarChart,
   Plus,
   CalendarPlus,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ export function Sidebar({
     { icon: Calendar, label: "Citas", path: "/appointments" },
     { icon: DollarSign, label: "Pagos", path: "/payments" },
     { icon: ShoppingCart, label: "Ventas / POS", path: "/sales" },
+    { icon: Wallet, label: "Abonos", path: "/abonos" },
   ];
 
   const menuItems = viewMode === "admin" ? adminMenuItems : workerMenuItems;
@@ -155,7 +157,7 @@ export function Sidebar({
           {viewMode === "worker" && (
             <div className="p-4">
               <Button
-                onClick={() => handleNavigation("/appointments/create")}
+                onClick={() => handleNavigation("/appointments/new")}
                 className="w-full bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
                 size="lg"
               >

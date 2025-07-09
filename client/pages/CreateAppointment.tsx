@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Search,
   Check,
+  CheckCircle,
   Package,
   ShoppingBag,
   Plus,
@@ -20,6 +21,7 @@ import {
   PackageOpen,
   DollarSign,
   FileEdit,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,7 @@ import {
   ProductCategory,
   PatientPackage,
   PackageSession,
+  Abono,
 } from "@shared/api";
 import {
   getMockPatients,
@@ -57,6 +60,8 @@ import {
   getAllMockProducts,
   mockProductCategories,
   mockPatientPackages,
+  getPatientAbonos,
+  getPatientAbonoBalance,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
 
@@ -380,9 +385,26 @@ export function CreateAppointment() {
   );
   const [usePackageSession, setUsePackageSession] = useState(false);
 
+  // Abonos state
+  const [selectedAbonos, setSelectedAbonos] = useState<
+    Array<{ abono: Abono; amountToUse: number }>
+  >([]);
+  const [availableAbonos, setAvailableAbonos] = useState<Abono[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    // Load available abonos when patient changes
+    if (formData.patientId) {
+      const patientAbonos = getPatientAbonos(formData.patientId);
+      setAvailableAbonos(patientAbonos);
+    } else {
+      setAvailableAbonos([]);
+      setSelectedAbonos([]);
+    }
+  }, [formData.patientId]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -521,6 +543,56 @@ export function CreateAppointment() {
     setUsePackageSession(false);
   };
 
+  // Abono functions
+  const addAbonoToPayment = (abono: Abono) => {
+    const existingAbono = selectedAbonos.find((sa) => sa.abono.id === abono.id);
+    if (!existingAbono) {
+      setSelectedAbonos([
+        ...selectedAbonos,
+        { abono, amountToUse: Math.min(abono.remainingAmount, 10) },
+      ]);
+    }
+  };
+
+  const removeAbonoFromPayment = (abonoId: string) => {
+    setSelectedAbonos(selectedAbonos.filter((sa) => sa.abono.id !== abonoId));
+  };
+
+  const updateAbonoAmount = (abonoId: string, amount: number) => {
+    setSelectedAbonos(
+      selectedAbonos.map((sa) =>
+        sa.abono.id === abonoId
+          ? {
+              ...sa,
+              amountToUse: Math.min(
+                Math.max(0, amount),
+                sa.abono.remainingAmount,
+              ),
+            }
+          : sa,
+      ),
+    );
+  };
+
+  const getTotalAbonoAmount = () => {
+    return selectedAbonos.reduce((sum, sa) => sum + sa.amountToUse, 0);
+  };
+
+  const getTotalCost = () => {
+    const treatmentCost = formData.treatmentPrice || 0;
+    const productsCost = selectedProducts.reduce(
+      (sum, sp) => sum + sp.product.price * sp.quantity,
+      0,
+    );
+    return treatmentCost + productsCost;
+  };
+
+  const getRemainingBalance = () => {
+    const totalCost = getTotalCost();
+    const abonoAmount = getTotalAbonoAmount();
+    return Math.max(0, totalCost - abonoAmount);
+  };
+
   // Filter products by search and category
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
@@ -579,7 +651,7 @@ export function CreateAppointment() {
                 </CardHeader>
                 <CardContent className="p-6">
                   <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 rounded-lg">
+                    <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
                       <TabsTrigger
                         value="general"
                         className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
@@ -600,6 +672,13 @@ export function CreateAppointment() {
                       >
                         <PackageOpen className="w-4 h-4" />
                         Paquete
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="payment"
+                        className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
+                      >
+                        <Wallet className="w-4 h-4" />
+                        Pago
                       </TabsTrigger>
                     </TabsList>
 
@@ -1057,6 +1136,249 @@ export function CreateAppointment() {
                         })()}
                       </div>
                     </TabsContent>
+
+                    {/* Payment Tab */}
+                    <TabsContent
+                      value="payment"
+                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                    >
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold">
+                          Opciones de Pago
+                        </Label>
+
+                        {/* Cost Summary */}
+                        <Card className="border-blue-200 bg-blue-50">
+                          <CardContent className="p-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm">Costo total:</span>
+                                <span className="font-bold text-lg">
+                                  S/ {getTotalCost().toFixed(2)}
+                                </span>
+                              </div>
+                              {getTotalAbonoAmount() > 0 && (
+                                <>
+                                  <div className="flex justify-between items-center text-green-600">
+                                    <span className="text-sm">
+                                      Abonos aplicados:
+                                    </span>
+                                    <span className="font-medium">
+                                      -S/ {getTotalAbonoAmount().toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                                    <span className="font-medium">
+                                      Saldo restante:
+                                    </span>
+                                    <span className="font-bold text-xl text-blue-800">
+                                      S/ {getRemainingBalance().toFixed(2)}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Available Abonos */}
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium">
+                            Abonos Disponibles del Paciente
+                          </Label>
+
+                          {!formData.patientId ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>Selecciona un paciente para ver sus abonos</p>
+                            </div>
+                          ) : availableAbonos.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>Este paciente no tiene abonos disponibles</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {availableAbonos.map((abono) => {
+                                const isSelected = selectedAbonos.some(
+                                  (sa) => sa.abono.id === abono.id,
+                                );
+                                const selectedAbono = selectedAbonos.find(
+                                  (sa) => sa.abono.id === abono.id,
+                                );
+
+                                return (
+                                  <div
+                                    key={abono.id}
+                                    className={cn(
+                                      "border rounded-lg p-4 transition-all duration-300",
+                                      isSelected
+                                        ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-md"
+                                        : "hover:bg-muted/30 hover:shadow-sm",
+                                    )}
+                                  >
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <h4 className="font-medium">
+                                            Abono {abono.method.toUpperCase()}
+                                          </h4>
+                                          <Badge variant="secondary">
+                                            S/{" "}
+                                            {abono.remainingAmount.toFixed(2)}{" "}
+                                            disponible
+                                          </Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                          Registrado:{" "}
+                                          {new Date(
+                                            abono.registeredAt,
+                                          ).toLocaleDateString()}
+                                        </p>
+                                        {abono.notes && (
+                                          <p className="text-xs text-muted-foreground mt-1">
+                                            {abono.notes}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        {!isSelected ? (
+                                          <Button
+                                            onClick={() =>
+                                              addAbonoToPayment(abono)
+                                            }
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-green-600 border-green-600 hover:bg-green-50"
+                                          >
+                                            <Plus className="w-4 h-4 mr-1" />
+                                            Usar
+                                          </Button>
+                                        ) : (
+                                          <Button
+                                            onClick={() =>
+                                              removeAbonoFromPayment(abono.id)
+                                            }
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-red-600 hover:bg-red-50"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {isSelected && selectedAbono && (
+                                      <div className="mt-3 pt-3 border-t border-green-200">
+                                        <div className="flex items-center gap-3">
+                                          <Label className="text-sm font-medium text-green-800">
+                                            Monto a usar:
+                                          </Label>
+                                          <div className="flex items-center gap-2">
+                                            <Button
+                                              onClick={() =>
+                                                updateAbonoAmount(
+                                                  abono.id,
+                                                  selectedAbono.amountToUse - 5,
+                                                )
+                                              }
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-6 w-6 p-0"
+                                              disabled={
+                                                selectedAbono.amountToUse <= 5
+                                              }
+                                            >
+                                              <Minus className="w-3 h-3" />
+                                            </Button>
+                                            <div className="relative">
+                                              <DollarSign className="w-3 h-3 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                                              <Input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max={abono.remainingAmount}
+                                                value={
+                                                  selectedAbono.amountToUse
+                                                }
+                                                onChange={(e) =>
+                                                  updateAbonoAmount(
+                                                    abono.id,
+                                                    parseFloat(
+                                                      e.target.value,
+                                                    ) || 0,
+                                                  )
+                                                }
+                                                className="w-24 h-8 pl-6 text-sm"
+                                              />
+                                            </div>
+                                            <Button
+                                              onClick={() =>
+                                                updateAbonoAmount(
+                                                  abono.id,
+                                                  selectedAbono.amountToUse + 5,
+                                                )
+                                              }
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-6 w-6 p-0"
+                                              disabled={
+                                                selectedAbono.amountToUse >=
+                                                abono.remainingAmount
+                                              }
+                                            >
+                                              <Plus className="w-3 h-3" />
+                                            </Button>
+                                          </div>
+                                          <Button
+                                            onClick={() =>
+                                              updateAbonoAmount(
+                                                abono.id,
+                                                Math.min(
+                                                  abono.remainingAmount,
+                                                  getRemainingBalance() +
+                                                    selectedAbono.amountToUse,
+                                                ),
+                                              )
+                                            }
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-xs text-green-600 hover:bg-green-50"
+                                          >
+                                            Usar máximo
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+
+                              {selectedAbonos.length > 0 && (
+                                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle className="w-5 h-5 text-green-600" />
+                                      <span className="font-medium text-green-800">
+                                        Abonos seleccionados
+                                      </span>
+                                    </div>
+                                    <span className="font-bold text-green-800">
+                                      S/ {getTotalAbonoAmount().toFixed(2)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-green-700 mt-1">
+                                    Se aplicarán automáticamente al confirmar la
+                                    cita
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>
@@ -1111,7 +1433,7 @@ export function CreateAppointment() {
                   </CardHeader>
                   <CardContent className="p-0">
                     <Tabs defaultValue="general" className="w-full">
-                      <TabsList className="grid w-full grid-cols-3 bg-muted/50 p-1 m-4 mb-0 rounded-lg">
+                      <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 m-4 mb-0 rounded-lg">
                         <TabsTrigger
                           value="general"
                           className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -1146,6 +1468,21 @@ export function CreateAppointment() {
                               className="ml-1 h-5 text-xs"
                             >
                               1
+                            </Badge>
+                          )}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="payment"
+                          className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Pago
+                          {selectedAbonos.length > 0 && (
+                            <Badge
+                              variant="secondary"
+                              className="ml-1 h-5 text-xs"
+                            >
+                              {selectedAbonos.length}
                             </Badge>
                           )}
                         </TabsTrigger>
@@ -1449,6 +1786,102 @@ export function CreateAppointment() {
                             <p>No hay paquete seleccionado</p>
                             <p className="text-sm">
                               Ve a la pestaña "Paquete" para asignar
+                            </p>
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      {/* Payment Tab */}
+                      <TabsContent
+                        value="payment"
+                        className="p-4 space-y-4 animate-in fade-in-50 duration-300"
+                      >
+                        {getTotalCost() > 0 ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-medium">Resumen de Pago</h3>
+                            </div>
+
+                            {/* Cost Breakdown */}
+                            <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <div className="flex justify-between text-sm">
+                                <span>Costo total:</span>
+                                <span className="font-medium">
+                                  S/ {getTotalCost().toFixed(2)}
+                                </span>
+                              </div>
+                              {getTotalAbonoAmount() > 0 && (
+                                <div className="flex justify-between text-sm text-green-600">
+                                  <span>Abonos aplicados:</span>
+                                  <span className="font-medium">
+                                    -S/ {getTotalAbonoAmount().toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between pt-2 border-t border-blue-300">
+                                <span className="font-bold">
+                                  Saldo restante:
+                                </span>
+                                <span className="font-bold text-lg text-blue-800">
+                                  S/ {getRemainingBalance().toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Selected Abonos */}
+                            {selectedAbonos.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-green-800">
+                                  Abonos a Usar:
+                                </h4>
+                                {selectedAbonos.map(
+                                  ({ abono, amountToUse }) => (
+                                    <div
+                                      key={abono.id}
+                                      className="p-3 bg-green-50 rounded-lg border border-green-200"
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="font-medium text-green-800">
+                                            {abono.method.toUpperCase()}
+                                          </p>
+                                          <p className="text-xs text-green-600">
+                                            Disponible: S/{" "}
+                                            {abono.remainingAmount.toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="font-bold text-green-800">
+                                            S/ {amountToUse.toFixed(2)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
+
+                            {/* Payment Methods Suggestion */}
+                            {getRemainingBalance() > 0 && (
+                              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                <p className="text-sm text-amber-800">
+                                  <strong>Saldo pendiente:</strong> S/{" "}
+                                  {getRemainingBalance().toFixed(2)}
+                                </p>
+                                <p className="text-xs text-amber-600 mt-1">
+                                  Deberá ser pagado con efectivo, tarjeta u otro
+                                  método al momento de la cita.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No hay costos que mostrar</p>
+                            <p className="text-sm">
+                              Agrega productos o precio de tratamiento
                             </p>
                           </div>
                         )}
