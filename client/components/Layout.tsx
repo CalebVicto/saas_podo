@@ -77,7 +77,7 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   if (!user) return null;
 
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
+    <div className="h-screen bg-background flex overflow-hidden m-0 p-0">
       {/* Sidebar */}
       <Sidebar
         isOpen={sidebarOpen}
