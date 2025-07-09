@@ -88,6 +88,8 @@ export function Sales() {
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productError, setProductError] = useState<string | null>(null);
 
   // Load data on component mount
   useEffect(() => {
