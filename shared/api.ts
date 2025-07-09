@@ -95,6 +95,7 @@ export interface CreateAppointmentRequest {
   treatmentNotes?: string;
   diagnosis?: string;
   observations?: string;
+  treatmentPrice?: number;
 }
 
 // Payment Types
