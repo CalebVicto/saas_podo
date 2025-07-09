@@ -837,124 +837,118 @@ export function CreateAppointment() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <Label className="text-base font-semibold">
-                            Productos para esta cita
+                            Buscar y Agregar Productos
                           </Label>
                           <Badge variant="outline">
-                            {selectedProducts.length} seleccionados
+                            {selectedProducts.length} en carrito
                           </Badge>
                         </div>
 
-                        {/* Product Selection */}
+                        {/* Search and Filter Controls */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {products.map((product) => (
-                            <div
-                              key={product.id}
-                              className="border rounded-lg p-4 hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <h4 className="font-medium">
-                                    {product.name}
-                                  </h4>
-                                  {product.description && (
-                                    <p className="text-sm text-muted-foreground mt-1">
-                                      {product.description}
-                                    </p>
-                                  )}
-                                  <p className="text-sm font-medium text-primary mt-2">
-                                    S/ {product.price.toFixed(2)}
-                                  </p>
-                                  {product.bonusAmount && (
-                                    <p className="text-xs text-green-600">
-                                      Bono: S/ {product.bonusAmount.toFixed(2)}
-                                    </p>
-                                  )}
-                                </div>
-                                <Button
-                                  onClick={() => addProduct(product)}
-                                  size="sm"
-                                  variant="outline"
+                          {/* Search Input */}
+                          <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Buscar productos..."
+                              value={productSearch}
+                              onChange={(e) => setProductSearch(e.target.value)}
+                              className="pl-10"
+                            />
+                          </div>
+
+                          {/* Category Filter */}
+                          <Select
+                            value={selectedCategory}
+                            onValueChange={setSelectedCategory}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Filtrar por categoría" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">
+                                Todas las categorías
+                              </SelectItem>
+                              {mockProductCategories.map((category) => (
+                                <SelectItem
+                                  key={category.id}
+                                  value={category.id}
                                 >
-                                  <Plus className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                                  {category.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
-                        {/* Selected Products */}
-                        {selectedProducts.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-base font-semibold">
-                              Productos Seleccionados
-                            </Label>
-                            <div className="space-y-2">
-                              {selectedProducts.map(({ product, quantity }) => (
-                                <div
-                                  key={product.id}
-                                  className="flex items-center justify-between p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg transition-all duration-300 hover:shadow-sm"
-                                >
+                        {/* Product Selection Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {filteredProducts.length > 0 ? (
+                            filteredProducts.map((product) => (
+                              <div
+                                key={product.id}
+                                className="border rounded-lg p-4 hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+                              >
+                                <div className="flex items-start justify-between">
                                   <div className="flex-1">
-                                    <p className="font-medium">
-                                      {product.name}
+                                    <div className="flex items-start justify-between mb-2">
+                                      <h4 className="font-medium">
+                                        {product.name}
+                                      </h4>
+                                      {product.category && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs"
+                                        >
+                                          {product.category.name}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {product.description && (
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {product.description}
+                                      </p>
+                                    )}
+                                    <div className="mt-2 flex items-center justify-between">
+                                      <p className="text-sm font-medium text-primary">
+                                        S/ {product.price.toFixed(2)}
+                                      </p>
+                                      {product.bonusAmount && (
+                                        <p className="text-xs text-green-600">
+                                          Bono: S/{" "}
+                                          {product.bonusAmount.toFixed(2)}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Stock: {product.stock}
                                     </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      S/ {product.price.toFixed(2)} c/u
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      onClick={() =>
-                                        updateProductQuantity(
-                                          product.id,
-                                          quantity - 1,
-                                        )
-                                      }
-                                      size="sm"
-                                      variant="outline"
-                                    >
-                                      <Minus className="w-4 h-4" />
-                                    </Button>
-                                    <span className="font-medium w-8 text-center">
-                                      {quantity}
-                                    </span>
-                                    <Button
-                                      onClick={() =>
-                                        updateProductQuantity(
-                                          product.id,
-                                          quantity + 1,
-                                        )
-                                      }
-                                      size="sm"
-                                      variant="outline"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      onClick={() => removeProduct(product.id)}
-                                      size="sm"
-                                      variant="destructive"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </Button>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-semibold">
-                                Total: S/{" "}
-                                {selectedProducts
-                                  .reduce(
-                                    (sum, sp) =>
-                                      sum + sp.product.price * sp.quantity,
-                                    0,
-                                  )
-                                  .toFixed(2)}
+                                <div className="mt-3 flex justify-end">
+                                  <Button
+                                    onClick={() => addProduct(product)}
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={product.stock === 0}
+                                    className="flex items-center gap-1"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                    Agregar
+                                  </Button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="col-span-2 text-center py-8 text-muted-foreground">
+                              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>No se encontraron productos</p>
+                              <p className="text-sm">
+                                Intenta ajustar tu búsqueda o filtro
                               </p>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </TabsContent>
 
