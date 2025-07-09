@@ -648,11 +648,11 @@ export function Sales() {
                 <div className="space-y-2">
                   <Label htmlFor="customer">Cliente (Opcional)</Label>
                   <Select
-                    value={saleForm.customerId || ""}
+                    value={saleForm.customerId || "no-customer"}
                     onValueChange={(value) =>
                       setSaleForm({
                         ...saleForm,
-                        customerId: value || undefined,
+                        customerId: value === "no-customer" ? undefined : value,
                       })
                     }
                   >
