@@ -65,6 +65,7 @@ export function Sidebar({
     { icon: Calendar, label: "Citas", path: "/appointments" },
     { icon: DollarSign, label: "Pagos", path: "/payments" },
     { icon: ShoppingCart, label: "Ventas / POS", path: "/sales" },
+    { icon: Package, label: "Abonos", path: "/abonos" },
   ];
 
   const menuItems = viewMode === "admin" ? adminMenuItems : workerMenuItems;
