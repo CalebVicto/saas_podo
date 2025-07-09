@@ -170,6 +170,11 @@ export function Sales() {
   };
 
   const filteredProducts = products.filter((product) => {
+    // Ensure product has required fields
+    if (!product || !product.id || !product.name || !product.sku) {
+      return false;
+    }
+
     const matchesSearch =
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchTerm.toLowerCase());
