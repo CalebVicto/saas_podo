@@ -266,6 +266,11 @@ export function Sales() {
     return labels[method as keyof typeof labels] || method;
   };
 
+  // Prevent rendering if user is not authenticated
+  if (!user) {
+    return null;
+  }
+
   return (
     <Layout title="Punto de Venta" subtitle="Venta de productos y medicamentos">
       <div className="h-full flex gap-6 p-6">
