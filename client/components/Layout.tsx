@@ -91,11 +91,7 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
       />
 
       {/* Main Content */}
-      <div
-        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
-          sidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
-        }`}
-      >
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
           className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 border-t-4 shadow-sm ${
