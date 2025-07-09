@@ -542,6 +542,56 @@ export function CreateAppointment() {
     setUsePackageSession(false);
   };
 
+  // Abono functions
+  const addAbonoToPayment = (abono: Abono) => {
+    const existingAbono = selectedAbonos.find((sa) => sa.abono.id === abono.id);
+    if (!existingAbono) {
+      setSelectedAbonos([
+        ...selectedAbonos,
+        { abono, amountToUse: Math.min(abono.remainingAmount, 10) },
+      ]);
+    }
+  };
+
+  const removeAbonoFromPayment = (abonoId: string) => {
+    setSelectedAbonos(selectedAbonos.filter((sa) => sa.abono.id !== abonoId));
+  };
+
+  const updateAbonoAmount = (abonoId: string, amount: number) => {
+    setSelectedAbonos(
+      selectedAbonos.map((sa) =>
+        sa.abono.id === abonoId
+          ? {
+              ...sa,
+              amountToUse: Math.min(
+                Math.max(0, amount),
+                sa.abono.remainingAmount,
+              ),
+            }
+          : sa,
+      ),
+    );
+  };
+
+  const getTotalAbonoAmount = () => {
+    return selectedAbonos.reduce((sum, sa) => sum + sa.amountToUse, 0);
+  };
+
+  const getTotalCost = () => {
+    const treatmentCost = formData.treatmentPrice || 0;
+    const productsCost = selectedProducts.reduce(
+      (sum, sp) => sum + sp.product.price * sp.quantity,
+      0,
+    );
+    return treatmentCost + productsCost;
+  };
+
+  const getRemainingBalance = () => {
+    const totalCost = getTotalCost();
+    const abonoAmount = getTotalAbonoAmount();
+    return Math.max(0, totalCost - abonoAmount);
+  };
+
   // Filter products by search and category
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
