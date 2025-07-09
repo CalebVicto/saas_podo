@@ -1245,6 +1245,21 @@ export function CreateAppointment() {
                           </div>
                         )}
 
+                        {formData.treatmentPrice &&
+                          formData.treatmentPrice > 0 && (
+                            <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                              <DollarSign className="w-5 h-5 text-emerald-600 mt-0.5" />
+                              <div>
+                                <p className="font-medium text-emerald-800">
+                                  Precio del Tratamiento
+                                </p>
+                                <p className="text-sm text-emerald-600">
+                                  S/ {formData.treatmentPrice.toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
                         {formData.observations && (
                           <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                             <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
