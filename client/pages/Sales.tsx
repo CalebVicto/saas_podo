@@ -133,33 +133,60 @@ export function Sales() {
     return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (product: Product) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find(
-        (item) => item.product.id === product.id,
-      );
-      if (existingItem) {
-        return prevCart.map((item) =>
-          item.product.id === product.id
-            ? {
-                ...item,
-                quantity: Math.min(item.quantity + 1, product.stock),
-                subtotal:
-                  Math.min(item.quantity + 1, product.stock) * product.price,
-              }
-            : item,
+  const addToCart = (product: Product, event?: React.MouseEvent) => {
+    // Prevent event bubbling if called from button
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+
+    // Validate product data
+    if (!product || !product.id || product.stock <= 0) {
+      console.warn("Invalid product or no stock available:", product);
+      return;
+    }
+
+    try {
+      setCart((prevCart) => {
+        const existingItem = prevCart.find(
+          (item) => item.product.id === product.id,
         );
-      } else {
-        return [
-          ...prevCart,
-          {
-            product,
-            quantity: 1,
-            subtotal: product.price,
-          },
-        ];
-      }
-    });
+
+        if (existingItem) {
+          // Update existing item
+          const newQuantity = Math.min(
+            existingItem.quantity + 1,
+            product.stock,
+          );
+          if (newQuantity === existingItem.quantity) {
+            // Already at max stock
+            return prevCart;
+          }
+
+          return prevCart.map((item) =>
+            item.product.id === product.id
+              ? {
+                  ...item,
+                  quantity: newQuantity,
+                  subtotal: newQuantity * product.price,
+                }
+              : item,
+          );
+        } else {
+          // Add new item
+          return [
+            ...prevCart,
+            {
+              product,
+              quantity: 1,
+              subtotal: product.price,
+            },
+          ];
+        }
+      });
+    } catch (error) {
+      console.error("Error adding product to cart:", error);
+    }
   };
 
   const updateCartItemQuantity = (productId: string, newQuantity: number) => {
