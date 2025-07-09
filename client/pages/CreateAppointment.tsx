@@ -394,6 +394,17 @@ export function CreateAppointment() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    // Load available abonos when patient changes
+    if (formData.patientId) {
+      const patientAbonos = getPatientAbonos(formData.patientId);
+      setAvailableAbonos(patientAbonos);
+    } else {
+      setAvailableAbonos([]);
+      setSelectedAbonos([]);
+    }
+  }, [formData.patientId]);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
