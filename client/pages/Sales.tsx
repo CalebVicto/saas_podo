@@ -768,12 +768,15 @@ export function Sales() {
                 <div className="flex justify-between">
                   <span>Cliente:</span>
                   <span>
-                    {saleForm.customerId
-                      ? patients.find((p: any) => p.id === saleForm.customerId)
-                          ?.firstName +
-                        " " +
-                        patients.find((p: any) => p.id === saleForm.customerId)
-                          ?.lastName
+                    {saleForm.customerId && Array.isArray(patients)
+                      ? (() => {
+                          const customer = patients.find(
+                            (p: any) => p && p.id === saleForm.customerId,
+                          );
+                          return customer
+                            ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim()
+                            : "Cliente no encontrado";
+                        })()
                       : "Venta general"}
                   </span>
                 </div>
