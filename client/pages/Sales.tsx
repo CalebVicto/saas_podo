@@ -660,12 +660,20 @@ export function Sales() {
                       <SelectValue placeholder="Seleccionar cliente..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin cliente</SelectItem>
-                      {patients.map((patient: any) => (
-                        <SelectItem key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="no-customer">Sin cliente</SelectItem>
+                      {patients
+                        .filter(
+                          (patient: any) =>
+                            patient && patient.id && patient.firstName,
+                        )
+                        .map((patient: any) => (
+                          <SelectItem
+                            key={patient.id}
+                            value={patient.id.toString()}
+                          >
+                            {patient.firstName} {patient.lastName || ""}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
