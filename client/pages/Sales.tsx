@@ -342,8 +342,7 @@ export function Sales() {
               {filteredProducts.map((product) => (
                 <Card
                   key={product.id}
-                  className="card-modern hover:shadow-lg transition-all duration-200 cursor-pointer"
-                  onClick={() => addToCart(product)}
+                  className="card-modern hover:shadow-lg transition-all duration-200"
                 >
                   <CardContent className="p-4">
                     <div className="space-y-3">
@@ -356,8 +355,11 @@ export function Sales() {
                         </Badge>
                       </div>
 
-                      <div>
-                        <h3 className="font-semibold text-sm leading-tight">
+                      <div
+                        className="cursor-pointer"
+                        onClick={() => addToCart(product)}
+                      >
+                        <h3 className="font-semibold text-sm leading-tight hover:text-primary transition-colors">
                           {product.name}
                         </h3>
                         <p className="text-xs text-muted-foreground">
@@ -372,7 +374,17 @@ export function Sales() {
                         <span className="text-lg font-bold text-primary">
                           S/ {product.price.toFixed(2)}
                         </span>
-                        <Button size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:scale-110 transition-transform"
+                          onClick={(e) => addToCart(product, e)}
+                          disabled={product.stock <= 0}
+                          title={
+                            product.stock <= 0
+                              ? "Sin stock"
+                              : "Agregar al carrito"
+                          }
+                        >
                           <Plus className="w-4 h-4" />
                         </Button>
                       </div>
