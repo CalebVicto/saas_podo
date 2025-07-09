@@ -521,6 +521,19 @@ export function CreateAppointment() {
     setUsePackageSession(false);
   };
 
+  // Filter products by search and category
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch =
+      product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      (product.description &&
+        product.description
+          .toLowerCase()
+          .includes(productSearch.toLowerCase()));
+    const matchesCategory =
+      selectedCategory === "all" || product.categoryId === selectedCategory;
+    return matchesSearch && matchesCategory && product.isActive;
+  });
+
   if (isLoading) {
     return (
       <Layout title="Nueva Cita" subtitle="Programar nueva cita médica">
@@ -768,6 +781,34 @@ export function CreateAppointment() {
                             {errors.treatmentNotes}
                           </p>
                         )}
+                      </div>
+
+                      {/* Treatment Price */}
+                      <div className="space-y-2">
+                        <Label htmlFor="treatmentPrice">
+                          Precio del Tratamiento (opcional)
+                        </Label>
+                        <div className="relative">
+                          <DollarSign className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="treatmentPrice"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.treatmentPrice || ""}
+                            onChange={(e) => {
+                              const value = e.target.value
+                                ? parseFloat(e.target.value)
+                                : undefined;
+                              setFormData({
+                                ...formData,
+                                treatmentPrice: value,
+                              });
+                            }}
+                            placeholder="0.00"
+                            className="pl-10"
+                          />
+                        </div>
                       </div>
 
                       {/* Observations */}
