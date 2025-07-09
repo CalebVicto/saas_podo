@@ -191,7 +191,7 @@ export function Sidebar({
         className={cn(
           "fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-50 transform transition-all duration-300 ease-in-out shadow-lg",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0 lg:static lg:z-auto lg:h-screen",
+          "lg:translate-x-0 lg:static lg:z-auto lg:h-screen lg:flex-shrink-0",
           isCollapsed ? "lg:w-20" : "lg:w-80",
           "w-80", // Always full width on mobile
         )}
