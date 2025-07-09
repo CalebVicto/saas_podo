@@ -339,7 +339,7 @@ function SearchableTextInput({
             </div>
 
             <div className="text-xs text-muted-foreground text-center">
-              Tambi��n puedes escribir un valor personalizado directamente en el
+              También puedes escribir un valor personalizado directamente en el
               campo
             </div>
           </div>
@@ -383,6 +383,12 @@ export function CreateAppointment() {
     null,
   );
   const [usePackageSession, setUsePackageSession] = useState(false);
+
+  // Abonos state
+  const [selectedAbonos, setSelectedAbonos] = useState<
+    Array<{ abono: Abono; amountToUse: number }>
+  >([]);
+  const [availableAbonos, setAvailableAbonos] = useState<Abono[]>([]);
 
   useEffect(() => {
     loadData();
