@@ -263,13 +263,50 @@ export function Sales() {
   };
 
   const clearCart = () => {
-    setCart([]);
-    setSaleForm({
-      items: [],
-      totalAmount: 0,
-      paymentMethod: "cash",
-    });
+    try {
+      setCart([]);
+      setSaleForm({
+        items: [],
+        totalAmount: 0,
+        paymentMethod: "cash",
+      });
+    } catch (error) {
+      console.error("Error clearing cart:", error);
+      // Force reset even if there's an error
+      window.location.reload();
+    }
   };
+
+  // Validate cart integrity
+  const validateCart = () => {
+    try {
+      const validItems = cart.filter(
+        (item) =>
+          item &&
+          item.product &&
+          item.product.id &&
+          typeof item.quantity === "number" &&
+          item.quantity > 0 &&
+          typeof item.subtotal === "number" &&
+          item.subtotal >= 0,
+      );
+
+      if (validItems.length !== cart.length) {
+        console.warn("Cart contains invalid items, cleaning up...");
+        setCart(validItems);
+      }
+    } catch (error) {
+      console.error("Error validating cart:", error);
+      setCart([]);
+    }
+  };
+
+  // Validate cart on changes
+  useEffect(() => {
+    if (cart.length > 0) {
+      validateCart();
+    }
+  }, [cart.length]);
 
   const processSale = async () => {
     if (cart.length === 0) return;
