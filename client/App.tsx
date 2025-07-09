@@ -20,6 +20,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Sales from "./pages/Sales";
 import CreateAppointment from "./pages/CreateAppointment";
+import Abonos from "./pages/Abonos";
 import NotFound from "./pages/NotFound";
 
 // Placeholder components for future implementation
