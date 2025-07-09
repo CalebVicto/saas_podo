@@ -86,10 +86,16 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
         onLogout={handleLogout}
         viewMode={viewMode}
         onSwitchView={user.role === "admin" ? handleSwitchView : undefined}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleCollapse}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:ml-0 min-w-0">
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+          sidebarCollapsed ? "lg:ml-20" : "lg:ml-80"
+        }`}
+      >
         {/* Header */}
         <header
           className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 border-t-4 ${
