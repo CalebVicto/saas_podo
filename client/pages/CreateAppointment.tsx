@@ -58,6 +58,8 @@ import {
   getAllMockProducts,
   mockProductCategories,
   mockPatientPackages,
+  getPatientAbonos,
+  getPatientAbonoBalance,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
 
