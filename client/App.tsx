@@ -44,6 +44,7 @@ const App = () => (
           {/* Main Application Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/patients" element={<Patients />} />
+          <Route path="/patients/:id" element={<PatientDetail />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/appointments/new" element={<CreateAppointment />} />
           <Route path="/payments" element={<Payments />} />
