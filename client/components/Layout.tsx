@@ -94,8 +94,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
-          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 border-t-4 shadow-sm ${
-            viewMode === "admin" ? "border-t-blue-600" : "border-t-green-500"
+          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 shadow-sm relative ${
+            viewMode === "admin"
+              ? "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-blue-600"
+              : "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-green-500"
           }`}
         >
           <div className="flex items-center justify-between">
