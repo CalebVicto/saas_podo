@@ -223,7 +223,7 @@ export function Sales() {
         ),
         totalAmount: saleForm.totalAmount,
         customerId: saleForm.customerId,
-        sellerId: "1", // Current user
+        sellerId: user?.id || "1", // Current authenticated user
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
