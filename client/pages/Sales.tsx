@@ -667,19 +667,20 @@ export function Sales() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="no-customer">Sin cliente</SelectItem>
-                      {patients
-                        .filter(
-                          (patient: any) =>
-                            patient && patient.id && patient.firstName,
-                        )
-                        .map((patient: any) => (
-                          <SelectItem
-                            key={patient.id}
-                            value={patient.id.toString()}
-                          >
-                            {patient.firstName} {patient.lastName || ""}
-                          </SelectItem>
-                        ))}
+                      {Array.isArray(patients) &&
+                        patients
+                          .filter(
+                            (patient: any) =>
+                              patient && patient.id && patient.firstName,
+                          )
+                          .map((patient: any) => (
+                            <SelectItem
+                              key={patient.id}
+                              value={patient.id.toString()}
+                            >
+                              {patient.firstName} {patient.lastName || ""}
+                            </SelectItem>
+                          ))}
                     </SelectContent>
                   </Select>
                 </div>
