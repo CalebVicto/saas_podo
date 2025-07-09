@@ -50,6 +50,7 @@ import {
   ProductCategory,
   PatientPackage,
   PackageSession,
+  Abono,
 } from "@shared/api";
 import {
   getMockPatients,
