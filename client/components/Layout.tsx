@@ -65,6 +65,15 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
     }
   };
 
+  const handleToggleCollapse = () => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    localStorage.setItem(
+      "podocare_sidebar_collapsed",
+      JSON.stringify(newCollapsed),
+    );
+  };
+
   if (!user) return null;
 
   return (
