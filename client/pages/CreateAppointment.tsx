@@ -1789,6 +1789,102 @@ export function CreateAppointment() {
                           </div>
                         )}
                       </TabsContent>
+
+                      {/* Payment Tab */}
+                      <TabsContent
+                        value="payment"
+                        className="p-4 space-y-4 animate-in fade-in-50 duration-300"
+                      >
+                        {getTotalCost() > 0 ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-medium">Resumen de Pago</h3>
+                            </div>
+
+                            {/* Cost Breakdown */}
+                            <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <div className="flex justify-between text-sm">
+                                <span>Costo total:</span>
+                                <span className="font-medium">
+                                  S/ {getTotalCost().toFixed(2)}
+                                </span>
+                              </div>
+                              {getTotalAbonoAmount() > 0 && (
+                                <div className="flex justify-between text-sm text-green-600">
+                                  <span>Abonos aplicados:</span>
+                                  <span className="font-medium">
+                                    -S/ {getTotalAbonoAmount().toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between pt-2 border-t border-blue-300">
+                                <span className="font-bold">
+                                  Saldo restante:
+                                </span>
+                                <span className="font-bold text-lg text-blue-800">
+                                  S/ {getRemainingBalance().toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Selected Abonos */}
+                            {selectedAbonos.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-green-800">
+                                  Abonos a Usar:
+                                </h4>
+                                {selectedAbonos.map(
+                                  ({ abono, amountToUse }) => (
+                                    <div
+                                      key={abono.id}
+                                      className="p-3 bg-green-50 rounded-lg border border-green-200"
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="font-medium text-green-800">
+                                            {abono.method.toUpperCase()}
+                                          </p>
+                                          <p className="text-xs text-green-600">
+                                            Disponible: S/{" "}
+                                            {abono.remainingAmount.toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="font-bold text-green-800">
+                                            S/ {amountToUse.toFixed(2)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
+
+                            {/* Payment Methods Suggestion */}
+                            {getRemainingBalance() > 0 && (
+                              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                <p className="text-sm text-amber-800">
+                                  <strong>Saldo pendiente:</strong> S/{" "}
+                                  {getRemainingBalance().toFixed(2)}
+                                </p>
+                                <p className="text-xs text-amber-600 mt-1">
+                                  Deberá ser pagado con efectivo, tarjeta u otro
+                                  método al momento de la cita.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No hay costos que mostrar</p>
+                            <p className="text-sm">
+                              Agrega productos o precio de tratamiento
+                            </p>
+                          </div>
+                        )}
+                      </TabsContent>
                     </Tabs>
 
                     {/* Total Cost Summary - Always at bottom */}
