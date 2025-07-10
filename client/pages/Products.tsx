@@ -658,48 +658,36 @@ export function Products() {
           </CardContent>
         </Card>
 
-        {/* Categories Section */}
+        {/* Categories Management */}
         <Card className="card-modern">
           <CardHeader>
-            <CardTitle>Categorías ({categories.length})</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <span>Gestión de Categorías</span>
+              <Button
+                onClick={() => navigate("/categories")}
+                className="flex items-center gap-2"
+              >
+                <Tag className="w-4 h-4" />
+                Gestionar Categorías
+              </Button>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {categories.map((category) => {
-                const productsInCategory = products.filter(
-                  (p) => p.categoryId === category.id,
-                ).length;
-
-                return (
-                  <div
-                    key={category.id}
-                    className="p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">
-                          {category.name}
-                        </h3>
-                        {category.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {category.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {productsInCategory} productos
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => openEditCategoryDialog(category)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="text-center py-8 text-muted-foreground">
+              <Tag className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">
+                Gestiona las categorías de productos
+              </p>
+              <p className="text-sm">
+                Crea, edita y organiza las categorías en la página dedicada.
+              </p>
+              <Button
+                onClick={() => navigate("/categories")}
+                variant="outline"
+                className="mt-4"
+              >
+                Ir a Categorías
+              </Button>
             </div>
           </CardContent>
         </Card>
