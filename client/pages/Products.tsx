@@ -88,14 +88,9 @@ export function Products() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [stockFilter, setStockFilter] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedCategory, setSelectedCategory] =
-    useState<ProductCategory | null>(null);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [isViewProductDialogOpen, setIsViewProductDialogOpen] = useState(false);
-  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
-  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
-    useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state for new/edit product
@@ -109,13 +104,6 @@ export function Products() {
     sku: "",
     isActive: true,
   });
-
-  // Form state for new/edit category
-  const [categoryFormData, setCategoryFormData] =
-    useState<CreateCategoryRequest>({
-      name: "",
-      description: "",
-    });
 
   // Load data on component mount
   useEffect(() => {
@@ -371,14 +359,6 @@ export function Products() {
           </div>
 
           <div className="flex gap-3">
-            <Button
-              onClick={() => setIsAddCategoryDialogOpen(true)}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Tag className="w-5 h-5" />
-              Nueva Categoría
-            </Button>
             <Button
               onClick={() => setIsAddProductDialogOpen(true)}
               className="btn-primary flex items-center gap-2"
