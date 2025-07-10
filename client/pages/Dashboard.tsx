@@ -4,6 +4,7 @@ import {
   Activity,
   Users,
   Calendar,
+  CalendarPlus,
   DollarSign,
   AlertTriangle,
   TrendingUp,
