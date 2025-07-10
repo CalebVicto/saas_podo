@@ -20,8 +20,14 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Sales from "./pages/Sales";
 import CreateAppointment from "./pages/CreateAppointment";
+import ScheduleAppointment from "./pages/ScheduleAppointment";
 import Abonos from "./pages/Abonos";
 import PatientDetail from "./pages/PatientDetail";
+import ProductDetail from "./pages/ProductDetail";
+import WorkerDetail from "./pages/WorkerDetail";
+import Categories from "./pages/Categories";
+import UserAccounts from "./pages/UserAccounts";
+import ServicePackages from "./pages/ServicePackages";
 import NotFound from "./pages/NotFound";
 
 // Placeholder components for future implementation
@@ -47,13 +53,22 @@ const App = () => (
           <Route path="/patients/:id" element={<PatientDetail />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/appointments/new" element={<CreateAppointment />} />
+          <Route
+            path="/appointments/schedule"
+            element={<ScheduleAppointment />}
+          />
           <Route path="/payments" element={<Payments />} />
           <Route path="/abonos" element={<Abonos />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/categories" element={<Categories />} />
           <Route path="/packages" element={<Packages />} />
           <Route path="/kardex" element={<Kardex />} />
           <Route path="/workers" element={<Workers />} />
+          <Route path="/workers/:id" element={<WorkerDetail />} />
           <Route path="/worker-types" element={<WorkerTypes />} />
+          <Route path="/user-accounts" element={<UserAccounts />} />
+          <Route path="/service-packages" element={<ServicePackages />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/sales" element={<Sales />} />
           <Route path="/settings" element={<Settings />} />

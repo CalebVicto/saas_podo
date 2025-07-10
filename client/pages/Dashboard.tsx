@@ -4,6 +4,7 @@ import {
   Activity,
   Users,
   Calendar,
+  CalendarPlus,
   DollarSign,
   AlertTriangle,
   TrendingUp,
@@ -276,7 +277,12 @@ export function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-3">
+              <div
+                className={cn(
+                  "grid gap-3",
+                  user?.role === "admin" ? "grid-cols-2" : "grid-cols-2",
+                )}
+              >
                 <Button
                   onClick={() => navigate("/appointments/new")}
                   className="btn-primary h-20 flex-col gap-2"
@@ -300,14 +306,25 @@ export function Dashboard() {
                   <ShoppingBag className="w-6 h-6" />
                   <span className="text-sm">Vender Producto</span>
                 </Button>
-                <Button
-                  onClick={() => navigate("/reports")}
-                  variant="outline"
-                  className="h-20 flex-col gap-2 border-warning text-warning hover:bg-warning hover:text-warning-foreground"
-                >
-                  <TrendingUp className="w-6 h-6" />
-                  <span className="text-sm">Ver Reportes</span>
-                </Button>
+                {user?.role === "admin" ? (
+                  <Button
+                    onClick={() => navigate("/reports")}
+                    variant="outline"
+                    className="h-20 flex-col gap-2 border-warning text-warning hover:bg-warning hover:text-warning-foreground"
+                  >
+                    <TrendingUp className="w-6 h-6" />
+                    <span className="text-sm">Ver Reportes</span>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => navigate("/appointments/schedule")}
+                    variant="outline"
+                    className="h-20 flex-col gap-2 border-info text-info hover:bg-info hover:text-info-foreground"
+                  >
+                    <CalendarPlus className="w-6 h-6" />
+                    <span className="text-sm">Programar Cita</span>
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

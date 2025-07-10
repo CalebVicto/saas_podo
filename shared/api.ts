@@ -98,6 +98,34 @@ export interface CreateAppointmentRequest {
   treatmentPrice?: number;
 }
 
+export interface ScheduleAppointmentRequest {
+  patientId: string;
+  workerId: string;
+  scheduledDateTime: string;
+  duration: number;
+  reason: string;
+  treatmentNotes?: string;
+  observations?: string;
+  priority: "low" | "medium" | "high";
+  reminderEnabled: boolean;
+  reminderDays: number;
+}
+
+export interface ScheduledAppointment extends Appointment {
+  reason: string;
+  priority: "low" | "medium" | "high";
+  reminderEnabled: boolean;
+  reminderDays: number;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  resource: ScheduledAppointment;
+}
+
 // Payment Types
 export interface Payment {
   id: string;

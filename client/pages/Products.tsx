@@ -74,11 +74,6 @@ interface CreateProductRequest {
   isActive: boolean;
 }
 
-interface CreateCategoryRequest {
-  name: string;
-  description?: string;
-}
-
 export function Products() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
@@ -88,14 +83,9 @@ export function Products() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [stockFilter, setStockFilter] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedCategory, setSelectedCategory] =
-    useState<ProductCategory | null>(null);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [isViewProductDialogOpen, setIsViewProductDialogOpen] = useState(false);
-  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
-  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
-    useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state for new/edit product
@@ -109,13 +99,6 @@ export function Products() {
     sku: "",
     isActive: true,
   });
-
-  // Form state for new/edit category
-  const [categoryFormData, setCategoryFormData] =
-    useState<CreateCategoryRequest>({
-      name: "",
-      description: "",
-    });
 
   // Load data on component mount
   useEffect(() => {
@@ -236,52 +219,6 @@ export function Products() {
     }
   };
 
-  const handleAddCategory = async () => {
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newCategory: ProductCategory = {
-        id: Date.now().toString(),
-        ...categoryFormData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setCategories([...categories, newCategory]);
-      setIsAddCategoryDialogOpen(false);
-      resetCategoryForm();
-    } catch (error) {
-      console.error("Error adding category:", error);
-    }
-  };
-
-  const handleEditCategory = async () => {
-    if (!selectedCategory) return;
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const updatedCategory: ProductCategory = {
-        ...selectedCategory,
-        ...categoryFormData,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setCategories(
-        categories.map((c) =>
-          c.id === selectedCategory.id ? updatedCategory : c,
-        ),
-      );
-      setIsEditCategoryDialogOpen(false);
-      setSelectedCategory(null);
-      resetCategoryForm();
-    } catch (error) {
-      console.error("Error updating category:", error);
-    }
-  };
-
   const resetProductForm = () => {
     setProductFormData({
       name: "",
@@ -292,13 +229,6 @@ export function Products() {
       stock: 0, // Stock will always start at 0, managed through Kardex
       sku: "",
       isActive: true,
-    });
-  };
-
-  const resetCategoryForm = () => {
-    setCategoryFormData({
-      name: "",
-      description: "",
     });
   };
 
@@ -329,15 +259,6 @@ export function Products() {
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-  };
-
-  const openEditCategoryDialog = (category: ProductCategory) => {
-    setSelectedCategory(category);
-    setCategoryFormData({
-      name: category.name,
-      description: category.description || "",
-    });
-    setIsEditCategoryDialogOpen(true);
   };
 
   const getStockStatus = (stock: number) => {
@@ -371,14 +292,6 @@ export function Products() {
           </div>
 
           <div className="flex gap-3">
-            <Button
-              onClick={() => setIsAddCategoryDialogOpen(true)}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Tag className="w-5 h-5" />
-              Nueva Categoría
-            </Button>
             <Button
               onClick={() => setIsAddProductDialogOpen(true)}
               className="btn-primary flex items-center gap-2"
@@ -625,7 +538,9 @@ export function Products() {
                           <TableCell>
                             <div className="flex gap-2">
                               <Button
-                                onClick={() => openViewProductDialog(product)}
+                                onClick={() =>
+                                  navigate(`/products/${product.id}`)
+                                }
                                 variant="outline"
                                 size="sm"
                               >
@@ -655,52 +570,6 @@ export function Products() {
                 </Table>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Categories Section */}
-        <Card className="card-modern">
-          <CardHeader>
-            <CardTitle>Categorías ({categories.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {categories.map((category) => {
-                const productsInCategory = products.filter(
-                  (p) => p.categoryId === category.id,
-                ).length;
-
-                return (
-                  <div
-                    key={category.id}
-                    className="p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">
-                          {category.name}
-                        </h3>
-                        {category.description && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {category.description}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {productsInCategory} productos
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => openEditCategoryDialog(category)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </CardContent>
         </Card>
 
@@ -1310,143 +1179,6 @@ export function Products() {
                 className="btn-primary"
               >
                 Cerrar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Add Category Dialog */}
-        <Dialog
-          open={isAddCategoryDialogOpen}
-          onOpenChange={setIsAddCategoryDialogOpen}
-        >
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Tag className="w-5 h-5 text-primary" />
-                Nueva Categoría
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="categoryName">Nombre *</Label>
-                <Input
-                  id="categoryName"
-                  value={categoryFormData.name}
-                  onChange={(e) =>
-                    setCategoryFormData({
-                      ...categoryFormData,
-                      name: e.target.value,
-                    })
-                  }
-                  placeholder="Cremas y Lociones"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="categoryDescription">Descripción</Label>
-                <Textarea
-                  id="categoryDescription"
-                  value={categoryFormData.description}
-                  onChange={(e) =>
-                    setCategoryFormData({
-                      ...categoryFormData,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Descripción de la categoría..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsAddCategoryDialogOpen(false);
-                  resetCategoryForm();
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleAddCategory}
-                className="btn-primary"
-                disabled={!categoryFormData.name}
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Categoría
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Category Dialog */}
-        <Dialog
-          open={isEditCategoryDialogOpen}
-          onOpenChange={setIsEditCategoryDialogOpen}
-        >
-          <DialogContent className="sm:max-w-[400px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Edit className="w-5 h-5 text-primary" />
-                Editar Categoría
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="editCategoryName">Nombre *</Label>
-                <Input
-                  id="editCategoryName"
-                  value={categoryFormData.name}
-                  onChange={(e) =>
-                    setCategoryFormData({
-                      ...categoryFormData,
-                      name: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="editCategoryDescription">Descripción</Label>
-                <Textarea
-                  id="editCategoryDescription"
-                  value={categoryFormData.description}
-                  onChange={(e) =>
-                    setCategoryFormData({
-                      ...categoryFormData,
-                      description: e.target.value,
-                    })
-                  }
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEditCategoryDialogOpen(false);
-                  setSelectedCategory(null);
-                  resetCategoryForm();
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleEditCategory}
-                className="btn-primary"
-                disabled={!categoryFormData.name}
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Actualizar
               </Button>
             </div>
           </DialogContent>
