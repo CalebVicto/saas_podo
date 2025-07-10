@@ -20,6 +20,7 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Sales from "./pages/Sales";
 import CreateAppointment from "./pages/CreateAppointment";
+import ScheduleAppointment from "./pages/ScheduleAppointment";
 import Abonos from "./pages/Abonos";
 import PatientDetail from "./pages/PatientDetail";
 import NotFound from "./pages/NotFound";
