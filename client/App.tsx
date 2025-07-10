@@ -48,6 +48,10 @@ const App = () => (
           <Route path="/patients/:id" element={<PatientDetail />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/appointments/new" element={<CreateAppointment />} />
+          <Route
+            path="/appointments/schedule"
+            element={<ScheduleAppointment />}
+          />
           <Route path="/payments" element={<Payments />} />
           <Route path="/abonos" element={<Abonos />} />
           <Route path="/products" element={<Products />} />
