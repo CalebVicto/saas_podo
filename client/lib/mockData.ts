@@ -1056,3 +1056,77 @@ export const getPatientAbonoBalance = (patientId: string): number => {
     0,
   );
 };
+
+// Helper functions for sales
+export const getWorkerSales = (workerId: string): Sale[] => {
+  return mockSales
+    .filter((sale) => sale.sellerId === workerId)
+    .map((sale) => ({
+      ...sale,
+      payment: mockPayments.find((p) => p.saleId === sale.id),
+      items: sale.items.map((item) => ({
+        ...item,
+        product: mockProducts.find((p) => p.id === item.productId),
+      })),
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+};
+
+export const getAllSalesWithDetails = (): Sale[] => {
+  return mockSales
+    .map((sale) => {
+      const customer = sale.customerId
+        ? mockPatients.find((p) => p.id === sale.customerId)
+        : undefined;
+      const seller = mockWorkers.find((w) => w.id === sale.sellerId);
+      const payment = mockPayments.find((p) => p.saleId === sale.id);
+
+      return {
+        ...sale,
+        customer,
+        seller,
+        payment,
+        items: sale.items.map((item) => ({
+          ...item,
+          product: mockProducts.find((p) => p.id === item.productId),
+        })),
+      };
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+};
+
+export const getWorkerSalesStats = (workerId: string) => {
+  const workerSales = getWorkerSales(workerId);
+  const today = new Date().toDateString();
+  const thisMonth = new Date().getMonth();
+  const thisYear = new Date().getFullYear();
+
+  const todaySales = workerSales.filter(
+    (sale) => new Date(sale.createdAt).toDateString() === today,
+  );
+
+  const thisMonthSales = workerSales.filter((sale) => {
+    const saleDate = new Date(sale.createdAt);
+    return (
+      saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear
+    );
+  });
+
+  return {
+    total: workerSales.length,
+    totalAmount: workerSales.reduce((sum, sale) => sum + sale.totalAmount, 0),
+    today: todaySales.length,
+    todayAmount: todaySales.reduce((sum, sale) => sum + sale.totalAmount, 0),
+    thisMonth: thisMonthSales.length,
+    thisMonthAmount: thisMonthSales.reduce(
+      (sum, sale) => sum + sale.totalAmount,
+      0,
+    ),
+  };
+};
