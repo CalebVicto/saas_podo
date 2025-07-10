@@ -639,7 +639,7 @@ export function CreateAppointment() {
           </div>
 
           {/* Form */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
             {/* Main Form */}
             <div className="lg:col-span-2">
               <Card className="card-modern h-full shadow-lg border-0 bg-gradient-to-br from-white to-gray-50/50">
@@ -1386,7 +1386,7 @@ export function CreateAppointment() {
 
             {/* Enhanced Summary Panel with Tabs */}
             <div className="lg:col-span-1">
-              <div className="sticky top-6 space-y-4">
+              <div className="lg:sticky lg:top-6 space-y-4">
                 {/* Action Buttons - Always visible at top */}
                 <div className="flex flex-col gap-3">
                   <Button
@@ -1431,67 +1431,73 @@ export function CreateAppointment() {
                       Resumen de la Cita
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-hidden">
                     <Tabs defaultValue="general" className="w-full">
-                      <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 m-4 mb-0 rounded-lg">
-                        <TabsTrigger
-                          value="general"
-                          className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                        >
-                          <FileText className="w-4 h-4" />
-                          General
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="products"
-                          className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                        >
-                          <ShoppingBag className="w-4 h-4" />
-                          Productos
-                          {selectedProducts.length > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-1 h-5 text-xs"
-                            >
-                              {selectedProducts.length}
-                            </Badge>
-                          )}
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="package"
-                          className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                        >
-                          <Package className="w-4 h-4" />
-                          Paquete
-                          {selectedPackage && usePackageSession && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-1 h-5 text-xs"
-                            >
-                              1
-                            </Badge>
-                          )}
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="payment"
-                          className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                        >
-                          <Wallet className="w-4 h-4" />
-                          Pago
-                          {selectedAbonos.length > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-1 h-5 text-xs"
-                            >
-                              {selectedAbonos.length}
-                            </Badge>
-                          )}
-                        </TabsTrigger>
-                      </TabsList>
+                      <div className="relative m-4 mb-0">
+                        <TabsList className="flex w-full bg-muted/50 p-1 rounded-lg overflow-x-auto scrollbar-thin">
+                          <TabsTrigger
+                            value="general"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                          >
+                            <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">General</span>
+                            <span className="sm:hidden">Gen</span>
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="products"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                          >
+                            <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">Productos</span>
+                            <span className="sm:hidden">Prod</span>
+                            {selectedProducts.length > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                              >
+                                {selectedProducts.length}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="package"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                          >
+                            <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">Paquete</span>
+                            <span className="sm:hidden">Paq</span>
+                            {selectedPackage && usePackageSession && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                              >
+                                1
+                              </Badge>
+                            )}
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="payment"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                          >
+                            <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">Pago</span>
+                            <span className="sm:hidden">Pag</span>
+                            {selectedAbonos.length > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                              >
+                                {selectedAbonos.length}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
 
                       {/* General Tab */}
                       <TabsContent
                         value="general"
-                        className="p-4 space-y-4 animate-in fade-in-50 duration-300"
+                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
                       >
                         {formData.patientId && (
                           <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20 transition-all duration-300">
@@ -1624,7 +1630,7 @@ export function CreateAppointment() {
                       {/* Products Tab */}
                       <TabsContent
                         value="products"
-                        className="p-4 space-y-4 animate-in fade-in-50 duration-300"
+                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
                       >
                         {selectedProducts.length > 0 ? (
                           <div className="space-y-3">
@@ -1733,7 +1739,7 @@ export function CreateAppointment() {
                       {/* Package Tab */}
                       <TabsContent
                         value="package"
-                        className="p-4 space-y-4 animate-in fade-in-50 duration-300"
+                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
                       >
                         {selectedPackage && usePackageSession ? (
                           <div className="space-y-3">
@@ -1794,7 +1800,7 @@ export function CreateAppointment() {
                       {/* Payment Tab */}
                       <TabsContent
                         value="payment"
-                        className="p-4 space-y-4 animate-in fade-in-50 duration-300"
+                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
                       >
                         {getTotalCost() > 0 ? (
                           <div className="space-y-3">
