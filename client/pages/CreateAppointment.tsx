@@ -651,36 +651,42 @@ export function CreateAppointment() {
                 </CardHeader>
                 <CardContent className="p-6">
                   <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
-                      <TabsTrigger
-                        value="general"
-                        className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
-                      >
-                        <Stethoscope className="w-4 h-4" />
-                        General
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="products"
-                        className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
-                      >
-                        <Pill className="w-4 h-4" />
-                        Productos
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="package"
-                        className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
-                      >
-                        <PackageOpen className="w-4 h-4" />
-                        Paquete
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="payment"
-                        className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
-                      >
-                        <Wallet className="w-4 h-4" />
-                        Pago
-                      </TabsTrigger>
-                    </TabsList>
+                    <div className="relative">
+                      <TabsList className="flex w-full bg-muted/50 p-1 rounded-lg overflow-x-auto scrollbar-thin">
+                        <TabsTrigger
+                          value="general"
+                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                        >
+                          <Stethoscope className="w-4 h-4" />
+                          <span className="hidden sm:inline">General</span>
+                          <span className="sm:hidden">Gen</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="products"
+                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                        >
+                          <Pill className="w-4 h-4" />
+                          <span className="hidden sm:inline">Productos</span>
+                          <span className="sm:hidden">Prod</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="package"
+                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                        >
+                          <PackageOpen className="w-4 h-4" />
+                          <span className="hidden sm:inline">Paquete</span>
+                          <span className="sm:hidden">Paq</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="payment"
+                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          <span className="hidden sm:inline">Pago</span>
+                          <span className="sm:hidden">Pag</span>
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
 
                     {/* General Tab */}
                     <TabsContent
