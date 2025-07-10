@@ -799,6 +799,176 @@ export function ProductDetail() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Product Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="w-5 h-5 text-primary" />
+                Editar Producto
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editName">Nombre *</Label>
+                  <Input
+                    id="editName"
+                    value={editFormData.name}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        name: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editSku">SKU *</Label>
+                  <Input
+                    id="editSku"
+                    value={editFormData.sku}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        sku: e.target.value,
+                      })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editDescription">Descripción</Label>
+                <Textarea
+                  id="editDescription"
+                  value={editFormData.description}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      description: e.target.value,
+                    })
+                  }
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editCategoryId">Categoría *</Label>
+                  <Select
+                    value={editFormData.categoryId}
+                    onValueChange={(value) =>
+                      setEditFormData({
+                        ...editFormData,
+                        categoryId: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editPrice">Precio *</Label>
+                  <Input
+                    id="editPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editFormData.price}
+                    onChange={(e) =>
+                      setEditFormData({
+                        ...editFormData,
+                        price: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="editBonusAmount">Bono por Medicamento</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">
+                          Este bono se aplica cuando el paciente compra este
+                          medicamento por primera vez.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  id="editBonusAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.bonusAmount}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      bonusAmount: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  placeholder="5.00"
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800">
+                  <strong>Stock actual:</strong> {product?.stock || 0} unidades
+                  <br />
+                  <strong>Nota:</strong> El stock solo se puede modificar
+                  através del módulo Kardex.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  resetEditForm();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleUpdateProduct}
+                className="btn-primary"
+                disabled={
+                  !editFormData.name ||
+                  !editFormData.sku ||
+                  !editFormData.categoryId ||
+                  editFormData.price <= 0
+                }
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Actualizar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
