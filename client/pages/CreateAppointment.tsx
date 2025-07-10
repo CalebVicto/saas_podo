@@ -1506,11 +1506,11 @@ export function CreateAppointment() {
                         className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
                       >
                         {formData.patientId && (
-                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20 transition-all duration-300">
-                            <User className="w-5 h-5 text-primary" />
-                            <div>
-                              <p className="font-medium">Paciente</p>
-                              <p className="text-sm text-muted-foreground">
+                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20 transition-all duration-300 min-w-0">
+                            <User className="w-5 h-5 text-primary flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm">Paciente</p>
+                              <p className="text-sm text-muted-foreground truncate">
                                 {(() => {
                                   const patient = patients.find(
                                     (p) => p.id === formData.patientId,
@@ -1525,11 +1525,11 @@ export function CreateAppointment() {
                         )}
 
                         {formData.workerId && (
-                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-secondary/10 to-secondary/5 rounded-lg border border-secondary/20 transition-all duration-300">
-                            <Users className="w-5 h-5 text-secondary" />
-                            <div>
-                              <p className="font-medium">Trabajador</p>
-                              <p className="text-sm text-muted-foreground">
+                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-secondary/10 to-secondary/5 rounded-lg border border-secondary/20 transition-all duration-300 min-w-0">
+                            <Users className="w-5 h-5 text-secondary flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm">Trabajador</p>
+                              <p className="text-sm text-muted-foreground truncate">
                                 {(() => {
                                   const worker = workers.find(
                                     (w) => w.id === formData.workerId,
@@ -1544,17 +1544,19 @@ export function CreateAppointment() {
                         )}
 
                         {formData.dateTime && (
-                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-accent/10 to-accent/5 rounded-lg border border-accent/20 transition-all duration-300">
-                            <Clock className="w-5 h-5 text-accent" />
-                            <div>
-                              <p className="font-medium">Fecha y Hora</p>
-                              <p className="text-sm text-muted-foreground">
+                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-accent/10 to-accent/5 rounded-lg border border-accent/20 transition-all duration-300 min-w-0">
+                            <Clock className="w-5 h-5 text-accent flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-sm">
+                                Fecha y Hora
+                              </p>
+                              <p className="text-sm text-muted-foreground break-words">
                                 {new Date(formData.dateTime).toLocaleString(
                                   "es-ES",
                                   {
-                                    weekday: "long",
+                                    weekday: "short",
                                     year: "numeric",
-                                    month: "long",
+                                    month: "short",
                                     day: "numeric",
                                     hour: "2-digit",
                                     minute: "2-digit",
@@ -1653,11 +1655,11 @@ export function CreateAppointment() {
                               {selectedProducts.map(({ product, quantity }) => (
                                 <div
                                   key={product.id}
-                                  className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm"
+                                  className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm min-w-0"
                                 >
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div className="flex-1">
-                                      <h4 className="font-medium text-sm">
+                                  <div className="flex justify-between items-start mb-2 min-w-0">
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-medium text-sm truncate">
                                         {product.name}
                                       </h4>
                                       <p className="text-xs text-muted-foreground">
@@ -1668,7 +1670,7 @@ export function CreateAppointment() {
                                       onClick={() => removeProduct(product.id)}
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
                                     >
                                       <X className="w-3 h-3" />
                                     </Button>
