@@ -660,40 +660,6 @@ export function Products() {
           </CardContent>
         </Card>
 
-        {/* Categories Management */}
-        <Card className="card-modern">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Gestión de Categorías</span>
-              <Button
-                onClick={() => navigate("/categories")}
-                className="flex items-center gap-2"
-              >
-                <Tag className="w-4 h-4" />
-                Gestionar Categorías
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8 text-muted-foreground">
-              <Tag className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium">
-                Gestiona las categorías de productos
-              </p>
-              <p className="text-sm">
-                Crea, edita y organiza las categorías en la página dedicada.
-              </p>
-              <Button
-                onClick={() => navigate("/categories")}
-                variant="outline"
-                className="mt-4"
-              >
-                Ir a Categorías
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Add Product Dialog */}
         <Dialog
           open={isAddProductDialogOpen}
