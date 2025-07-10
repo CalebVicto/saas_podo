@@ -97,10 +97,20 @@ export function ProductDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [movements, setMovements] = useState<ProductMovement[]>([]);
   const [stats, setStats] = useState<ProductStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<EditProductRequest>({
+    name: "",
+    description: "",
+    categoryId: "",
+    price: 0,
+    bonusAmount: 0,
+    sku: "",
+    isActive: true,
+  });
 
   useEffect(() => {
     if (id) {
