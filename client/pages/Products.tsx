@@ -74,11 +74,6 @@ interface CreateProductRequest {
   isActive: boolean;
 }
 
-interface CreateCategoryRequest {
-  name: string;
-  description?: string;
-}
-
 export function Products() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
