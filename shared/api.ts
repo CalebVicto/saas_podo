@@ -118,6 +118,14 @@ export interface ScheduledAppointment extends Appointment {
   reminderDays: number;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  resource: ScheduledAppointment;
+}
+
 // Payment Types
 export interface Payment {
   id: string;
