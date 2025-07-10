@@ -17,8 +17,27 @@ import {
   ShoppingCart,
   Plus,
   Minus,
+  Save,
+  X,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,8 +49,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Product, ProductMovement } from "@shared/api";
+import { Product, ProductMovement, ProductCategory } from "@shared/api";
 import {
   getAllMockProducts,
   getMockProductCategories,
@@ -46,6 +71,16 @@ interface ProductStats {
   averageMonthlySales: number;
   stockTurnover: number;
   profitMargin: number;
+}
+
+interface EditProductRequest {
+  name: string;
+  description?: string;
+  categoryId: string;
+  price: number;
+  bonusAmount?: number;
+  sku: string;
+  isActive: boolean;
 }
 
 // Mock sales data for demonstration
