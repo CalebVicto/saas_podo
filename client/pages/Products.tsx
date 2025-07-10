@@ -224,52 +224,6 @@ export function Products() {
     }
   };
 
-  const handleAddCategory = async () => {
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newCategory: ProductCategory = {
-        id: Date.now().toString(),
-        ...categoryFormData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setCategories([...categories, newCategory]);
-      setIsAddCategoryDialogOpen(false);
-      resetCategoryForm();
-    } catch (error) {
-      console.error("Error adding category:", error);
-    }
-  };
-
-  const handleEditCategory = async () => {
-    if (!selectedCategory) return;
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const updatedCategory: ProductCategory = {
-        ...selectedCategory,
-        ...categoryFormData,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setCategories(
-        categories.map((c) =>
-          c.id === selectedCategory.id ? updatedCategory : c,
-        ),
-      );
-      setIsEditCategoryDialogOpen(false);
-      setSelectedCategory(null);
-      resetCategoryForm();
-    } catch (error) {
-      console.error("Error updating category:", error);
-    }
-  };
-
   const resetProductForm = () => {
     setProductFormData({
       name: "",
@@ -280,13 +234,6 @@ export function Products() {
       stock: 0, // Stock will always start at 0, managed through Kardex
       sku: "",
       isActive: true,
-    });
-  };
-
-  const resetCategoryForm = () => {
-    setCategoryFormData({
-      name: "",
-      description: "",
     });
   };
 
@@ -317,15 +264,6 @@ export function Products() {
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-  };
-
-  const openEditCategoryDialog = (category: ProductCategory) => {
-    setSelectedCategory(category);
-    setCategoryFormData({
-      name: category.name,
-      description: category.description || "",
-    });
-    setIsEditCategoryDialogOpen(true);
   };
 
   const getStockStatus = (stock: number) => {
