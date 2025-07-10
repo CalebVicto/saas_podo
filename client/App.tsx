@@ -23,6 +23,11 @@ import CreateAppointment from "./pages/CreateAppointment";
 import ScheduleAppointment from "./pages/ScheduleAppointment";
 import Abonos from "./pages/Abonos";
 import PatientDetail from "./pages/PatientDetail";
+import ProductDetail from "./pages/ProductDetail";
+import WorkerDetail from "./pages/WorkerDetail";
+import Categories from "./pages/Categories";
+import UserAccounts from "./pages/UserAccounts";
+import ServicePackages from "./pages/ServicePackages";
 import NotFound from "./pages/NotFound";
 
 // Placeholder components for future implementation
