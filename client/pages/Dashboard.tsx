@@ -306,7 +306,7 @@ export function Dashboard() {
                   <ShoppingBag className="w-6 h-6" />
                   <span className="text-sm">Vender Producto</span>
                 </Button>
-                {user?.role === "admin" && (
+                {user?.role === "admin" ? (
                   <Button
                     onClick={() => navigate("/reports")}
                     variant="outline"
@@ -314,6 +314,15 @@ export function Dashboard() {
                   >
                     <TrendingUp className="w-6 h-6" />
                     <span className="text-sm">Ver Reportes</span>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => navigate("/appointments/schedule")}
+                    variant="outline"
+                    className="h-20 flex-col gap-2 border-info text-info hover:bg-info hover:text-info-foreground"
+                  >
+                    <CalendarPlus className="w-6 h-6" />
+                    <span className="text-sm">Programar Cita</span>
                   </Button>
                 )}
               </div>
