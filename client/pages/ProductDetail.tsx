@@ -172,11 +172,57 @@ export function ProductDetail() {
   };
 
   const handleEdit = () => {
-    // Navigate to edit mode or open edit dialog
-    console.log("Edit product:", product?.id);
-    alert(
-      "Funcionalidad de edición disponible en la página principal de productos",
-    );
+    if (!product) return;
+
+    // Populate edit form with current product data
+    setEditFormData({
+      name: product.name,
+      description: product.description || "",
+      categoryId: product.categoryId,
+      price: product.price,
+      bonusAmount: product.bonusAmount || 0,
+      sku: product.sku,
+      isActive: product.isActive,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!product) return;
+
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const category = categories.find((c) => c.id === editFormData.categoryId);
+      const updatedProduct: Product = {
+        ...product,
+        ...editFormData,
+        updatedAt: new Date().toISOString(),
+        category,
+      };
+
+      setProduct(updatedProduct);
+      setIsEditDialogOpen(false);
+
+      // Show success message
+      alert("Producto actualizado exitosamente");
+    } catch (error) {
+      console.error("Error updating product:", error);
+      alert("Error al actualizar el producto");
+    }
+  };
+
+  const resetEditForm = () => {
+    setEditFormData({
+      name: "",
+      description: "",
+      categoryId: "",
+      price: 0,
+      bonusAmount: 0,
+      sku: "",
+      isActive: true,
+    });
   };
 
   const handleDelete = () => {
