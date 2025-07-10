@@ -12,8 +12,18 @@ import {
   Search,
   Check,
   Plus,
+  Edit3,
+  Trash2,
+  X,
+  UserPlus,
+  Phone,
+  Mail,
   MapPin,
   Bell,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,21 +41,37 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Patient, Worker } from "@shared/api";
+import {
+  Patient,
+  Worker,
+  Appointment,
+  CreatePatientRequest,
+} from "@shared/api";
 import { getMockPatients, getMockWorkers } from "@/lib/mockData";
 import Layout from "@/components/Layout";
 
+// Schedule Appointment Types
 interface ScheduleAppointmentRequest {
   patientId: string;
   workerId: string;
   scheduledDateTime: string;
   duration: number;
   reason: string;
-  notes?: string;
+  treatmentNotes?: string;
+  observations?: string;
+  priority: "low" | "medium" | "high";
+  reminderEnabled: boolean;
+  reminderDays: number;
+}
+
+interface ScheduledAppointment extends Appointment {
+  reason: string;
   priority: "low" | "medium" | "high";
   reminderEnabled: boolean;
   reminderDays: number;
@@ -59,6 +85,8 @@ interface SearchableSelectProps {
   displayField: (item: Patient | Worker) => string;
   searchFields: (item: Patient | Worker) => string[];
   emptyText: string;
+  onCreateNew?: () => void;
+  createNewText?: string;
 }
 
 function SearchableSelect({
@@ -69,6 +97,8 @@ function SearchableSelect({
   displayField,
   searchFields,
   emptyText,
+  onCreateNew,
+  createNewText,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -106,7 +136,7 @@ function SearchableSelect({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>{placeholder}</DialogTitle>
           </DialogHeader>
@@ -123,10 +153,39 @@ function SearchableSelect({
               />
             </div>
 
+            {onCreateNew && (
+              <Button
+                onClick={() => {
+                  setIsOpen(false);
+                  onCreateNew();
+                }}
+                variant="outline"
+                className="w-full flex items-center gap-2 border-dashed border-primary text-primary hover:bg-primary/5"
+              >
+                <UserPlus className="w-4 h-4" />
+                {createNewText || "Crear nuevo"}
+              </Button>
+            )}
+
             <div className="max-h-[300px] overflow-y-auto space-y-2">
               {filteredItems.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  {emptyText}
+                  <User className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>{emptyText}</p>
+                  {onCreateNew && (
+                    <p className="text-sm mt-2">
+                      ¿No encuentras lo que buscas?{" "}
+                      <button
+                        onClick={() => {
+                          setIsOpen(false);
+                          onCreateNew();
+                        }}
+                        className="text-primary hover:underline"
+                      >
+                        Crear nuevo
+                      </button>
+                    </p>
+                  )}
                 </div>
               ) : (
                 filteredItems.map((item) => (
@@ -139,16 +198,23 @@ function SearchableSelect({
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium">{displayField(item)}</p>
                         {"email" in item && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Mail className="w-3 h-3" />
                             {item.email}
                           </p>
                         )}
                         {"documentId" in item && (
                           <p className="text-sm text-muted-foreground">
                             DNI: {item.documentId}
+                          </p>
+                        )}
+                        {"phone" in item && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {item.phone}
                           </p>
                         )}
                         {"specialization" in item && item.specialization && (
@@ -184,34 +250,359 @@ function SearchableSelect({
   );
 }
 
-// Mock upcoming appointments data
-const mockUpcomingAppointments = [
+// Create Patient Modal Component
+function CreatePatientModal({
+  isOpen,
+  onClose,
+  onPatientCreated,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onPatientCreated: (patient: Patient) => void;
+}) {
+  const [formData, setFormData] = useState<CreatePatientRequest>({
+    firstName: "",
+    lastName: "",
+    documentId: "",
+    phone: "",
+    sex: "female",
+    birthDate: "",
+    clinicalNotes: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = "Nombre es requerido";
+    }
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = "Apellido es requerido";
+    }
+    if (!formData.documentId.trim()) {
+      newErrors.documentId = "DNI es requerido";
+    } else if (!/^\d{8}$/.test(formData.documentId)) {
+      newErrors.documentId = "DNI debe tener 8 dígitos";
+    }
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Teléfono es requerido";
+    } else if (!/^\d{9}$/.test(formData.phone)) {
+      newErrors.phone = "Teléfono debe tener 9 dígitos";
+    }
+    if (!formData.birthDate) {
+      newErrors.birthDate = "Fecha de nacimiento es requerida";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
+
+    setIsSaving(true);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Create new patient object
+      const newPatient: Patient = {
+        id: `patient_${Date.now()}`,
+        ...formData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      onPatientCreated(newPatient);
+      onClose();
+
+      // Reset form
+      setFormData({
+        firstName: "",
+        lastName: "",
+        documentId: "",
+        phone: "",
+        sex: "female",
+        birthDate: "",
+        clinicalNotes: "",
+      });
+      setErrors({});
+    } catch (error) {
+      console.error("Error creating patient:", error);
+      alert("Error al crear el paciente. Inténtalo de nuevo.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-primary" />
+            Crear Nuevo Paciente
+          </DialogTitle>
+          <DialogDescription>
+            Completa la información básica del paciente para poder programar la
+            cita.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">Nombre *</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) =>
+                  setFormData({ ...formData, firstName: e.target.value })
+                }
+                className={cn(errors.firstName && "border-destructive")}
+              />
+              {errors.firstName && (
+                <p className="text-sm text-destructive">{errors.firstName}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Apellido *</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) =>
+                  setFormData({ ...formData, lastName: e.target.value })
+                }
+                className={cn(errors.lastName && "border-destructive")}
+              />
+              {errors.lastName && (
+                <p className="text-sm text-destructive">{errors.lastName}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="documentId">DNI *</Label>
+              <Input
+                id="documentId"
+                value={formData.documentId}
+                onChange={(e) =>
+                  setFormData({ ...formData, documentId: e.target.value })
+                }
+                placeholder="12345678"
+                maxLength={8}
+                className={cn(errors.documentId && "border-destructive")}
+              />
+              {errors.documentId && (
+                <p className="text-sm text-destructive">{errors.documentId}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Teléfono *</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="987654321"
+                maxLength={9}
+                className={cn(errors.phone && "border-destructive")}
+              />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="sex">Sexo</Label>
+              <Select
+                value={formData.sex}
+                onValueChange={(value: "male" | "female" | "other") =>
+                  setFormData({ ...formData, sex: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="female">Femenino</SelectItem>
+                  <SelectItem value="male">Masculino</SelectItem>
+                  <SelectItem value="other">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="birthDate">Fecha de Nacimiento *</Label>
+              <Input
+                id="birthDate"
+                type="date"
+                value={formData.birthDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, birthDate: e.target.value })
+                }
+                className={cn(errors.birthDate && "border-destructive")}
+              />
+              {errors.birthDate && (
+                <p className="text-sm text-destructive">{errors.birthDate}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="clinicalNotes">Notas Clínicas</Label>
+            <Textarea
+              id="clinicalNotes"
+              value={formData.clinicalNotes || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, clinicalNotes: e.target.value })
+              }
+              placeholder="Información médica relevante, alergias, etc."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                Creando...
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Crear Paciente
+              </>
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Mock scheduled appointments data
+const mockScheduledAppointments: ScheduledAppointment[] = [
   {
     id: "1",
-    patientName: "María González",
-    date: "2024-01-25",
-    time: "10:00",
-    worker: "Dr. Smith",
-    reason: "Revisión general",
-    priority: "medium" as const,
+    patientId: "patient_1",
+    workerId: "worker_1",
+    dateTime: "2024-01-25T10:00:00",
+    duration: 60,
+    status: "scheduled",
+    reason: "Revisión general podológica",
+    priority: "medium",
+    reminderEnabled: true,
+    reminderDays: 1,
+    createdAt: "2024-01-20T08:00:00",
+    updatedAt: "2024-01-20T08:00:00",
+    patient: {
+      id: "patient_1",
+      firstName: "María",
+      lastName: "González",
+      documentId: "12345678",
+      phone: "987654321",
+      sex: "female",
+      birthDate: "1985-05-15",
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+    worker: {
+      id: "worker_1",
+      firstName: "Dr. Carlos",
+      lastName: "Smith",
+      email: "carlos.smith@clinic.com",
+      phone: "987123456",
+      specialization: "Podólogo General",
+      isActive: true,
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
   },
   {
     id: "2",
-    patientName: "Carlos Mendez",
-    date: "2024-01-26",
-    time: "14:30",
-    worker: "Dr. Johnson",
+    patientId: "patient_2",
+    workerId: "worker_2",
+    dateTime: "2024-01-26T14:30:00",
+    duration: 90,
+    status: "scheduled",
     reason: "Tratamiento de onicomicosis",
-    priority: "high" as const,
+    priority: "high",
+    reminderEnabled: true,
+    reminderDays: 2,
+    createdAt: "2024-01-21T10:00:00",
+    updatedAt: "2024-01-21T10:00:00",
+    patient: {
+      id: "patient_2",
+      firstName: "Carlos",
+      lastName: "Mendez",
+      documentId: "87654321",
+      phone: "987123654",
+      sex: "male",
+      birthDate: "1978-03-22",
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+    worker: {
+      id: "worker_2",
+      firstName: "Dra. Ana",
+      lastName: "Johnson",
+      email: "ana.johnson@clinic.com",
+      phone: "987456123",
+      specialization: "Podóloga Especialista",
+      isActive: true,
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
   },
   {
     id: "3",
-    patientName: "Ana García",
-    date: "2024-01-27",
-    time: "09:15",
-    worker: "Dr. Smith",
-    reason: "Seguimiento",
-    priority: "low" as const,
+    patientId: "patient_3",
+    workerId: "worker_1",
+    dateTime: "2024-01-27T09:15:00",
+    duration: 45,
+    status: "scheduled",
+    reason: "Seguimiento post-tratamiento",
+    priority: "low",
+    reminderEnabled: false,
+    reminderDays: 0,
+    createdAt: "2024-01-22T11:30:00",
+    updatedAt: "2024-01-22T11:30:00",
+    patient: {
+      id: "patient_3",
+      firstName: "Ana",
+      lastName: "García",
+      documentId: "11223344",
+      phone: "987321654",
+      sex: "female",
+      birthDate: "1992-08-10",
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+    worker: {
+      id: "worker_1",
+      firstName: "Dr. Carlos",
+      lastName: "Smith",
+      email: "carlos.smith@clinic.com",
+      phone: "987123456",
+      specialization: "Podólogo General",
+      isActive: true,
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
   },
 ];
 
@@ -229,8 +620,14 @@ export function ScheduleAppointment() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
+  const [scheduledAppointments, setScheduledAppointments] = useState<
+    ScheduledAppointment[]
+  >(mockScheduledAppointments);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showCreatePatient, setShowCreatePatient] = useState(false);
+  const [editingAppointment, setEditingAppointment] =
+    useState<ScheduledAppointment | null>(null);
 
   const [formData, setFormData] = useState<ScheduleAppointmentRequest>({
     patientId: "",
@@ -238,7 +635,8 @@ export function ScheduleAppointment() {
     scheduledDateTime: "",
     duration: 60,
     reason: "",
-    notes: "",
+    treatmentNotes: "",
+    observations: "",
     priority: "medium",
     reminderEnabled: true,
     reminderDays: 1,
@@ -299,11 +697,62 @@ export function ScheduleAppointment() {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // In a real app, this would save to the backend
-      console.log("Appointment scheduled:", formData);
+      const patient = patients.find((p) => p.id === formData.patientId);
+      const worker = workers.find((w) => w.id === formData.workerId);
 
-      // Navigate back to appointments list
-      navigate("/appointments");
+      const newAppointment: ScheduledAppointment = {
+        id: `appointment_${Date.now()}`,
+        patientId: formData.patientId,
+        workerId: formData.workerId,
+        dateTime: formData.scheduledDateTime,
+        duration: formData.duration,
+        status: "scheduled",
+        reason: formData.reason,
+        treatmentNotes: formData.treatmentNotes,
+        observations: formData.observations,
+        priority: formData.priority,
+        reminderEnabled: formData.reminderEnabled,
+        reminderDays: formData.reminderDays,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        patient,
+        worker,
+      };
+
+      if (editingAppointment) {
+        // Update existing appointment
+        setScheduledAppointments(
+          scheduledAppointments.map((apt) =>
+            apt.id === editingAppointment.id
+              ? { ...newAppointment, id: editingAppointment.id }
+              : apt,
+          ),
+        );
+        setEditingAppointment(null);
+      } else {
+        // Add new appointment
+        setScheduledAppointments([newAppointment, ...scheduledAppointments]);
+      }
+
+      // Reset form
+      setFormData({
+        patientId: "",
+        workerId: user?.id || "",
+        scheduledDateTime: "",
+        duration: 60,
+        reason: "",
+        treatmentNotes: "",
+        observations: "",
+        priority: "medium",
+        reminderEnabled: true,
+        reminderDays: 1,
+      });
+
+      alert(
+        editingAppointment
+          ? "Cita actualizada exitosamente"
+          : "Cita programada exitosamente",
+      );
     } catch (error) {
       console.error("Error scheduling appointment:", error);
       alert("Error al programar la cita. Inténtalo de nuevo.");
@@ -312,9 +761,65 @@ export function ScheduleAppointment() {
     }
   };
 
+  const handleEditAppointment = (appointment: ScheduledAppointment) => {
+    setFormData({
+      patientId: appointment.patientId,
+      workerId: appointment.workerId,
+      scheduledDateTime: appointment.dateTime,
+      duration: appointment.duration,
+      reason: appointment.reason,
+      treatmentNotes: appointment.treatmentNotes || "",
+      observations: appointment.observations || "",
+      priority: appointment.priority,
+      reminderEnabled: appointment.reminderEnabled,
+      reminderDays: appointment.reminderDays,
+    });
+    setEditingAppointment(appointment);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingAppointment(null);
+    setFormData({
+      patientId: "",
+      workerId: user?.id || "",
+      scheduledDateTime: "",
+      duration: 60,
+      reason: "",
+      treatmentNotes: "",
+      observations: "",
+      priority: "medium",
+      reminderEnabled: true,
+      reminderDays: 1,
+    });
+  };
+
+  const handleChangeStatus = (
+    appointmentId: string,
+    newStatus: "scheduled" | "cancelled" | "completed",
+  ) => {
+    setScheduledAppointments(
+      scheduledAppointments.map((apt) =>
+        apt.id === appointmentId ? { ...apt, status: newStatus } : apt,
+      ),
+    );
+  };
+
+  const handleDeleteAppointment = (appointmentId: string) => {
+    if (confirm("¿Estás seguro de que quieres eliminar esta cita?")) {
+      setScheduledAppointments(
+        scheduledAppointments.filter((apt) => apt.id !== appointmentId),
+      );
+    }
+  };
+
+  const handlePatientCreated = (newPatient: Patient) => {
+    setPatients([newPatient, ...patients]);
+    setFormData({ ...formData, patientId: newPatient.id });
+  };
+
   const getMinDateTime = () => {
     const now = new Date();
-    now.setHours(now.getHours() + 1); // At least 1 hour from now
+    now.setHours(now.getHours() + 1);
     return now.toISOString().slice(0, 16);
   };
 
@@ -331,11 +836,37 @@ export function ScheduleAppointment() {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "completed":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "cancelled":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return <Clock className="w-4 h-4" />;
+      case "completed":
+        return <CheckCircle className="w-4 h-4" />;
+      case "cancelled":
+        return <XCircle className="w-4 h-4" />;
+      default:
+        return <AlertCircle className="w-4 h-4" />;
+    }
+  };
+
   if (isLoading) {
     return (
-      <Layout title="Programar Cita" subtitle="Agendar cita futura">
+      <Layout title="Programar Citas" subtitle="Gestión de citas futuras">
         <div className="p-6">
-          <div className="max-w-6xl mx-auto space-y-6">
+          <div className="max-w-7xl mx-auto space-y-6">
             <div className="space-y-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="loading-shimmer h-16 rounded"></div>
@@ -348,11 +879,11 @@ export function ScheduleAppointment() {
   }
 
   return (
-    <Layout title="Programar Cita" subtitle="Agendar cita futura">
+    <Layout title="Programar Citas" subtitle="Gestión de citas futuras">
       <div className="h-full flex flex-col">
         <div className="p-6 flex-1 space-y-6">
           {/* Header Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between">
             <Button
               variant="outline"
               onClick={() => navigate("/appointments")}
@@ -361,458 +892,734 @@ export function ScheduleAppointment() {
               <ArrowLeft className="w-4 h-4" />
               Volver a Citas
             </Button>
+
+            {editingAppointment && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-50">
+                  Editando cita
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelEdit}
+                  className="flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" />
+                  Cancelar edición
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Scheduling Form */}
-            <div className="lg:col-span-2">
-              <Card className="card-modern shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-primary/20">
-                  <CardTitle className="flex items-center gap-2">
-                    <CalendarPlus className="w-6 h-6 text-primary" />
-                    Programar Nueva Cita
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {/* Patient and Worker Selection */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label>Paciente *</Label>
-                      <SearchableSelect
-                        items={patients}
-                        value={formData.patientId}
-                        onValueChange={(value) => {
-                          setFormData({ ...formData, patientId: value });
-                          if (errors.patientId) {
-                            setErrors({ ...errors, patientId: "" });
-                          }
-                        }}
-                        placeholder="Seleccionar paciente"
-                        displayField={(item) => {
-                          const patient = item as Patient;
-                          return `${patient.firstName} ${patient.lastName}`;
-                        }}
-                        searchFields={(item) => {
-                          const patient = item as Patient;
-                          return [
-                            patient.firstName,
-                            patient.lastName,
-                            patient.documentId,
-                            patient.phone,
-                          ];
-                        }}
-                        emptyText="No se encontraron pacientes"
-                      />
-                      {errors.patientId && (
-                        <p className="text-sm text-destructive">
-                          {errors.patientId}
-                        </p>
-                      )}
-                    </div>
+          {/* Main Content with Tabs */}
+          <div className="max-w-7xl mx-auto">
+            <Tabs defaultValue="schedule" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger
+                  value="schedule"
+                  className="flex items-center gap-2"
+                >
+                  <CalendarPlus className="w-4 h-4" />
+                  {editingAppointment ? "Editar Cita" : "Programar Cita"}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="upcoming"
+                  className="flex items-center gap-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Citas Programadas ({scheduledAppointments.length})
+                </TabsTrigger>
+              </TabsList>
 
-                    <div className="space-y-2">
-                      <Label>Trabajador Asignado *</Label>
-                      <SearchableSelect
-                        items={workers}
-                        value={formData.workerId}
-                        onValueChange={(value) => {
-                          setFormData({ ...formData, workerId: value });
-                          if (errors.workerId) {
-                            setErrors({ ...errors, workerId: "" });
-                          }
-                        }}
-                        placeholder="Seleccionar trabajador"
-                        displayField={(item) => {
-                          const worker = item as Worker;
-                          return `${worker.firstName} ${worker.lastName}`;
-                        }}
-                        searchFields={(item) => {
-                          const worker = item as Worker;
-                          return [
-                            worker.firstName,
-                            worker.lastName,
-                            worker.email,
-                            worker.specialization || "",
-                          ];
-                        }}
-                        emptyText="No se encontraron trabajadores"
-                      />
-                      {errors.workerId && (
-                        <p className="text-sm text-destructive">
-                          {errors.workerId}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Date, Time and Duration */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="scheduledDateTime">Fecha y Hora *</Label>
-                      <Input
-                        id="scheduledDateTime"
-                        type="datetime-local"
-                        value={formData.scheduledDateTime}
-                        min={getMinDateTime()}
-                        onChange={(e) => {
-                          setFormData({
-                            ...formData,
-                            scheduledDateTime: e.target.value,
-                          });
-                          if (errors.scheduledDateTime) {
-                            setErrors({ ...errors, scheduledDateTime: "" });
-                          }
-                        }}
-                        className={cn(
-                          errors.scheduledDateTime && "border-destructive",
-                        )}
-                      />
-                      {errors.scheduledDateTime && (
-                        <p className="text-sm text-destructive">
-                          {errors.scheduledDateTime}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="duration">Duración *</Label>
-                      <Select
-                        value={formData.duration.toString()}
-                        onValueChange={(value) =>
-                          setFormData({
-                            ...formData,
-                            duration: parseInt(value),
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="30">30 minutos</SelectItem>
-                          <SelectItem value="45">45 minutos</SelectItem>
-                          <SelectItem value="60">60 minutos</SelectItem>
-                          <SelectItem value="90">90 minutos</SelectItem>
-                          <SelectItem value="120">120 minutos</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Priority */}
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Prioridad</Label>
-                    <Select
-                      value={formData.priority}
-                      onValueChange={(value: "low" | "medium" | "high") =>
-                        setFormData({ ...formData, priority: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Baja</SelectItem>
-                        <SelectItem value="medium">Media</SelectItem>
-                        <SelectItem value="high">Alta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Reason */}
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">Motivo de la Cita *</Label>
-                    <Input
-                      id="reason"
-                      value={formData.reason}
-                      onChange={(e) => {
-                        setFormData({ ...formData, reason: e.target.value });
-                        if (errors.reason) {
-                          setErrors({ ...errors, reason: "" });
-                        }
-                      }}
-                      placeholder="Ej: Revisión general, Seguimiento, Tratamiento específico..."
-                      className={cn(errors.reason && "border-destructive")}
-                    />
-                    {errors.reason && (
-                      <p className="text-sm text-destructive">
-                        {errors.reason}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Reminder Settings */}
-                  <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-5 h-5 text-blue-600" />
-                      <Label className="font-medium text-blue-800">
-                        Configuración de Recordatorio
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="reminderEnabled"
-                        checked={formData.reminderEnabled}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            reminderEnabled: e.target.checked,
-                          })
-                        }
-                        className="rounded"
-                      />
-                      <Label htmlFor="reminderEnabled">
-                        Enviar recordatorio al paciente
-                      </Label>
-                    </div>
-
-                    {formData.reminderEnabled && (
-                      <div className="space-y-2">
-                        <Label htmlFor="reminderDays">
-                          Días antes de la cita
-                        </Label>
-                        <Select
-                          value={formData.reminderDays.toString()}
-                          onValueChange={(value) =>
-                            setFormData({
-                              ...formData,
-                              reminderDays: parseInt(value),
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">1 día antes</SelectItem>
-                            <SelectItem value="2">2 días antes</SelectItem>
-                            <SelectItem value="3">3 días antes</SelectItem>
-                            <SelectItem value="7">1 semana antes</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Notes */}
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notas Adicionales</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes || ""}
-                      onChange={(e) => {
-                        setFormData({ ...formData, notes: e.target.value });
-                      }}
-                      placeholder="Notas especiales, instrucciones, preparación requerida..."
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 pt-4">
-                    <Button
-                      onClick={handleSchedule}
-                      disabled={isSaving}
-                      size="lg"
-                      className="btn-primary flex items-center gap-2 flex-1"
-                    >
-                      {isSaving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Programando...
-                        </>
-                      ) : (
-                        <>
-                          <CalendarPlus className="w-4 h-4" />
-                          Programar Cita
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        console.log("Draft saved:", formData);
-                        alert("Borrador guardado exitosamente");
-                      }}
-                      disabled={isSaving}
-                      size="lg"
-                      className="flex items-center gap-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      Guardar Borrador
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Sidebar - Summary & Upcoming Appointments */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* Summary */}
-              <Card className="card-modern shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-primary" />
-                    Resumen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {formData.patientId && (
-                    <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
-                      <User className="w-5 h-5 text-primary" />
-                      <div>
-                        <p className="font-medium text-sm">Paciente</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(() => {
-                            const patient = patients.find(
-                              (p) => p.id === formData.patientId,
-                            );
-                            return patient
-                              ? `${patient.firstName} ${patient.lastName}`
-                              : "";
-                          })()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.workerId && (
-                    <div className="flex items-center gap-3 p-3 bg-secondary/5 rounded-lg border border-secondary/20">
-                      <Users className="w-5 h-5 text-secondary" />
-                      <div>
-                        <p className="font-medium text-sm">Trabajador</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(() => {
-                            const worker = workers.find(
-                              (w) => w.id === formData.workerId,
-                            );
-                            return worker
-                              ? `${worker.firstName} ${worker.lastName}`
-                              : "";
-                          })()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.scheduledDateTime && (
-                    <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-lg border border-accent/20">
-                      <Clock className="w-5 h-5 text-accent" />
-                      <div>
-                        <p className="font-medium text-sm">Fecha y Hora</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(formData.scheduledDateTime).toLocaleString(
-                            "es-ES",
-                            {
-                              weekday: "short",
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}{" "}
-                          ({formData.duration} min)
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.reason && (
-                    <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-blue-800">Motivo</p>
-                        <p className="text-sm text-blue-600">
-                          {formData.reason}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                    <MapPin className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">Prioridad</p>
-                      <Badge
-                        className={cn(
-                          "text-xs mt-1",
-                          getPriorityColor(formData.priority),
-                        )}
-                      >
-                        {formData.priority === "low"
-                          ? "Baja"
-                          : formData.priority === "medium"
-                            ? "Media"
-                            : "Alta"}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {!formData.patientId &&
-                    !formData.workerId &&
-                    !formData.scheduledDateTime && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>Completa los datos para ver el resumen</p>
-                      </div>
-                    )}
-                </CardContent>
-              </Card>
-
-              {/* Upcoming Appointments */}
-              <Card className="card-modern shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    Próximas Citas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {mockUpcomingAppointments.map((appointment) => (
-                      <div
-                        key={appointment.id}
-                        className="p-3 border rounded-lg hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">
-                              {appointment.patientName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {appointment.date} • {appointment.time}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {appointment.reason}
-                            </p>
-                          </div>
-                          <Badge
-                            className={cn(
-                              "text-xs",
-                              getPriorityColor(appointment.priority),
+              {/* Schedule Tab */}
+              <TabsContent value="schedule" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Scheduling Form */}
+                  <div className="lg:col-span-2">
+                    <Card className="card-modern shadow-lg">
+                      <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-primary/20">
+                        <CardTitle className="flex items-center gap-2">
+                          <CalendarPlus className="w-6 h-6 text-primary" />
+                          {editingAppointment
+                            ? "Editar Cita Programada"
+                            : "Programar Nueva Cita"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-6">
+                        {/* Patient and Worker Selection */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label>Paciente *</Label>
+                            <SearchableSelect
+                              items={patients}
+                              value={formData.patientId}
+                              onValueChange={(value) => {
+                                setFormData({ ...formData, patientId: value });
+                                if (errors.patientId) {
+                                  setErrors({ ...errors, patientId: "" });
+                                }
+                              }}
+                              placeholder="Seleccionar paciente"
+                              displayField={(item) => {
+                                const patient = item as Patient;
+                                return `${patient.firstName} ${patient.lastName}`;
+                              }}
+                              searchFields={(item) => {
+                                const patient = item as Patient;
+                                return [
+                                  patient.firstName,
+                                  patient.lastName,
+                                  patient.documentId,
+                                  patient.phone,
+                                ];
+                              }}
+                              emptyText="No se encontraron pacientes"
+                              onCreateNew={() => setShowCreatePatient(true)}
+                              createNewText="Crear nuevo paciente"
+                            />
+                            {errors.patientId && (
+                              <p className="text-sm text-destructive">
+                                {errors.patientId}
+                              </p>
                             )}
-                          >
-                            {appointment.priority === "low"
-                              ? "Baja"
-                              : appointment.priority === "medium"
-                                ? "Media"
-                                : "Alta"}
-                          </Badge>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Trabajador Asignado *</Label>
+                            <SearchableSelect
+                              items={workers}
+                              value={formData.workerId}
+                              onValueChange={(value) => {
+                                setFormData({ ...formData, workerId: value });
+                                if (errors.workerId) {
+                                  setErrors({ ...errors, workerId: "" });
+                                }
+                              }}
+                              placeholder="Seleccionar trabajador"
+                              displayField={(item) => {
+                                const worker = item as Worker;
+                                return `${worker.firstName} ${worker.lastName}`;
+                              }}
+                              searchFields={(item) => {
+                                const worker = item as Worker;
+                                return [
+                                  worker.firstName,
+                                  worker.lastName,
+                                  worker.email,
+                                  worker.specialization || "",
+                                ];
+                              }}
+                              emptyText="No se encontraron trabajadores"
+                            />
+                            {errors.workerId && (
+                              <p className="text-sm text-destructive">
+                                {errors.workerId}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+
+                        {/* Date, Time and Duration */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="scheduledDateTime">
+                              Fecha y Hora *
+                            </Label>
+                            <Input
+                              id="scheduledDateTime"
+                              type="datetime-local"
+                              value={formData.scheduledDateTime}
+                              min={getMinDateTime()}
+                              onChange={(e) => {
+                                setFormData({
+                                  ...formData,
+                                  scheduledDateTime: e.target.value,
+                                });
+                                if (errors.scheduledDateTime) {
+                                  setErrors({
+                                    ...errors,
+                                    scheduledDateTime: "",
+                                  });
+                                }
+                              }}
+                              className={cn(
+                                errors.scheduledDateTime &&
+                                  "border-destructive",
+                              )}
+                            />
+                            {errors.scheduledDateTime && (
+                              <p className="text-sm text-destructive">
+                                {errors.scheduledDateTime}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="duration">Duración *</Label>
+                            <Select
+                              value={formData.duration.toString()}
+                              onValueChange={(value) =>
+                                setFormData({
+                                  ...formData,
+                                  duration: parseInt(value),
+                                })
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="30">30 minutos</SelectItem>
+                                <SelectItem value="45">45 minutos</SelectItem>
+                                <SelectItem value="60">60 minutos</SelectItem>
+                                <SelectItem value="90">90 minutos</SelectItem>
+                                <SelectItem value="120">120 minutos</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Priority */}
+                        <div className="space-y-2">
+                          <Label htmlFor="priority">Prioridad</Label>
+                          <Select
+                            value={formData.priority}
+                            onValueChange={(value: "low" | "medium" | "high") =>
+                              setFormData({ ...formData, priority: value })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Baja</SelectItem>
+                              <SelectItem value="medium">Media</SelectItem>
+                              <SelectItem value="high">Alta</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Reason */}
+                        <div className="space-y-2">
+                          <Label htmlFor="reason">Motivo de la Cita *</Label>
+                          <Input
+                            id="reason"
+                            value={formData.reason}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                reason: e.target.value,
+                              });
+                              if (errors.reason) {
+                                setErrors({ ...errors, reason: "" });
+                              }
+                            }}
+                            placeholder="Ej: Revisión general, Seguimiento, Tratamiento específico..."
+                            className={cn(
+                              errors.reason && "border-destructive",
+                            )}
+                          />
+                          {errors.reason && (
+                            <p className="text-sm text-destructive">
+                              {errors.reason}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Treatment Notes */}
+                        <div className="space-y-2">
+                          <Label htmlFor="treatmentNotes">
+                            Notas de Tratamiento
+                          </Label>
+                          <Textarea
+                            id="treatmentNotes"
+                            value={formData.treatmentNotes || ""}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                treatmentNotes: e.target.value,
+                              });
+                            }}
+                            placeholder="Tratamiento planificado, procedimientos específicos..."
+                            rows={3}
+                          />
+                        </div>
+
+                        {/* Reminder Settings */}
+                        <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center gap-2">
+                            <Bell className="w-5 h-5 text-blue-600" />
+                            <Label className="font-medium text-blue-800">
+                              Configuración de Recordatorio
+                            </Label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="reminderEnabled"
+                              checked={formData.reminderEnabled}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  reminderEnabled: e.target.checked,
+                                })
+                              }
+                              className="rounded"
+                            />
+                            <Label htmlFor="reminderEnabled">
+                              Enviar recordatorio al paciente
+                            </Label>
+                          </div>
+
+                          {formData.reminderEnabled && (
+                            <div className="space-y-2">
+                              <Label htmlFor="reminderDays">
+                                Días antes de la cita
+                              </Label>
+                              <Select
+                                value={formData.reminderDays.toString()}
+                                onValueChange={(value) =>
+                                  setFormData({
+                                    ...formData,
+                                    reminderDays: parseInt(value),
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1 día antes</SelectItem>
+                                  <SelectItem value="2">
+                                    2 días antes
+                                  </SelectItem>
+                                  <SelectItem value="3">
+                                    3 días antes
+                                  </SelectItem>
+                                  <SelectItem value="7">
+                                    1 semana antes
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Observations */}
+                        <div className="space-y-2">
+                          <Label htmlFor="observations">
+                            Observaciones Adicionales
+                          </Label>
+                          <Textarea
+                            id="observations"
+                            value={formData.observations || ""}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                observations: e.target.value,
+                              });
+                            }}
+                            placeholder="Notas especiales, instrucciones, preparación requerida..."
+                            rows={3}
+                          />
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 pt-4">
+                          <Button
+                            onClick={handleSchedule}
+                            disabled={isSaving}
+                            size="lg"
+                            className="btn-primary flex items-center gap-2 flex-1"
+                          >
+                            {isSaving ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                {editingAppointment
+                                  ? "Actualizando..."
+                                  : "Programando..."}
+                              </>
+                            ) : (
+                              <>
+                                {editingAppointment ? (
+                                  <Check className="w-4 h-4" />
+                                ) : (
+                                  <CalendarPlus className="w-4 h-4" />
+                                )}
+                                {editingAppointment
+                                  ? "Actualizar Cita"
+                                  : "Programar Cita"}
+                              </>
+                            )}
+                          </Button>
+
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              console.log("Draft saved:", formData);
+                              alert("Borrador guardado exitosamente");
+                            }}
+                            disabled={isSaving}
+                            size="lg"
+                            className="flex items-center gap-2"
+                          >
+                            <Save className="w-4 h-4" />
+                            Guardar Borrador
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+
+                  {/* Summary Sidebar */}
+                  <div className="lg:col-span-1">
+                    <Card className="card-modern shadow-lg sticky top-6">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-primary" />
+                          Resumen
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {formData.patientId && (
+                          <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                            <User className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="font-medium text-sm">Paciente</p>
+                              <p className="text-sm text-muted-foreground">
+                                {(() => {
+                                  const patient = patients.find(
+                                    (p) => p.id === formData.patientId,
+                                  );
+                                  return patient
+                                    ? `${patient.firstName} ${patient.lastName}`
+                                    : "";
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {formData.workerId && (
+                          <div className="flex items-center gap-3 p-3 bg-secondary/5 rounded-lg border border-secondary/20">
+                            <Users className="w-5 h-5 text-secondary" />
+                            <div>
+                              <p className="font-medium text-sm">Trabajador</p>
+                              <p className="text-sm text-muted-foreground">
+                                {(() => {
+                                  const worker = workers.find(
+                                    (w) => w.id === formData.workerId,
+                                  );
+                                  return worker
+                                    ? `${worker.firstName} ${worker.lastName}`
+                                    : "";
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {formData.scheduledDateTime && (
+                          <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-lg border border-accent/20">
+                            <Clock className="w-5 h-5 text-accent" />
+                            <div>
+                              <p className="font-medium text-sm">
+                                Fecha y Hora
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(
+                                  formData.scheduledDateTime,
+                                ).toLocaleString("es-ES", {
+                                  weekday: "short",
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}{" "}
+                                ({formData.duration} min)
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {formData.reason && (
+                          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
+                            <div>
+                              <p className="font-medium text-blue-800">
+                                Motivo
+                              </p>
+                              <p className="text-sm text-blue-600">
+                                {formData.reason}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                          <MapPin className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-sm">Prioridad</p>
+                            <Badge
+                              className={cn(
+                                "text-xs mt-1",
+                                getPriorityColor(formData.priority),
+                              )}
+                            >
+                              {formData.priority === "low"
+                                ? "Baja"
+                                : formData.priority === "medium"
+                                  ? "Media"
+                                  : "Alta"}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {!formData.patientId &&
+                          !formData.workerId &&
+                          !formData.scheduledDateTime && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>Completa los datos para ver el resumen</p>
+                            </div>
+                          )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Upcoming Appointments Tab */}
+              <TabsContent value="upcoming" className="space-y-6">
+                <Card className="card-modern shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="w-6 h-6 text-primary" />
+                      Citas Programadas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {scheduledAppointments.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">
+                          No hay citas programadas
+                        </p>
+                        <p className="text-sm">
+                          Ve a la pestaña "Programar Cita" para crear la primera
+                          cita.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {scheduledAppointments
+                          .sort(
+                            (a, b) =>
+                              new Date(a.dateTime).getTime() -
+                              new Date(b.dateTime).getTime(),
+                          )
+                          .map((appointment) => (
+                            <div
+                              key={appointment.id}
+                              className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 space-y-2">
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-1">
+                                      <h4 className="font-semibold text-lg">
+                                        {appointment.patient?.firstName}{" "}
+                                        {appointment.patient?.lastName}
+                                      </h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        DNI: {appointment.patient?.documentId} •{" "}
+                                        Tel: {appointment.patient?.phone}
+                                      </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Badge
+                                        className={cn(
+                                          "text-xs flex items-center gap-1",
+                                          getStatusColor(appointment.status),
+                                        )}
+                                      >
+                                        {getStatusIcon(appointment.status)}
+                                        {appointment.status === "scheduled"
+                                          ? "Programada"
+                                          : appointment.status === "completed"
+                                            ? "Completada"
+                                            : "Cancelada"}
+                                      </Badge>
+                                      <Badge
+                                        className={cn(
+                                          "text-xs",
+                                          getPriorityColor(
+                                            appointment.priority,
+                                          ),
+                                        )}
+                                      >
+                                        {appointment.priority === "low"
+                                          ? "Baja"
+                                          : appointment.priority === "medium"
+                                            ? "Media"
+                                            : "Alta"}
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="w-4 h-4 text-muted-foreground" />
+                                      <span>
+                                        {new Date(
+                                          appointment.dateTime,
+                                        ).toLocaleString("es-ES", {
+                                          weekday: "short",
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Users className="w-4 h-4 text-muted-foreground" />
+                                      <span>
+                                        {appointment.worker?.firstName}{" "}
+                                        {appointment.worker?.lastName}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-muted-foreground" />
+                                      <span>{appointment.duration} min</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-sm">
+                                    <p className="font-medium text-blue-800">
+                                      Motivo:
+                                    </p>
+                                    <p className="text-blue-600">
+                                      {appointment.reason}
+                                    </p>
+                                  </div>
+
+                                  {appointment.treatmentNotes && (
+                                    <div className="text-sm">
+                                      <p className="font-medium text-green-800">
+                                        Notas de tratamiento:
+                                      </p>
+                                      <p className="text-green-600">
+                                        {appointment.treatmentNotes}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {appointment.reminderEnabled && (
+                                    <div className="flex items-center gap-2 text-sm text-amber-600">
+                                      <Bell className="w-4 h-4" />
+                                      <span>
+                                        Recordatorio {appointment.reminderDays}{" "}
+                                        día(s) antes
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col gap-2 ml-4">
+                                  {appointment.status === "scheduled" && (
+                                    <>
+                                      <Button
+                                        onClick={() =>
+                                          handleEditAppointment(appointment)
+                                        }
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Edit3 className="w-3 h-3" />
+                                        Editar
+                                      </Button>
+                                      <Button
+                                        onClick={() =>
+                                          handleChangeStatus(
+                                            appointment.id,
+                                            "completed",
+                                          )
+                                        }
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
+                                      >
+                                        <CheckCircle className="w-3 h-3" />
+                                        Completar
+                                      </Button>
+                                      <Button
+                                        onClick={() =>
+                                          handleChangeStatus(
+                                            appointment.id,
+                                            "cancelled",
+                                          )
+                                        }
+                                        size="sm"
+                                        variant="outline"
+                                        className="flex items-center gap-1 text-red-600 border-red-600 hover:bg-red-50"
+                                      >
+                                        <XCircle className="w-3 h-3" />
+                                        Cancelar
+                                      </Button>
+                                    </>
+                                  )}
+
+                                  {appointment.status === "cancelled" && (
+                                    <Button
+                                      onClick={() =>
+                                        handleChangeStatus(
+                                          appointment.id,
+                                          "scheduled",
+                                        )
+                                      }
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex items-center gap-1 text-blue-600 border-blue-600 hover:bg-blue-50"
+                                    >
+                                      <RotateCcw className="w-3 h-3" />
+                                      Reactivar
+                                    </Button>
+                                  )}
+
+                                  <Button
+                                    onClick={() =>
+                                      handleDeleteAppointment(appointment.id)
+                                    }
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-red-600 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
+
+      {/* Create Patient Modal */}
+      <CreatePatientModal
+        isOpen={showCreatePatient}
+        onClose={() => setShowCreatePatient(false)}
+        onPatientCreated={handlePatientCreated}
+      />
     </Layout>
   );
 }
