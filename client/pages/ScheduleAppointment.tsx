@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -24,6 +24,12 @@ import {
   CheckCircle,
   XCircle,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  CalendarDays,
+  List,
+  Grid3X3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,30 +58,44 @@ import {
   Worker,
   Appointment,
   CreatePatientRequest,
+  ScheduleAppointmentRequest,
+  ScheduledAppointment,
 } from "@shared/api";
 import { getMockPatients, getMockWorkers } from "@/lib/mockData";
 import Layout from "@/components/Layout";
 
-// Schedule Appointment Types
-interface ScheduleAppointmentRequest {
-  patientId: string;
-  workerId: string;
-  scheduledDateTime: string;
-  duration: number;
-  reason: string;
-  treatmentNotes?: string;
-  observations?: string;
-  priority: "low" | "medium" | "high";
-  reminderEnabled: boolean;
-  reminderDays: number;
-}
+// Calendar imports
+import {
+  Calendar as BigCalendar,
+  dateFnsLocalizer,
+  View,
+  Views,
+} from "react-big-calendar";
+import {
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  addDays,
+  startOfDay,
+  endOfDay,
+  isSameDay,
+} from "date-fns";
+import { es } from "date-fns/locale";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 
-interface ScheduledAppointment extends Appointment {
-  reason: string;
-  priority: "low" | "medium" | "high";
-  reminderEnabled: boolean;
-  reminderDays: number;
-}
+// Setup the localizer for react-big-calendar with date-fns
+const locales = {
+  es: es,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 interface SearchableSelectProps {
   items: (Patient | Worker)[];
@@ -494,7 +514,16 @@ function CreatePatientModal({
   );
 }
 
-// Mock scheduled appointments data
+// Calendar Event Interface
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  resource: ScheduledAppointment;
+}
+
+// Enhanced mock scheduled appointments data
 const mockScheduledAppointments: ScheduledAppointment[] = [
   {
     id: "1",
@@ -604,6 +633,79 @@ const mockScheduledAppointments: ScheduledAppointment[] = [
       updatedAt: "2024-01-01T00:00:00",
     },
   },
+  // Add more appointments for better calendar demonstration
+  {
+    id: "4",
+    patientId: "patient_4",
+    workerId: "worker_1",
+    dateTime: "2024-01-25T14:00:00",
+    duration: 60,
+    status: "completed",
+    reason: "Tratamiento de callos",
+    priority: "medium",
+    reminderEnabled: true,
+    reminderDays: 1,
+    createdAt: "2024-01-20T08:00:00",
+    updatedAt: "2024-01-25T15:00:00",
+    patient: {
+      id: "patient_4",
+      firstName: "Luis",
+      lastName: "Rodríguez",
+      documentId: "55667788",
+      phone: "987111222",
+      sex: "male",
+      birthDate: "1990-12-05",
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+    worker: {
+      id: "worker_1",
+      firstName: "Dr. Carlos",
+      lastName: "Smith",
+      email: "carlos.smith@clinic.com",
+      phone: "987123456",
+      specialization: "Podólogo General",
+      isActive: true,
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+  },
+  {
+    id: "5",
+    patientId: "patient_5",
+    workerId: "worker_2",
+    dateTime: "2024-01-29T11:30:00",
+    duration: 75,
+    status: "cancelled",
+    reason: "Cirugía menor",
+    priority: "high",
+    reminderEnabled: true,
+    reminderDays: 3,
+    createdAt: "2024-01-22T08:00:00",
+    updatedAt: "2024-01-28T10:00:00",
+    patient: {
+      id: "patient_5",
+      firstName: "Elena",
+      lastName: "Martínez",
+      documentId: "99887766",
+      phone: "987333444",
+      sex: "female",
+      birthDate: "1975-07-18",
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+    worker: {
+      id: "worker_2",
+      firstName: "Dra. Ana",
+      lastName: "Johnson",
+      email: "ana.johnson@clinic.com",
+      phone: "987456123",
+      specialization: "Podóloga Especialista",
+      isActive: true,
+      createdAt: "2024-01-01T00:00:00",
+      updatedAt: "2024-01-01T00:00:00",
+    },
+  },
 ];
 
 // Get current user
@@ -628,6 +730,15 @@ export function ScheduleAppointment() {
   const [showCreatePatient, setShowCreatePatient] = useState(false);
   const [editingAppointment, setEditingAppointment] =
     useState<ScheduledAppointment | null>(null);
+
+  // Calendar state
+  const [calendarView, setCalendarView] = useState<View>(Views.MONTH);
+  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<ScheduledAppointment | null>(null);
+  const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
+  const [workerFilter, setWorkerFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const [formData, setFormData] = useState<ScheduleAppointmentRequest>({
     patientId: "",
@@ -662,6 +773,59 @@ export function ScheduleAppointment() {
       setIsLoading(false);
     }
   };
+
+  // Filter appointments based on user role and filters
+  const filteredAppointments = useMemo(() => {
+    let filtered = scheduledAppointments;
+
+    // Role-based filtering
+    if (user?.role === "worker") {
+      filtered = filtered.filter((apt) => apt.workerId === user.id);
+    }
+
+    // Worker filter
+    if (workerFilter !== "all") {
+      filtered = filtered.filter((apt) => apt.workerId === workerFilter);
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((apt) => apt.status === statusFilter);
+    }
+
+    return filtered;
+  }, [scheduledAppointments, user, workerFilter, statusFilter]);
+
+  // Convert appointments to calendar events
+  const calendarEvents: CalendarEvent[] = useMemo(() => {
+    return filteredAppointments.map((appointment) => {
+      const start = new Date(appointment.dateTime);
+      const end = new Date(start.getTime() + appointment.duration * 60000);
+
+      return {
+        id: appointment.id,
+        title: `${appointment.patient?.firstName} ${appointment.patient?.lastName}`,
+        start,
+        end,
+        resource: appointment,
+      };
+    });
+  }, [filteredAppointments]);
+
+  // Get appointments for a specific day
+  const getDayAppointments = useCallback(
+    (date: Date) => {
+      return filteredAppointments
+        .filter((appointment) =>
+          isSameDay(new Date(appointment.dateTime), date),
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime(),
+        );
+    },
+    [filteredAppointments],
+  );
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -817,6 +981,19 @@ export function ScheduleAppointment() {
     setFormData({ ...formData, patientId: newPatient.id });
   };
 
+  const handleCalendarEventClick = (event: CalendarEvent) => {
+    setSelectedAppointment(event.resource);
+    setShowAppointmentDetail(true);
+  };
+
+  const handleCalendarNavigate = (newDate: Date) => {
+    setCalendarDate(newDate);
+  };
+
+  const handleCalendarViewChange = (newView: View) => {
+    setCalendarView(newView);
+  };
+
   const getMinDateTime = () => {
     const now = new Date();
     now.setHours(now.getHours() + 1);
@@ -860,6 +1037,70 @@ export function ScheduleAppointment() {
       default:
         return <AlertCircle className="w-4 h-4" />;
     }
+  };
+
+  // Custom event style function for calendar
+  const eventStyleGetter = (event: CalendarEvent) => {
+    const appointment = event.resource;
+    let backgroundColor = "#3174ad";
+    let borderColor = "#265985";
+
+    switch (appointment.status) {
+      case "scheduled":
+        backgroundColor = "#2563eb";
+        borderColor = "#1d4ed8";
+        break;
+      case "completed":
+        backgroundColor = "#16a34a";
+        borderColor = "#15803d";
+        break;
+      case "cancelled":
+        backgroundColor = "#dc2626";
+        borderColor = "#b91c1c";
+        break;
+    }
+
+    switch (appointment.priority) {
+      case "high":
+        borderColor = "#dc2626";
+        break;
+      case "medium":
+        borderColor = "#ca8a04";
+        break;
+      case "low":
+        borderColor = "#16a34a";
+        break;
+    }
+
+    return {
+      style: {
+        backgroundColor,
+        borderColor,
+        borderWidth: "2px",
+        borderStyle: "solid",
+        color: "white",
+        fontSize: "12px",
+        borderRadius: "4px",
+      },
+    };
+  };
+
+  // Custom component for calendar events
+  const CalendarEvent = ({ event }: { event: CalendarEvent }) => {
+    const appointment = event.resource;
+    return (
+      <div className="p-1">
+        <div className="font-semibold text-xs truncate">
+          {appointment.patient?.firstName} {appointment.patient?.lastName}
+        </div>
+        <div className="text-xs opacity-90 truncate">{appointment.reason}</div>
+        {appointment.worker && (
+          <div className="text-xs opacity-75 truncate">
+            {appointment.worker.firstName} {appointment.worker.lastName}
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -914,7 +1155,7 @@ export function ScheduleAppointment() {
           {/* Main Content with Tabs */}
           <div className="max-w-7xl mx-auto">
             <Tabs defaultValue="schedule" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className="grid w-full grid-cols-4 mb-6">
                 <TabsTrigger
                   value="schedule"
                   className="flex items-center gap-2"
@@ -923,11 +1164,22 @@ export function ScheduleAppointment() {
                   {editingAppointment ? "Editar Cita" : "Programar Cita"}
                 </TabsTrigger>
                 <TabsTrigger
-                  value="upcoming"
+                  value="calendar"
                   className="flex items-center gap-2"
                 >
                   <Calendar className="w-4 h-4" />
-                  Citas Programadas ({scheduledAppointments.length})
+                  Vista Calendario
+                </TabsTrigger>
+                <TabsTrigger value="agenda" className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4" />
+                  Agenda Diaria
+                </TabsTrigger>
+                <TabsTrigger
+                  value="upcoming"
+                  className="flex items-center gap-2"
+                >
+                  <List className="w-4 h-4" />
+                  Lista ({scheduledAppointments.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -1391,12 +1643,277 @@ export function ScheduleAppointment() {
                 </div>
               </TabsContent>
 
+              {/* Calendar View Tab */}
+              <TabsContent value="calendar" className="space-y-6">
+                <Card className="card-modern shadow-lg">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="w-6 h-6 text-primary" />
+                        Vista Calendario
+                      </CardTitle>
+                      <div className="flex items-center gap-3">
+                        {/* Filters */}
+                        {user?.role === "admin" && (
+                          <div className="flex items-center gap-2">
+                            <Filter className="w-4 h-4 text-muted-foreground" />
+                            <Select
+                              value={workerFilter}
+                              onValueChange={setWorkerFilter}
+                            >
+                              <SelectTrigger className="w-40">
+                                <SelectValue placeholder="Filtrar por trabajador" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">
+                                  Todos los trabajadores
+                                </SelectItem>
+                                {workers.map((worker) => (
+                                  <SelectItem key={worker.id} value={worker.id}>
+                                    {worker.firstName} {worker.lastName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        <Select
+                          value={statusFilter}
+                          onValueChange={setStatusFilter}
+                        >
+                          <SelectTrigger className="w-36">
+                            <SelectValue placeholder="Estado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="scheduled">
+                              Programadas
+                            </SelectItem>
+                            <SelectItem value="completed">
+                              Completadas
+                            </SelectItem>
+                            <SelectItem value="cancelled">
+                              Canceladas
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="calendar-container"
+                      style={{ height: "600px" }}
+                    >
+                      <BigCalendar
+                        localizer={localizer}
+                        events={calendarEvents}
+                        startAccessor="start"
+                        endAccessor="end"
+                        view={calendarView}
+                        onView={handleCalendarViewChange}
+                        date={calendarDate}
+                        onNavigate={handleCalendarNavigate}
+                        onSelectEvent={handleCalendarEventClick}
+                        eventPropGetter={eventStyleGetter}
+                        components={{
+                          event: CalendarEvent,
+                        }}
+                        messages={{
+                          allDay: "Todo el día",
+                          previous: "Anterior",
+                          next: "Siguiente",
+                          today: "Hoy",
+                          month: "Mes",
+                          week: "Semana",
+                          day: "Día",
+                          agenda: "Agenda",
+                          date: "Fecha",
+                          time: "Hora",
+                          event: "Evento",
+                          noEventsInRange:
+                            "No hay citas en este rango de fechas",
+                          showMore: (total) => `+ Ver ${total} más`,
+                        }}
+                        culture="es"
+                        className="rbc-calendar"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Daily Agenda Tab */}
+              <TabsContent value="agenda" className="space-y-6">
+                <Card className="card-modern shadow-lg">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <CalendarDays className="w-6 h-6 text-primary" />
+                        Agenda Diaria
+                      </CardTitle>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setCalendarDate(addDays(calendarDate, -1))
+                          }
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <span className="font-medium min-w-40 text-center">
+                          {format(calendarDate, "eeee, dd MMMM yyyy", {
+                            locale: es,
+                          })}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setCalendarDate(addDays(calendarDate, 1))
+                          }
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCalendarDate(new Date())}
+                        >
+                          Hoy
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const dayAppointments = getDayAppointments(calendarDate);
+
+                      if (dayAppointments.length === 0) {
+                        return (
+                          <div className="text-center py-12 text-muted-foreground">
+                            <CalendarDays className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                            <p className="text-lg font-medium">
+                              No hay citas programadas para esta fecha
+                            </p>
+                            <p className="text-sm">
+                              Selecciona otro día o programa una nueva cita.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-4">
+                          {dayAppointments.map((appointment) => (
+                            <div
+                              key={appointment.id}
+                              className="flex items-start gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors cursor-pointer"
+                              onClick={() => {
+                                setSelectedAppointment(appointment);
+                                setShowAppointmentDetail(true);
+                              }}
+                            >
+                              <div className="flex flex-col items-center gap-1 min-w-16">
+                                <div className="text-lg font-bold text-primary">
+                                  {format(
+                                    new Date(appointment.dateTime),
+                                    "HH:mm",
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {appointment.duration}min
+                                </div>
+                              </div>
+
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <h4 className="font-semibold text-lg">
+                                      {appointment.patient?.firstName}{" "}
+                                      {appointment.patient?.lastName}
+                                    </h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      DNI: {appointment.patient?.documentId} •
+                                      Tel: {appointment.patient?.phone}
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Badge
+                                      className={cn(
+                                        "text-xs flex items-center gap-1",
+                                        getStatusColor(appointment.status),
+                                      )}
+                                    >
+                                      {getStatusIcon(appointment.status)}
+                                      {appointment.status === "scheduled"
+                                        ? "Programada"
+                                        : appointment.status === "completed"
+                                          ? "Completada"
+                                          : "Cancelada"}
+                                    </Badge>
+                                    <Badge
+                                      className={cn(
+                                        "text-xs",
+                                        getPriorityColor(appointment.priority),
+                                      )}
+                                    >
+                                      {appointment.priority === "low"
+                                        ? "Baja"
+                                        : appointment.priority === "medium"
+                                          ? "Media"
+                                          : "Alta"}
+                                    </Badge>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p className="font-medium text-blue-800">
+                                      Motivo:
+                                    </p>
+                                    <p className="text-blue-600">
+                                      {appointment.reason}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-green-800">
+                                      Trabajador:
+                                    </p>
+                                    <p className="text-green-600">
+                                      {appointment.worker?.firstName}{" "}
+                                      {appointment.worker?.lastName}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {appointment.treatmentNotes && (
+                                  <div className="text-sm">
+                                    <p className="font-medium text-purple-800">
+                                      Notas de tratamiento:
+                                    </p>
+                                    <p className="text-purple-600">
+                                      {appointment.treatmentNotes}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* Upcoming Appointments Tab */}
               <TabsContent value="upcoming" className="space-y-6">
                 <Card className="card-modern shadow-lg">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Calendar className="w-6 h-6 text-primary" />
+                      <List className="w-6 h-6 text-primary" />
                       Citas Programadas
                     </CardTitle>
                   </CardHeader>
@@ -1620,6 +2137,307 @@ export function ScheduleAppointment() {
         onClose={() => setShowCreatePatient(false)}
         onPatientCreated={handlePatientCreated}
       />
+
+      {/* Appointment Detail Modal */}
+      {selectedAppointment && (
+        <Dialog
+          open={showAppointmentDetail}
+          onOpenChange={setShowAppointmentDetail}
+        >
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                Detalles de la Cita
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-medium text-primary">Paciente</Label>
+                  <div className="p-3 bg-primary/5 rounded-lg">
+                    <p className="font-medium">
+                      {selectedAppointment.patient?.firstName}{" "}
+                      {selectedAppointment.patient?.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      DNI: {selectedAppointment.patient?.documentId}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Tel: {selectedAppointment.patient?.phone}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-medium text-secondary">
+                    Trabajador
+                  </Label>
+                  <div className="p-3 bg-secondary/5 rounded-lg">
+                    <p className="font-medium">
+                      {selectedAppointment.worker?.firstName}{" "}
+                      {selectedAppointment.worker?.lastName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAppointment.worker?.specialization}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAppointment.worker?.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="font-medium text-accent">
+                    Fecha y Hora
+                  </Label>
+                  <div className="p-3 bg-accent/5 rounded-lg">
+                    <p className="font-medium">
+                      {new Date(
+                        selectedAppointment.dateTime,
+                      ).toLocaleDateString("es-ES", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(
+                        selectedAppointment.dateTime,
+                      ).toLocaleTimeString("es-ES", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      ({selectedAppointment.duration} minutos)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="font-medium">Estado y Prioridad</Label>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <div className="flex gap-2 mb-2">
+                      <Badge
+                        className={cn(
+                          "text-xs flex items-center gap-1",
+                          getStatusColor(selectedAppointment.status),
+                        )}
+                      >
+                        {getStatusIcon(selectedAppointment.status)}
+                        {selectedAppointment.status === "scheduled"
+                          ? "Programada"
+                          : selectedAppointment.status === "completed"
+                            ? "Completada"
+                            : "Cancelada"}
+                      </Badge>
+                      <Badge
+                        className={cn(
+                          "text-xs",
+                          getPriorityColor(selectedAppointment.priority),
+                        )}
+                      >
+                        {selectedAppointment.priority === "low"
+                          ? "Baja"
+                          : selectedAppointment.priority === "medium"
+                            ? "Media"
+                            : "Alta"}
+                      </Badge>
+                    </div>
+                    {selectedAppointment.reminderEnabled && (
+                      <p className="text-xs text-muted-foreground">
+                        Recordatorio: {selectedAppointment.reminderDays} día(s)
+                        antes
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-medium text-blue-600">
+                  Motivo de la Cita
+                </Label>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p>{selectedAppointment.reason}</p>
+                </div>
+              </div>
+
+              {selectedAppointment.treatmentNotes && (
+                <div className="space-y-2">
+                  <Label className="font-medium text-green-600">
+                    Notas de Tratamiento
+                  </Label>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p>{selectedAppointment.treatmentNotes}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedAppointment.observations && (
+                <div className="space-y-2">
+                  <Label className="font-medium text-purple-600">
+                    Observaciones
+                  </Label>
+                  <div className="p-3 bg-purple-50 rounded-lg">
+                    <p>{selectedAppointment.observations}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowAppointmentDetail(false)}
+              >
+                Cerrar
+              </Button>
+              {selectedAppointment.status === "scheduled" && (
+                <Button
+                  onClick={() => {
+                    handleEditAppointment(selectedAppointment);
+                    setShowAppointmentDetail(false);
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Editar Cita
+                </Button>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Calendar Styles */}
+      <style jsx global>{`
+        .rbc-calendar {
+          font-family: "Inter", system-ui, sans-serif;
+        }
+
+        .rbc-header {
+          background-color: hsl(var(--primary) / 0.1);
+          border-bottom: 1px solid hsl(var(--border));
+          padding: 8px;
+          font-weight: 600;
+          color: hsl(var(--primary));
+        }
+
+        .rbc-month-view {
+          border: 1px solid hsl(var(--border));
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .rbc-date-cell {
+          padding: 4px 8px;
+          font-size: 14px;
+          color: hsl(var(--foreground));
+        }
+
+        .rbc-date-cell.rbc-off-range {
+          color: hsl(var(--muted-foreground));
+        }
+
+        .rbc-today {
+          background-color: hsl(var(--primary) / 0.1);
+        }
+
+        .rbc-event {
+          border-radius: 4px;
+          border: none;
+          padding: 2px 4px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .rbc-event:focus {
+          outline: 2px solid hsl(var(--ring));
+          outline-offset: 2px;
+        }
+
+        .rbc-toolbar {
+          margin-bottom: 16px;
+          padding: 0 8px;
+        }
+
+        .rbc-toolbar button {
+          background: hsl(var(--background));
+          border: 1px solid hsl(var(--border));
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 14px;
+          color: hsl(var(--foreground));
+          transition: all 0.2s;
+        }
+
+        .rbc-toolbar button:hover {
+          background: hsl(var(--muted));
+          border-color: hsl(var(--border));
+        }
+
+        .rbc-toolbar button.rbc-active {
+          background: hsl(var(--primary));
+          color: hsl(var(--primary-foreground));
+          border-color: hsl(var(--primary));
+        }
+
+        .rbc-toolbar .rbc-toolbar-label {
+          font-size: 18px;
+          font-weight: 600;
+          color: hsl(var(--foreground));
+          margin: 0 16px;
+        }
+
+        .rbc-time-view .rbc-time-header {
+          border-bottom: 1px solid hsl(var(--border));
+        }
+
+        .rbc-time-view .rbc-time-content {
+          border-left: 1px solid hsl(var(--border));
+        }
+
+        .rbc-time-slot {
+          border-top: 1px solid hsl(var(--border));
+          color: hsl(var(--muted-foreground));
+        }
+
+        .rbc-current-time-indicator {
+          background-color: hsl(var(--destructive));
+          height: 2px;
+        }
+
+        .rbc-agenda-view table {
+          border: 1px solid hsl(var(--border));
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        .rbc-agenda-view .rbc-agenda-date-cell,
+        .rbc-agenda-view .rbc-agenda-time-cell,
+        .rbc-agenda-view .rbc-agenda-event-cell {
+          padding: 12px;
+          border-right: 1px solid hsl(var(--border));
+        }
+
+        .rbc-show-more {
+          background: hsl(var(--muted));
+          color: hsl(var(--muted-foreground));
+          border: 1px solid hsl(var(--border));
+          border-radius: 4px;
+          padding: 2px 8px;
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .rbc-show-more:hover {
+          background: hsl(var(--muted) / 0.8);
+        }
+      `}</style>
     </Layout>
   );
 }
