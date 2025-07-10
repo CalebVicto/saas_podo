@@ -383,6 +383,66 @@ export const mockPayments: Payment[] = [
     createdAt: "2024-01-23T11:20:00Z",
     updatedAt: "2024-01-23T11:20:00Z",
   },
+  {
+    id: "5",
+    saleId: "3",
+    amount: 120.0,
+    method: "yape",
+    status: "completed",
+    paidAt: "2024-01-25T10:15:00Z",
+    createdAt: "2024-01-25T10:15:00Z",
+    updatedAt: "2024-01-25T10:15:00Z",
+  },
+  {
+    id: "6",
+    saleId: "4",
+    amount: 45.0,
+    method: "cash",
+    status: "completed",
+    paidAt: "2024-01-25T14:20:00Z",
+    createdAt: "2024-01-25T14:20:00Z",
+    updatedAt: "2024-01-25T14:20:00Z",
+  },
+  {
+    id: "7",
+    saleId: "5",
+    amount: 78.5,
+    method: "card",
+    status: "completed",
+    paidAt: "2024-01-22T09:45:00Z",
+    createdAt: "2024-01-22T09:45:00Z",
+    updatedAt: "2024-01-22T09:45:00Z",
+  },
+  {
+    id: "8",
+    saleId: "6",
+    amount: 63.0,
+    method: "plin",
+    status: "completed",
+    paidAt: "2024-01-21T16:30:00Z",
+    createdAt: "2024-01-21T16:30:00Z",
+    updatedAt: "2024-01-21T16:30:00Z",
+  },
+  {
+    id: "9",
+    saleId: "7",
+    amount: 35.0,
+    method: "transfer",
+    status: "completed",
+    paidAt: "2024-01-20T11:10:00Z",
+    createdAt: "2024-01-20T11:10:00Z",
+    updatedAt: "2024-01-20T11:10:00Z",
+  },
+  {
+    id: "10",
+    saleId: "8",
+    amount: 91.5,
+    method: "yape",
+    status: "completed",
+    paidAt: "2024-01-19T13:25:00Z",
+    createdAt: "2024-01-19T13:25:00Z",
+    updatedAt: "2024-01-19T13:25:00Z",
+  },
 ];
 
 // Mock Sales
@@ -404,6 +464,60 @@ export const mockSales: Sale[] = [
     sellerId: "2",
     createdAt: "2024-01-23T11:20:00Z",
     updatedAt: "2024-01-23T11:20:00Z",
+  },
+  {
+    id: "3",
+    items: [],
+    totalAmount: 120.0,
+    customerId: "2",
+    sellerId: "1",
+    createdAt: "2024-01-25T10:15:00Z",
+    updatedAt: "2024-01-25T10:15:00Z",
+  },
+  {
+    id: "4",
+    items: [],
+    totalAmount: 45.0,
+    customerId: undefined,
+    sellerId: "2",
+    createdAt: "2024-01-25T14:20:00Z",
+    updatedAt: "2024-01-25T14:20:00Z",
+  },
+  {
+    id: "5",
+    items: [],
+    totalAmount: 78.5,
+    customerId: "4",
+    sellerId: "1",
+    createdAt: "2024-01-22T09:45:00Z",
+    updatedAt: "2024-01-22T09:45:00Z",
+  },
+  {
+    id: "6",
+    items: [],
+    totalAmount: 63.0,
+    customerId: "5",
+    sellerId: "3",
+    createdAt: "2024-01-21T16:30:00Z",
+    updatedAt: "2024-01-21T16:30:00Z",
+  },
+  {
+    id: "7",
+    items: [],
+    totalAmount: 35.0,
+    customerId: undefined,
+    sellerId: "2",
+    createdAt: "2024-01-20T11:10:00Z",
+    updatedAt: "2024-01-20T11:10:00Z",
+  },
+  {
+    id: "8",
+    items: [],
+    totalAmount: 91.5,
+    customerId: "1",
+    sellerId: "1",
+    createdAt: "2024-01-19T13:25:00Z",
+    updatedAt: "2024-01-19T13:25:00Z",
   },
 ];
 
@@ -436,11 +550,113 @@ export const mockSaleItems: SaleItem[] = [
     totalPrice: 18.5,
     product: mockProducts[6],
   },
+  // Sale 3 items
+  {
+    id: "4",
+    saleId: "3",
+    productId: "4",
+    quantity: 1,
+    unitPrice: 120.0,
+    totalPrice: 120.0,
+    product: mockProducts[3],
+  },
+  // Sale 4 items
+  {
+    id: "5",
+    saleId: "4",
+    productId: "5",
+    quantity: 1,
+    unitPrice: 45.0,
+    totalPrice: 45.0,
+    product: mockProducts[4],
+  },
+  // Sale 5 items
+  {
+    id: "6",
+    saleId: "5",
+    productId: "1",
+    quantity: 1,
+    unitPrice: 25.5,
+    totalPrice: 25.5,
+    product: mockProducts[0],
+  },
+  {
+    id: "7",
+    saleId: "5",
+    productId: "2",
+    quantity: 1,
+    unitPrice: 35.0,
+    totalPrice: 35.0,
+    product: mockProducts[1],
+  },
+  {
+    id: "8",
+    saleId: "5",
+    productId: "7",
+    quantity: 1,
+    unitPrice: 18.0,
+    totalPrice: 18.0,
+    product: mockProducts[6],
+  },
+  // Sale 6 items
+  {
+    id: "9",
+    saleId: "6",
+    productId: "6",
+    quantity: 1,
+    unitPrice: 28.0,
+    totalPrice: 28.0,
+    product: mockProducts[5],
+  },
+  {
+    id: "10",
+    saleId: "6",
+    productId: "2",
+    quantity: 1,
+    unitPrice: 35.0,
+    totalPrice: 35.0,
+    product: mockProducts[1],
+  },
+  // Sale 7 items
+  {
+    id: "11",
+    saleId: "7",
+    productId: "2",
+    quantity: 1,
+    unitPrice: 35.0,
+    totalPrice: 35.0,
+    product: mockProducts[1],
+  },
+  // Sale 8 items
+  {
+    id: "12",
+    saleId: "8",
+    productId: "1",
+    quantity: 2,
+    unitPrice: 25.5,
+    totalPrice: 51.0,
+    product: mockProducts[0],
+  },
+  {
+    id: "13",
+    saleId: "8",
+    productId: "5",
+    quantity: 1,
+    unitPrice: 45.0,
+    totalPrice: 45.0,
+    product: mockProducts[4],
+  },
 ];
 
 // Update sales with items
 mockSales[0].items = [mockSaleItems[0]];
 mockSales[1].items = [mockSaleItems[1], mockSaleItems[2]];
+mockSales[2].items = [mockSaleItems[3]];
+mockSales[3].items = [mockSaleItems[4]];
+mockSales[4].items = [mockSaleItems[5], mockSaleItems[6], mockSaleItems[7]];
+mockSales[5].items = [mockSaleItems[8], mockSaleItems[9]];
+mockSales[6].items = [mockSaleItems[10]];
+mockSales[7].items = [mockSaleItems[11], mockSaleItems[12]];
 
 // Add payments to appointments
 mockAppointments[0].payment = mockPayments[0];
@@ -449,6 +665,12 @@ mockAppointments[1].payment = mockPayments[1];
 // Add payments to sales
 mockSales[0].payment = mockPayments[2];
 mockSales[1].payment = mockPayments[3];
+mockSales[2].payment = mockPayments[4];
+mockSales[3].payment = mockPayments[5];
+mockSales[4].payment = mockPayments[6];
+mockSales[5].payment = mockPayments[7];
+mockSales[6].payment = mockPayments[8];
+mockSales[7].payment = mockPayments[9];
 
 // Mock Product Movements (Kardex)
 export const mockProductMovements: ProductMovement[] = [
