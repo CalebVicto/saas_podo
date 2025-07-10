@@ -625,7 +625,9 @@ export function Products() {
                           <TableCell>
                             <div className="flex gap-2">
                               <Button
-                                onClick={() => openViewProductDialog(product)}
+                                onClick={() =>
+                                  navigate(`/products/${product.id}`)
+                                }
                                 variant="outline"
                                 size="sm"
                               >
