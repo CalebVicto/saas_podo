@@ -34,7 +34,11 @@ export interface UseRepositoryPaginationReturn<T> {
   refresh: () => void;
 
   // For manual data loading
-  loadData: (params: PaginatedSearchParams) => Promise<void>;
+  loadData: (
+    fetchFunction: (
+      params: PaginatedSearchParams,
+    ) => Promise<PaginatedResponse<T>>,
+  ) => Promise<void>;
 }
 
 export function useRepositoryPagination<T>({
