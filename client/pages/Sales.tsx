@@ -61,11 +61,13 @@ import {
   getMockWorkers,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import { Pagination } from "@/components/ui/pagination";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 import {
-  Pagination,
-  usePagination,
-  paginateArray,
-} from "@/components/ui/pagination";
+  useSaleRepository,
+  useProductRepository,
+  usePatientRepository,
+} from "@/lib/repositories";
 
 interface CartItem {
   product: Product;
@@ -131,9 +133,8 @@ export function Sales() {
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isViewSaleDialogOpen, setIsViewSaleDialogOpen] = useState(false);
 
-  // Pagination for sales history
-  const salesPagination = usePagination({
-    totalItems: filteredSales.length,
+  // Repository-based pagination for sales history
+  const salesPagination = useRepositoryPagination<Sale>({
     initialPageSize: 15,
   });
 
