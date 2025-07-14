@@ -61,6 +61,11 @@ import {
   getMockWorkers,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import {
+  Pagination,
+  usePagination,
+  paginateArray,
+} from "@/components/ui/pagination";
 
 interface CartItem {
   product: Product;
@@ -125,6 +130,12 @@ export function Sales() {
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isViewSaleDialogOpen, setIsViewSaleDialogOpen] = useState(false);
+
+  // Pagination for sales history
+  const salesPagination = usePagination({
+    totalItems: filteredSales.length,
+    initialPageSize: 15,
+  });
 
   // Load data on component mount
   useEffect(() => {
@@ -205,7 +216,15 @@ export function Sales() {
     }
 
     setFilteredSales(filtered);
-  }, [sales, salesSearchTerm, dateFilter, paymentMethodFilter]);
+    // Reset pagination when filters change
+    salesPagination.resetPagination();
+  }, [
+    sales,
+    salesSearchTerm,
+    dateFilter,
+    paymentMethodFilter,
+    salesPagination,
+  ]);
 
   const loadData = async () => {
     setIsLoadingProducts(true);
@@ -992,15 +1011,17 @@ export function Sales() {
                   )
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 {isLoadingSales ? (
                   <div className="space-y-4">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="loading-shimmer h-16 rounded"
-                      ></div>
-                    ))}
+                    {Array.from({ length: salesPagination.pageSize }).map(
+                      (_, i) => (
+                        <div
+                          key={i}
+                          className="loading-shimmer h-16 rounded"
+                        ></div>
+                      ),
+                    )}
                   </div>
                 ) : filteredSales.length === 0 ? (
                   <div className="text-center py-12">
@@ -1024,95 +1045,115 @@ export function Sales() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Fecha</TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead>Productos</TableHead>
-                          <TableHead>Método de Pago</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredSales.map((sale) => {
-                          const { date, time } = formatDateTime(sale.createdAt);
-                          const customer = sale.customer;
-                          const customerName = customer
-                            ? `${customer.firstName} ${customer.lastName}`
-                            : "Venta general";
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Productos</TableHead>
+                            <TableHead>Método de Pago</TableHead>
+                            <TableHead>Total</TableHead>
+                            <TableHead>Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {paginateArray(
+                            filteredSales,
+                            salesPagination.currentPage,
+                            salesPagination.pageSize,
+                          ).map((sale) => {
+                            const { date, time } = formatDateTime(
+                              sale.createdAt,
+                            );
+                            const customer = sale.customer;
+                            const customerName = customer
+                              ? `${customer.firstName} ${customer.lastName}`
+                              : "Venta general";
 
-                          return (
-                            <TableRow key={sale.id}>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium">{date}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {time}
-                                  </p>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-primary" />
+                            return (
+                              <TableRow key={sale.id}>
+                                <TableCell>
+                                  <div>
+                                    <p className="font-medium">{date}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {time}
+                                    </p>
                                   </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                      <User className="w-4 h-4 text-primary" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium">
+                                        {customerName}
+                                      </p>
+                                      {customer && (
+                                        <p className="text-sm text-muted-foreground">
+                                          {customer.documentId}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
                                   <div>
                                     <p className="font-medium">
-                                      {customerName}
+                                      {sale.items.length} producto
+                                      {sale.items.length !== 1 ? "s" : ""}
                                     </p>
-                                    {customer && (
-                                      <p className="text-sm text-muted-foreground">
-                                        {customer.documentId}
-                                      </p>
-                                    )}
+                                    <p className="text-sm text-muted-foreground">
+                                      {sale.items
+                                        .slice(0, 2)
+                                        .map((item) => item.product?.name)
+                                        .join(", ")}
+                                      {sale.items.length > 2 && "..."}
+                                    </p>
                                   </div>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium">
-                                    {sale.items.length} producto
-                                    {sale.items.length !== 1 ? "s" : ""}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {sale.items
-                                      .slice(0, 2)
-                                      .map((item) => item.product?.name)
-                                      .join(", ")}
-                                    {sale.items.length > 2 && "..."}
-                                  </p>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">
-                                  {getPaymentMethodLabel(
-                                    sale.payment?.method || "",
-                                  )}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <span className="font-bold text-lg text-primary">
-                                  S/ {sale.totalAmount.toFixed(2)}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  onClick={() => viewSaleDetails(sale)}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">
+                                    {getPaymentMethodLabel(
+                                      sale.payment?.method || "",
+                                    )}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <span className="font-bold text-lg text-primary">
+                                    S/ {sale.totalAmount.toFixed(2)}
+                                  </span>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    onClick={() => viewSaleDetails(sale)}
+                                    variant="outline"
+                                    size="sm"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* Pagination */}
+                    <Pagination
+                      currentPage={salesPagination.currentPage}
+                      totalPages={salesPagination.totalPages}
+                      totalItems={filteredSales.length}
+                      pageSize={salesPagination.pageSize}
+                      onPageChange={salesPagination.goToPage}
+                      onPageSizeChange={salesPagination.setPageSize}
+                      showPageSizeSelector={true}
+                      pageSizeOptions={[10, 15, 25, 50]}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>
