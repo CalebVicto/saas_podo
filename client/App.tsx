@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RepositoryProvider, RepositoryDebugPanel } from "@/lib/repositories";
+import { AuthProvider, ProtectedRoute, initializeApi } from "@/lib/auth";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -36,58 +37,226 @@ import ExampleRepositoryUsage from "./pages/ExampleRepositoryUsage";
 
 const queryClient = new QueryClient();
 
+// Initialize the authenticated API with token expiration handler
+// This will be called automatically on 401 responses
+const handleTokenExpired = () => {
+  // Clear auth storage and redirect to login
+  const { tokenStorage } = require("@/lib/auth");
+  tokenStorage.clear();
+  window.location.href = "/login";
+};
+
+initializeApi("", handleTokenExpired);
+
 const App = () => (
-  <RepositoryProvider>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Redirect root to login */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
+  <AuthProvider>
+    <RepositoryProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Redirect root to dashboard if authenticated, otherwise to login */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute fallbackPath="/login">
+                    <Navigate to="/dashboard" replace />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Authentication */}
-            <Route path="/login" element={<Login />} />
+              {/* Authentication */}
+              <Route path="/login" element={<Login />} />
 
-            {/* Main Application Routes */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/patients/:id" element={<PatientDetail />} />
-            <Route path="/appointments" element={<Appointments />} />
-            <Route path="/appointments/new" element={<CreateAppointment />} />
-            <Route
-              path="/appointments/schedule"
-              element={<ScheduleAppointment />}
-            />
-            <Route path="/payments" element={<Payments />} />
-            <Route path="/abonos" element={<Abonos />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/:id" element={<ProductDetail />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/packages" element={<Packages />} />
-            <Route path="/kardex" element={<Kardex />} />
-            <Route path="/workers" element={<Workers />} />
-            <Route path="/workers/:id" element={<WorkerDetail />} />
-            <Route path="/worker-types" element={<WorkerTypes />} />
-            <Route path="/user-accounts" element={<UserAccounts />} />
-            <Route path="/service-packages" element={<ServicePackages />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/sales" element={<Sales />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route
-              path="/repository-example"
-              element={<ExampleRepositoryUsage />}
-            />
+              {/* Main Application Routes - All Protected */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/patients"
+                element={
+                  <ProtectedRoute>
+                    <Patients />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/patients/:id"
+                element={
+                  <ProtectedRoute>
+                    <PatientDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/appointments"
+                element={
+                  <ProtectedRoute>
+                    <Appointments />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/appointments/new"
+                element={
+                  <ProtectedRoute>
+                    <CreateAppointment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/appointments/schedule"
+                element={
+                  <ProtectedRoute>
+                    <ScheduleAppointment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute>
+                    <Payments />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/abonos"
+                element={
+                  <ProtectedRoute>
+                    <Abonos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products"
+                element={
+                  <ProtectedRoute>
+                    <Products />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products/:id"
+                element={
+                  <ProtectedRoute>
+                    <ProductDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/categories"
+                element={
+                  <ProtectedRoute>
+                    <Categories />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/packages"
+                element={
+                  <ProtectedRoute>
+                    <Packages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kardex"
+                element={
+                  <ProtectedRoute>
+                    <Kardex />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workers"
+                element={
+                  <ProtectedRoute>
+                    <Workers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workers/:id"
+                element={
+                  <ProtectedRoute>
+                    <WorkerDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/worker-types"
+                element={
+                  <ProtectedRoute>
+                    <WorkerTypes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/user-accounts"
+                element={
+                  <ProtectedRoute requireRole="admin">
+                    <UserAccounts />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/service-packages"
+                element={
+                  <ProtectedRoute>
+                    <ServicePackages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sales"
+                element={
+                  <ProtectedRoute>
+                    <Sales />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/repository-example"
+                element={
+                  <ProtectedRoute>
+                    <ExampleRepositoryUsage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Catch-all route for 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-        <RepositoryDebugPanel />
-      </TooltipProvider>
-    </QueryClientProvider>
-  </RepositoryProvider>
+              {/* Catch-all route for 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+          <RepositoryDebugPanel />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </RepositoryProvider>
+  </AuthProvider>
 );
 
 createRoot(document.getElementById("root")!).render(<App />);

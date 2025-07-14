@@ -2,13 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import Sidebar from "./Sidebar";
-
-interface User {
-  id: string;
-  name: string;
-  role: "admin" | "worker";
-}
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,22 +11,8 @@ interface LayoutProps {
   subtitle?: string;
 }
 
-const useAuth = () => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("podocare_user");
-    return stored ? JSON.parse(stored) : null;
-  });
-
-  const logout = () => {
-    localStorage.removeItem("podocare_user");
-    setUser(null);
-  };
-
-  return { user, logout };
-};
-
 export function Layout({ children, title, subtitle }: LayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -43,10 +24,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   );
 
   useEffect(() => {
-    if (!user) {
+    if (!isAuthenticated) {
       navigate("/login");
     }
-  }, [user, navigate]);
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (user) {
@@ -56,7 +37,7 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    // Navigation will be handled automatically by the logout function
   };
 
   const handleSwitchView = () => {
@@ -74,7 +55,7 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
     );
   };
 
-  if (!user) return null;
+  if (!isAuthenticated || !user) return null;
 
   return (
     <div className="h-screen bg-background flex overflow-hidden m-0 p-0">
