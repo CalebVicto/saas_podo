@@ -12,7 +12,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children, title, subtitle }: LayoutProps) {
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -24,10 +24,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   );
 
   useEffect(() => {
-    if (!user) {
+    if (!isAuthenticated) {
       navigate("/login");
     }
-  }, [user, navigate]);
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (user) {
@@ -37,7 +37,7 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    // Navigation will be handled automatically by the logout function
   };
 
   const handleSwitchView = () => {
