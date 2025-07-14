@@ -58,6 +58,12 @@ interface WorkerStats {
   averageRating: number;
   completionRate: number;
   monthlyAppointments: { month: string; count: number; revenue: number }[];
+  paymentMethodBreakdown: {
+    method: string;
+    amount: number;
+    count: number;
+    percentage: number;
+  }[];
 }
 
 // Mock monthly performance data
