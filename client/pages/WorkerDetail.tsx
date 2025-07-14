@@ -595,6 +595,56 @@ export function WorkerDetail() {
           </div>
         </div>
 
+        {/* Payment Methods Breakdown */}
+        {stats.paymentMethodBreakdown.length > 0 && (
+          <Card className="card-modern">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-primary" />
+                Ingresos por Método de Pago
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {stats.paymentMethodBreakdown.map((method) => {
+                  const config =
+                    getPaymentMethodConfig()[
+                      method.method as keyof ReturnType<
+                        typeof getPaymentMethodConfig
+                      >
+                    ] || getPaymentMethodConfig().other;
+                  const IconComponent = config.icon;
+                  return (
+                    <div
+                      key={method.method}
+                      className="flex flex-col items-center p-4 bg-muted/30 rounded-lg"
+                    >
+                      <div
+                        className={cn("p-3 rounded-full mb-3", config.iconBg)}
+                      >
+                        <IconComponent
+                          className={cn("w-6 h-6", config.color)}
+                        />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {config.label}
+                        </p>
+                        <p className="text-lg font-bold text-foreground">
+                          S/ {method.amount.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {method.count} pagos ({method.percentage.toFixed(1)}%)
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Detailed Analytics */}
         <Tabs defaultValue="performance" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
