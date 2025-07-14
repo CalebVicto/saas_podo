@@ -348,3 +348,15 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface SearchParams {
+  search?: string;
+  [key: string]: any;
+}
+
+export interface PaginatedSearchParams extends PaginationParams, SearchParams {}
