@@ -481,7 +481,7 @@ export function Appointments() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setSearchTerm("");
+                  pagination.setSearchTerm("");
                   setStatusFilter("all");
                   setDateFilter("");
                   setWorkerFilter("all");
@@ -496,28 +496,23 @@ export function Appointments() {
         {/* Appointments Table */}
         <Card className="card-modern">
           <CardHeader>
-            <CardTitle>
-              Citas ({filteredAppointments.length}{" "}
-              {filteredAppointments.length !== appointments.length &&
-                `de ${appointments.length}`}
-              )
-            </CardTitle>
+            <CardTitle>Citas ({pagination.totalItems})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {isLoading ? (
+            {pagination.isLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: pagination.pageSize }).map((_, i) => (
                   <div key={i} className="loading-shimmer h-16 rounded"></div>
                 ))}
               </div>
-            ) : filteredAppointments.length === 0 ? (
+            ) : pagination.data.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-foreground mb-2">
                   No hay citas
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  {searchTerm || statusFilter !== "all" || dateFilter
+                  {pagination.searchTerm || statusFilter !== "all" || dateFilter
                     ? "No se encontraron citas con los filtros aplicados"
                     : "No hay citas programadas"}
                 </p>
