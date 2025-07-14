@@ -47,11 +47,13 @@ import {
 import { cn } from "@/lib/utils";
 import { Appointment, CreateAppointmentRequest, Payment } from "@shared/api";
 import {
-  getMockAppointments,
-  getMockPatients,
-  getMockWorkers,
-} from "@/lib/mockData";
+  useAppointmentRepository,
+  usePatientRepository,
+  useWorkerRepository,
+} from "@/lib/repositories";
 import Layout from "@/components/Layout";
+import { Pagination } from "@/components/ui/pagination";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 
 interface User {
   id: string;
@@ -92,11 +94,10 @@ const statusConfig = {
 export function Appointments() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [filteredAppointments, setFilteredAppointments] = useState<
-    Appointment[]
-  >([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const appointmentRepository = useAppointmentRepository();
+  const patientRepository = usePatientRepository();
+  const workerRepository = useWorkerRepository();
+
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [workerFilter, setWorkerFilter] = useState<string>("all");
@@ -106,11 +107,13 @@ export function Appointments() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [workers, setWorkers] = useState<any[]>([]);
 
-  // Get available data
-  const patients = getMockPatients();
-  const workers = getMockWorkers();
+  // Repository-based pagination
+  const pagination = useRepositoryPagination<Appointment>({
+    initialPageSize: 15,
+  });
 
   // Form state for new/edit appointment
   const [formData, setFormData] = useState<CreateAppointmentRequest>({
@@ -129,105 +132,71 @@ export function Appointments() {
     notes: "",
   });
 
-  // Load appointments on component mount
+  // Load initial data
   useEffect(() => {
     if (!user) {
       navigate("/login");
       return;
     }
-    loadAppointments();
+    loadInitialData();
   }, [user, navigate]);
 
-  // Filter appointments based on search and filters
+  // Load appointments whenever pagination or filters change
   useEffect(() => {
-    let filtered = appointments;
+    loadAppointments();
+  }, [
+    pagination.currentPage,
+    pagination.pageSize,
+    pagination.searchTerm,
+    statusFilter,
+    dateFilter,
+    workerFilter,
+  ]);
 
-    // Text search
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (appointment) =>
-          appointment.patient?.firstName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.patient?.lastName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.worker?.firstName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.worker?.lastName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.treatmentNotes
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      );
+  const loadInitialData = async () => {
+    try {
+      // Load patients and workers for dropdowns
+      const [patientsResponse, workersResponse] = await Promise.all([
+        patientRepository.getAll({ limit: 1000 }),
+        workerRepository.getAll({ limit: 1000 }),
+      ]);
+      setPatients(patientsResponse.items);
+      setWorkers(workersResponse.items);
+    } catch (error) {
+      console.error("Error loading initial data:", error);
     }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (appointment) => appointment.status === statusFilter,
-      );
-    }
-
-    // Date filter
-    if (dateFilter) {
-      filtered = filtered.filter((appointment) =>
-        appointment.dateTime.startsWith(dateFilter),
-      );
-    }
-
-    // Worker filter (for non-admin users or when filter is applied)
-    if (workerFilter !== "all") {
-      filtered = filtered.filter(
-        (appointment) => appointment.workerId === workerFilter,
-      );
-    } else if (user?.role === "worker") {
-      // Workers only see their own appointments
-      filtered = filtered.filter(
-        (appointment) => appointment.workerId === user.id,
-      );
-    }
-
-    setFilteredAppointments(filtered);
-  }, [appointments, searchTerm, statusFilter, dateFilter, workerFilter, user]);
+  };
 
   const loadAppointments = async () => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockAppointments = getMockAppointments();
-      setAppointments(mockAppointments);
-    } catch (error) {
-      console.error("Error loading appointments:", error);
-    } finally {
-      setIsLoading(false);
+    const filters: any = {
+      ...pagination.filters,
+    };
+
+    // Add custom filters
+    if (statusFilter !== "all") {
+      filters.status = statusFilter;
     }
+    if (dateFilter) {
+      filters.date = dateFilter;
+    }
+    if (workerFilter !== "all") {
+      filters.workerId = workerFilter;
+    } else if (user?.role === "worker") {
+      // Workers only see their own appointments
+      filters.workerId = user.id;
+    }
+
+    pagination.setFilters(filters);
+    await pagination.loadData((params) => appointmentRepository.getAll(params));
   };
 
   const handleAddAppointment = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const patient = patients.find((p) => p.id === formData.patientId);
-      const worker = workers.find((w) => w.id === formData.workerId);
-
-      const newAppointment: Appointment = {
-        id: Date.now().toString(),
-        ...formData,
-        status: "scheduled",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        patient,
-        worker,
-      };
-
-      setAppointments([...appointments, newAppointment]);
+      await appointmentRepository.create(formData);
       setIsAddDialogOpen(false);
       resetForm();
+      // Refresh the data
+      await loadAppointments();
     } catch (error) {
       console.error("Error adding appointment:", error);
     }
@@ -237,28 +206,12 @@ export function Appointments() {
     if (!selectedAppointment) return;
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const patient = patients.find((p) => p.id === formData.patientId);
-      const worker = workers.find((w) => w.id === formData.workerId);
-
-      const updatedAppointment: Appointment = {
-        ...selectedAppointment,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-        patient,
-        worker,
-      };
-
-      setAppointments(
-        appointments.map((a) =>
-          a.id === selectedAppointment.id ? updatedAppointment : a,
-        ),
-      );
+      await appointmentRepository.update(selectedAppointment.id, formData);
       setIsEditDialogOpen(false);
       setSelectedAppointment(null);
       resetForm();
+      // Refresh the data
+      await loadAppointments();
     } catch (error) {
       console.error("Error updating appointment:", error);
     }
@@ -269,20 +222,9 @@ export function Appointments() {
     newStatus: Appointment["status"],
   ) => {
     try {
-      const updatedAppointment = appointments.find(
-        (a) => a.id === appointmentId,
-      );
-      if (!updatedAppointment) return;
-
-      const updated = {
-        ...updatedAppointment,
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setAppointments(
-        appointments.map((a) => (a.id === appointmentId ? updated : a)),
-      );
+      await appointmentRepository.update(appointmentId, { status: newStatus });
+      // Refresh the data
+      await loadAppointments();
     } catch (error) {
       console.error("Error updating appointment status:", error);
     }
@@ -494,8 +436,8 @@ export function Appointments() {
                 <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Buscar paciente, trabajador..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={pagination.searchTerm}
+                  onChange={(e) => pagination.setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -539,7 +481,7 @@ export function Appointments() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setSearchTerm("");
+                  pagination.setSearchTerm("");
                   setStatusFilter("all");
                   setDateFilter("");
                   setWorkerFilter("all");
@@ -554,28 +496,23 @@ export function Appointments() {
         {/* Appointments Table */}
         <Card className="card-modern">
           <CardHeader>
-            <CardTitle>
-              Citas ({filteredAppointments.length}{" "}
-              {filteredAppointments.length !== appointments.length &&
-                `de ${appointments.length}`}
-              )
-            </CardTitle>
+            <CardTitle>Citas ({pagination.totalItems})</CardTitle>
           </CardHeader>
-          <CardContent>
-            {isLoading ? (
+          <CardContent className="space-y-6">
+            {pagination.isLoading ? (
               <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: pagination.pageSize }).map((_, i) => (
                   <div key={i} className="loading-shimmer h-16 rounded"></div>
                 ))}
               </div>
-            ) : filteredAppointments.length === 0 ? (
+            ) : pagination.data.length === 0 ? (
               <div className="text-center py-12">
                 <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-foreground mb-2">
                   No hay citas
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  {searchTerm || statusFilter !== "all" || dateFilter
+                  {pagination.searchTerm || statusFilter !== "all" || dateFilter
                     ? "No se encontraron citas con los filtros aplicados"
                     : "No hay citas programadas"}
                 </p>
@@ -588,26 +525,21 @@ export function Appointments() {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha & Hora</TableHead>
-                      <TableHead>Paciente</TableHead>
-                      <TableHead>Trabajador</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Duración</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAppointments
-                      .sort(
-                        (a, b) =>
-                          new Date(a.dateTime).getTime() -
-                          new Date(b.dateTime).getTime(),
-                      )
-                      .map((appointment) => {
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha & Hora</TableHead>
+                        <TableHead>Paciente</TableHead>
+                        <TableHead>Trabajador</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Duración</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagination.data.map((appointment) => {
                         const { date, time } = formatDateTime(
                           appointment.dateTime,
                         );
@@ -724,9 +656,22 @@ export function Appointments() {
                           </TableRow>
                         );
                       })}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalItems={pagination.totalItems}
+                  pageSize={pagination.pageSize}
+                  onPageChange={pagination.goToPage}
+                  onPageSizeChange={pagination.setPageSize}
+                  showPageSizeSelector={true}
+                  pageSizeOptions={[10, 15, 25, 50]}
+                />
+              </>
             )}
           </CardContent>
         </Card>
@@ -845,7 +790,7 @@ export function Appointments() {
                   onChange={(e) =>
                     setFormData({ ...formData, diagnosis: e.target.value })
                   }
-                  placeholder="Diagnóstico preliminar o confirmado"
+                  placeholder="Diagn��stico preliminar o confirmado"
                 />
               </div>
             </div>

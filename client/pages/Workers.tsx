@@ -56,6 +56,11 @@ import {
   getAllMockProducts,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import {
+  Pagination,
+  usePagination,
+  paginateArray,
+} from "@/components/ui/pagination";
 
 // Predefined worker types
 const WORKER_TYPES = [
@@ -93,6 +98,12 @@ export function Workers() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination
+  const pagination = usePagination({
+    totalItems: filteredWorkers.length,
+    initialPageSize: 9,
+  });
 
   // Form state for new/edit worker
   const [formData, setFormData] = useState<CreateWorkerRequest>({
@@ -148,7 +159,9 @@ export function Workers() {
     }
 
     setFilteredWorkers(filtered);
-  }, [workers, searchTerm, statusFilter]);
+    // Reset pagination when filters change
+    pagination.resetPagination();
+  }, [workers, searchTerm, statusFilter, pagination]);
 
   const loadWorkers = async () => {
     setIsLoading(true);
@@ -524,189 +537,215 @@ export function Workers() {
         </Card>
 
         {/* Workers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
-            // Loading skeletons
-            Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="card-modern">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="loading-shimmer h-6 rounded"></div>
-                    <div className="loading-shimmer h-4 rounded"></div>
-                    <div className="loading-shimmer h-4 w-2/3 rounded"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : filteredWorkers.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                {searchTerm
-                  ? "No se encontraron trabajadores"
-                  : "No hay trabajadores registrados"}
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                {searchTerm
-                  ? "Intenta con otros términos de búsqueda"
-                  : "Comienza agregando tu primer trabajador"}
-              </p>
-              {!searchTerm && (
-                <Button
-                  onClick={() => setIsAddDialogOpen(true)}
-                  className="btn-primary"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Trabajador
-                </Button>
-              )}
-            </div>
-          ) : (
-            filteredWorkers.map((worker) => {
-              const dateRange =
-                startDate && endDate
-                  ? {
-                      startDate: new Date(startDate),
-                      endDate: new Date(endDate),
-                    }
-                  : undefined;
-              const stats = getWorkerStats(
-                worker.id,
-                dateRange?.startDate,
-                dateRange?.endDate,
-              );
-
-              return (
-                <Card
-                  key={worker.id}
-                  className="card-modern hover:shadow-lg transition-all duration-200"
-                >
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {isLoading ? (
+              // Loading skeletons
+              Array.from({ length: pagination.pageSize }).map((_, i) => (
+                <Card key={i} className="card-modern">
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Users className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {worker.firstName} {worker.lastName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {worker.specialization || "Sin especialización"}
-                          </p>
-                          {worker.workerType && (
-                            <p className="text-xs text-primary font-medium">
-                              {worker.workerType}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge
-                          variant="outline"
-                          className={
-                            worker.isActive ? "status-success" : "status-error"
-                          }
-                        >
-                          {worker.isActive ? "Activo" : "Inactivo"}
-                        </Badge>
-                        {worker.hasSystemAccess && (
-                          <Badge
-                            variant="outline"
-                            className="text-blue-600 border-blue-600"
-                          >
-                            Acceso Sistema
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Email:</span>
-                        <span className="font-medium truncate">
-                          {worker.email}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Tel:</span>
-                        <span className="font-medium">{worker.phone}</span>
-                      </div>
-                    </div>
-
-                    {/* Performance Stats */}
-                    <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">
-                          {stats.completedAppointments}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Citas completadas
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">
-                          S/ {stats.totalRevenue.toFixed(0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Ingresos totales
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-green-600">
-                          S/ {stats.totalBonuses.toFixed(0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Bonos ganados
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">
-                          {stats.salesCount}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Ventas</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => navigate(`/workers/${worker.id}`)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver Detalle
-                      </Button>
-                      <Button
-                        onClick={() => openEditDialog(worker)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Editar
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                      <span className="text-sm font-medium">Estado:</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {worker.isActive ? "Activo" : "Inactivo"}
-                        </span>
-                        <Switch
-                          checked={worker.isActive}
-                          onCheckedChange={() => handleToggleStatus(worker.id)}
-                        />
-                      </div>
+                    <div className="space-y-4">
+                      <div className="loading-shimmer h-6 rounded"></div>
+                      <div className="loading-shimmer h-4 rounded"></div>
+                      <div className="loading-shimmer h-4 w-2/3 rounded"></div>
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })
+              ))
+            ) : filteredWorkers.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  {searchTerm
+                    ? "No se encontraron trabajadores"
+                    : "No hay trabajadores registrados"}
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  {searchTerm
+                    ? "Intenta con otros términos de búsqueda"
+                    : "Comienza agregando tu primer trabajador"}
+                </p>
+                {!searchTerm && (
+                  <Button
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="btn-primary"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Trabajador
+                  </Button>
+                )}
+              </div>
+            ) : (
+              paginateArray(
+                filteredWorkers,
+                pagination.currentPage,
+                pagination.pageSize,
+              ).map((worker) => {
+                const dateRange =
+                  startDate && endDate
+                    ? {
+                        startDate: new Date(startDate),
+                        endDate: new Date(endDate),
+                      }
+                    : undefined;
+                const stats = getWorkerStats(
+                  worker.id,
+                  dateRange?.startDate,
+                  dateRange?.endDate,
+                );
+
+                return (
+                  <Card
+                    key={worker.id}
+                    className="card-modern hover:shadow-lg transition-all duration-200"
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                            <Users className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">
+                              {worker.firstName} {worker.lastName}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {worker.specialization || "Sin especialización"}
+                            </p>
+                            {worker.workerType && (
+                              <p className="text-xs text-primary font-medium">
+                                {worker.workerType}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className={
+                              worker.isActive
+                                ? "status-success"
+                                : "status-error"
+                            }
+                          >
+                            {worker.isActive ? "Activo" : "Inactivo"}
+                          </Badge>
+                          {worker.hasSystemAccess && (
+                            <Badge
+                              variant="outline"
+                              className="text-blue-600 border-blue-600"
+                            >
+                              Acceso Sistema
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Mail className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Email:</span>
+                          <span className="font-medium truncate">
+                            {worker.email}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Tel:</span>
+                          <span className="font-medium">{worker.phone}</span>
+                        </div>
+                      </div>
+
+                      {/* Performance Stats */}
+                      <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-foreground">
+                            {stats.completedAppointments}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Citas completadas
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-foreground">
+                            S/ {stats.totalRevenue.toFixed(0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Ingresos totales
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-green-600">
+                            S/ {stats.totalBonuses.toFixed(0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Bonos ganados
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold text-foreground">
+                            {stats.salesCount}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Ventas
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => navigate(`/workers/${worker.id}`)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Detalle
+                        </Button>
+                        <Button
+                          onClick={() => openEditDialog(worker)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Editar
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                        <span className="text-sm font-medium">Estado:</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {worker.isActive ? "Activo" : "Inactivo"}
+                          </span>
+                          <Switch
+                            checked={worker.isActive}
+                            onCheckedChange={() =>
+                              handleToggleStatus(worker.id)
+                            }
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Pagination */}
+          {filteredWorkers.length > 0 && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={filteredWorkers.length}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.goToPage}
+              onPageSizeChange={pagination.setPageSize}
+              showPageSizeSelector={true}
+              pageSizeOptions={[6, 9, 12, 18]}
+            />
           )}
         </div>
 

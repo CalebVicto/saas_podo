@@ -62,6 +62,11 @@ import {
   mockProductMovements,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import {
+  Pagination,
+  usePagination,
+  paginateArray,
+} from "@/components/ui/pagination";
 
 interface CreateProductRequest {
   name: string;
@@ -87,6 +92,12 @@ export function Products() {
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [isViewProductDialogOpen, setIsViewProductDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination
+  const pagination = usePagination({
+    totalItems: filteredProducts.length,
+    initialPageSize: 15,
+  });
 
   // Form state for new/edit product
   const [productFormData, setProductFormData] = useState<CreateProductRequest>({
@@ -138,7 +149,9 @@ export function Products() {
     }
 
     setFilteredProducts(filtered);
-  }, [products, searchTerm, categoryFilter, stockFilter]);
+    // Reset pagination when filters change
+    pagination.resetPagination();
+  }, [products, searchTerm, categoryFilter, stockFilter, pagination]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -440,10 +453,10 @@ export function Products() {
               )
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             {isLoading ? (
               <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: pagination.pageSize }).map((_, i) => (
                   <div key={i} className="loading-shimmer h-16 rounded"></div>
                 ))}
               </div>
@@ -469,106 +482,126 @@ export function Products() {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Categoría</TableHead>
-                      <TableHead>Precio</TableHead>
-                      <TableHead>Stock</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredProducts.map((product) => {
-                      const stockStatus = getStockStatus(product.stock);
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Categoría</TableHead>
+                        <TableHead>Precio</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginateArray(
+                        filteredProducts,
+                        pagination.currentPage,
+                        pagination.pageSize,
+                      ).map((product) => {
+                        const stockStatus = getStockStatus(product.stock);
 
-                      return (
-                        <TableRow key={product.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{product.name}</p>
-                              {product.description && (
-                                <p className="text-sm text-muted-foreground">
-                                  {product.description}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <code className="text-sm bg-muted px-2 py-1 rounded">
-                              {product.sku}
-                            </code>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {product.category?.name || "Sin categoría"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-medium">
-                              S/ {product.price.toFixed(2)}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={cn(
-                                "font-medium",
-                                product.stock <= 5 && product.stock > 0
-                                  ? "text-warning"
-                                  : product.stock === 0
-                                    ? "text-destructive"
-                                    : "text-foreground",
-                              )}
-                            >
-                              {product.stock}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={stockStatus.className}
-                            >
-                              {stockStatus.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() =>
-                                  navigate(`/products/${product.id}`)
-                                }
-                                variant="outline"
-                                size="sm"
+                        return (
+                          <TableRow key={product.id}>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{product.name}</p>
+                                {product.description && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {product.description}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <code className="text-sm bg-muted px-2 py-1 rounded">
+                                {product.sku}
+                              </code>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {product.category?.name || "Sin categoría"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">
+                                S/ {product.price.toFixed(2)}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={cn(
+                                  "font-medium",
+                                  product.stock <= 5 && product.stock > 0
+                                    ? "text-warning"
+                                    : product.stock === 0
+                                      ? "text-destructive"
+                                      : "text-foreground",
+                                )}
                               >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                onClick={() => openEditProductDialog(product)}
+                                {product.stock}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
                                 variant="outline"
-                                size="sm"
+                                className={stockStatus.className}
                               >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                onClick={() => handleDeleteProduct(product.id)}
-                                variant="outline"
-                                size="sm"
-                                className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                                {stockStatus.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() =>
+                                    navigate(`/products/${product.id}`)
+                                  }
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => openEditProductDialog(product)}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  onClick={() =>
+                                    handleDeleteProduct(product.id)
+                                  }
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalItems={filteredProducts.length}
+                  pageSize={pagination.pageSize}
+                  onPageChange={pagination.goToPage}
+                  onPageSizeChange={pagination.setPageSize}
+                  showPageSizeSelector={true}
+                  pageSizeOptions={[10, 15, 25, 50]}
+                />
+              </>
             )}
           </CardContent>
         </Card>

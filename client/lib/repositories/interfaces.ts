@@ -20,11 +20,13 @@ import type {
   PackageSession,
   ApiResponse,
   PaginatedResponse,
+  PaginationParams,
+  PaginatedSearchParams,
 } from "@shared/api";
 
 // Base repository interface for common CRUD operations
 export interface BaseRepository<T, TCreate> {
-  getAll(): Promise<T[]>;
+  getAll(params?: PaginatedSearchParams): Promise<PaginatedResponse<T>>;
   getById(id: string): Promise<T | null>;
   create(data: TCreate): Promise<T>;
   update(id: string, data: Partial<TCreate>): Promise<T>;
@@ -35,7 +37,9 @@ export interface BaseRepository<T, TCreate> {
 export interface IPatientRepository
   extends BaseRepository<Patient, CreatePatientRequest> {
   getByDocumentId(documentId: string): Promise<Patient | null>;
-  searchPatients(query: string): Promise<Patient[]>;
+  searchPatients(
+    params: PaginatedSearchParams,
+  ): Promise<PaginatedResponse<Patient>>;
   getPatientStats(): Promise<{
     total: number;
     newThisMonth: number;
@@ -46,7 +50,9 @@ export interface IPatientRepository
 // Worker Repository Interface
 export interface IWorkerRepository
   extends BaseRepository<Worker, CreateWorkerRequest> {
-  getActiveWorkers(): Promise<Worker[]>;
+  getActiveWorkers(
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Worker>>;
   getByEmail(email: string): Promise<Worker | null>;
   updateActiveStatus(id: string, isActive: boolean): Promise<Worker>;
 }
@@ -54,11 +60,26 @@ export interface IWorkerRepository
 // Appointment Repository Interface
 export interface IAppointmentRepository
   extends BaseRepository<Appointment, CreateAppointmentRequest> {
-  getByPatientId(patientId: string): Promise<Appointment[]>;
-  getByWorkerId(workerId: string): Promise<Appointment[]>;
-  getByDateRange(startDate: string, endDate: string): Promise<Appointment[]>;
-  getByStatus(status: Appointment["status"]): Promise<Appointment[]>;
-  getTodaysAppointments(): Promise<Appointment[]>;
+  getByPatientId(
+    patientId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Appointment>>;
+  getByWorkerId(
+    workerId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Appointment>>;
+  getByDateRange(
+    startDate: string,
+    endDate: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Appointment>>;
+  getByStatus(
+    status: Appointment["status"],
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Appointment>>;
+  getTodaysAppointments(
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Appointment>>;
   updateStatus(id: string, status: Appointment["status"]): Promise<Appointment>;
   getAppointmentStats(): Promise<{
     today: number;
@@ -74,11 +95,21 @@ export interface IProductRepository
     Product,
     Omit<Product, "id" | "createdAt" | "updatedAt" | "category">
   > {
-  getByCategoryId(categoryId: string): Promise<Product[]>;
-  getActiveProducts(): Promise<Product[]>;
-  getLowStockProducts(threshold?: number): Promise<Product[]>;
+  getByCategoryId(
+    categoryId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Product>>;
+  getActiveProducts(
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Product>>;
+  getLowStockProducts(
+    threshold?: number,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Product>>;
   updateStock(id: string, quantity: number, reason: string): Promise<Product>;
-  searchProducts(query: string): Promise<Product[]>;
+  searchProducts(
+    params: PaginatedSearchParams,
+  ): Promise<PaginatedResponse<Product>>;
   getProductStats(): Promise<{
     total: number;
     lowStock: number;
@@ -99,12 +130,18 @@ export interface IProductCategoryRepository
 
 // Product Movement Repository Interface
 export interface IProductMovementRepository {
-  getAll(): Promise<ProductMovement[]>;
-  getByProductId(productId: string): Promise<ProductMovement[]>;
+  getAll(
+    params?: PaginatedSearchParams,
+  ): Promise<PaginatedResponse<ProductMovement>>;
+  getByProductId(
+    productId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<ProductMovement>>;
   getByDateRange(
     startDate: string,
     endDate: string,
-  ): Promise<ProductMovement[]>;
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<ProductMovement>>;
   create(
     movement: Omit<ProductMovement, "id" | "createdAt" | "product">,
   ): Promise<ProductMovement>;
@@ -113,10 +150,23 @@ export interface IProductMovementRepository {
 // Payment Repository Interface
 export interface IPaymentRepository
   extends BaseRepository<Payment, CreatePaymentRequest> {
-  getByAppointmentId(appointmentId: string): Promise<Payment[]>;
-  getBySaleId(saleId: string): Promise<Payment[]>;
-  getByDateRange(startDate: string, endDate: string): Promise<Payment[]>;
-  getByMethod(method: Payment["method"]): Promise<Payment[]>;
+  getByAppointmentId(
+    appointmentId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Payment>>;
+  getBySaleId(
+    saleId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Payment>>;
+  getByDateRange(
+    startDate: string,
+    endDate: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Payment>>;
+  getByMethod(
+    method: Payment["method"],
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Payment>>;
   getIncomeStats(): Promise<{
     today: number;
     thisWeek: number;
@@ -131,9 +181,19 @@ export interface ISaleRepository
     Sale,
     Omit<Sale, "id" | "createdAt" | "updatedAt" | "items" | "payment">
   > {
-  getByCustomerId(customerId: string): Promise<Sale[]>;
-  getBySellerId(sellerId: string): Promise<Sale[]>;
-  getByDateRange(startDate: string, endDate: string): Promise<Sale[]>;
+  getByCustomerId(
+    customerId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Sale>>;
+  getBySellerId(
+    sellerId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Sale>>;
+  getByDateRange(
+    startDate: string,
+    endDate: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Sale>>;
   createSaleWithItems(
     sale: Omit<Sale, "id" | "createdAt" | "updatedAt" | "payment">,
     items: Omit<SaleItem, "id" | "saleId">[],
@@ -150,8 +210,14 @@ export interface ISaleRepository
 // Abono Repository Interface
 export interface IAbonoRepository
   extends BaseRepository<Abono, CreateAbonoRequest> {
-  getByPatientId(patientId: string): Promise<Abono[]>;
-  getActiveAbonosByPatientId(patientId: string): Promise<Abono[]>;
+  getByPatientId(
+    patientId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Abono>>;
+  getActiveAbonosByPatientId(
+    patientId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<Abono>>;
   useAbono(
     abonoId: string,
     amount: number,
@@ -160,7 +226,10 @@ export interface IAbonoRepository
     notes?: string,
   ): Promise<AbonoUsage>;
   getPatientAbonoBalance(patientId: string): Promise<number>;
-  getAbonoUsageHistory(abonoId: string): Promise<AbonoUsage[]>;
+  getAbonoUsageHistory(
+    abonoId: string,
+    params?: PaginationParams,
+  ): Promise<PaginatedResponse<AbonoUsage>>;
 }
 
 // Package Repository Interface

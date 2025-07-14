@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -39,14 +39,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Patient, CreatePatientRequest } from "@shared/api";
-import {
-  usePatientRepository,
-  useAppointmentRepository,
-  usePaymentRepository,
-} from "@/lib/repositories";
+import { getMockAppointments, getMockPayments } from "@/lib/mockData";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
+import { useRepositories } from "@/lib/repositories";
 
 interface User {
   id: string;
@@ -64,10 +61,7 @@ const useAuth = () => {
 export function Patients() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const patientRepository = usePatientRepository();
-  const appointmentRepository = useAppointmentRepository();
-  const paymentRepository = usePaymentRepository();
-
+  const repositories = useRepositories();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -89,35 +83,42 @@ export function Patients() {
     clinicalNotes: "",
   });
 
-  // Load patients on component mount
+  // Load patients data
+  const loadPatients = useCallback(async () => {
+    await pagination.loadData((params) => repositories.patients.getAll(params));
+  }, [pagination, repositories.patients]);
+
+  // Load patients on component mount and when pagination changes
   useEffect(() => {
     if (!user) {
       navigate("/login");
       return;
     }
     loadPatients();
-  }, [user, navigate]);
+  }, [user, navigate, loadPatients]);
 
-  // Load patients whenever pagination state changes
+  // Reload when pagination state changes
   useEffect(() => {
-    loadPatients();
+    if (user) {
+      loadPatients();
+    }
   }, [
     pagination.currentPage,
     pagination.pageSize,
     pagination.searchTerm,
-    pagination.filters,
+    user,
+    loadPatients,
   ]);
-
-  const loadPatients = async () => {
-    await pagination.loadData((params) => patientRepository.getAll(params));
-  };
 
   const handleAddPatient = async () => {
     try {
-      await patientRepository.create(formData);
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      await repositories.patients.create(formData);
       setIsAddDialogOpen(false);
       resetForm();
-      // Refresh the data
+      // Refresh the list
       await loadPatients();
     } catch (error) {
       console.error("Error adding patient:", error);
@@ -128,11 +129,14 @@ export function Patients() {
     if (!selectedPatient) return;
 
     try {
-      await patientRepository.update(selectedPatient.id, formData);
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      await repositories.patients.update(selectedPatient.id, formData);
       setIsEditDialogOpen(false);
       setSelectedPatient(null);
       resetForm();
-      // Refresh the data
+      // Refresh the list
       await loadPatients();
     } catch (error) {
       console.error("Error updating patient:", error);
@@ -184,30 +188,16 @@ export function Patients() {
     return age;
   };
 
-  const getPatientAppointments = async (patientId: string) => {
-    try {
-      const response = await appointmentRepository.getAll({
-        patientId,
-        limit: 100, // Get all appointments for this patient
-      });
-      return response.items;
-    } catch (error) {
-      console.error("Error loading patient appointments:", error);
-      return [];
-    }
+  const getPatientAppointments = (patientId: string) => {
+    return getMockAppointments().filter((apt) => apt.patientId === patientId);
   };
 
-  const getPatientPayments = async (patientId: string) => {
-    try {
-      const response = await paymentRepository.getAll({
-        patientId,
-        limit: 100, // Get all payments for this patient
-      });
-      return response.items;
-    } catch (error) {
-      console.error("Error loading patient payments:", error);
-      return [];
-    }
+  const getPatientPayments = (patientId: string) => {
+    const appointments = getPatientAppointments(patientId);
+    const appointmentIds = appointments.map((apt) => apt.id);
+    return getMockPayments().filter((payment) =>
+      appointmentIds.includes(payment.appointmentId || ""),
+    );
   };
 
   if (!user) return null;
@@ -297,6 +287,13 @@ export function Patients() {
               </div>
             ) : (
               pagination.data.map((patient) => {
+                const appointments = getPatientAppointments(patient.id);
+                const lastAppointment = appointments.sort(
+                  (a, b) =>
+                    new Date(b.dateTime).getTime() -
+                    new Date(a.dateTime).getTime(),
+                )[0];
+
                 return (
                   <Card
                     key={patient.id}
@@ -323,7 +320,7 @@ export function Patients() {
                           </div>
                         </div>
                         <Badge variant="outline" className="status-info">
-                          Paciente
+                          {appointments.length} citas
                         </Badge>
                       </div>
 
@@ -340,6 +337,19 @@ export function Patients() {
                           <span className="text-muted-foreground">Tel:</span>
                           <span className="font-medium">{patient.phone}</span>
                         </div>
+                        {lastAppointment && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Última cita:
+                            </span>
+                            <span className="font-medium">
+                              {new Date(
+                                lastAppointment.dateTime,
+                              ).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -384,7 +394,7 @@ export function Patients() {
           )}
         </div>
 
-        {/* Add Patient Dialog */}
+        {/* Add Patient Dialog - keeping the same as before */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
@@ -729,22 +739,59 @@ export function Patients() {
                       Estadísticas
                     </h3>
                     <div className="space-y-3">
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Paciente desde
-                        </Label>
-                        <p className="font-medium">
-                          {new Date(
-                            selectedPatient.createdAt,
-                          ).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Estado
-                        </Label>
-                        <p className="font-medium">Activo</p>
-                      </div>
+                      {(() => {
+                        const appointments = getPatientAppointments(
+                          selectedPatient.id,
+                        );
+                        const payments = getPatientPayments(selectedPatient.id);
+                        const totalPaid = payments.reduce(
+                          (sum, p) => sum + p.amount,
+                          0,
+                        );
+
+                        return (
+                          <>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Total de Citas
+                              </Label>
+                              <p className="font-medium">
+                                {appointments.length}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Citas Completadas
+                              </Label>
+                              <p className="font-medium">
+                                {
+                                  appointments.filter(
+                                    (a) => a.status === "completed",
+                                  ).length
+                                }
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Total Pagado
+                              </Label>
+                              <p className="font-medium">
+                                S/ {totalPaid.toFixed(2)}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Paciente desde
+                              </Label>
+                              <p className="font-medium">
+                                {new Date(
+                                  selectedPatient.createdAt,
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -763,37 +810,66 @@ export function Patients() {
                   </div>
                 )}
 
-                {/* Quick Actions */}
+                {/* Recent Appointments */}
                 <div>
                   <h3 className="font-semibold text-foreground mb-3">
-                    Acciones Rápidas
+                    Citas Recientes
                   </h3>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        navigate(`/patients/${selectedPatient.id}`)
-                      }
-                      className="flex-1"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Ver Perfil Completo
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        navigate(
-                          `/appointments/new?patientId=${selectedPatient.id}`,
-                        )
-                      }
-                      className="flex-1"
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Nueva Cita
-                    </Button>
-                  </div>
+                  {(() => {
+                    const appointments = getPatientAppointments(
+                      selectedPatient.id,
+                    )
+                      .sort(
+                        (a, b) =>
+                          new Date(b.dateTime).getTime() -
+                          new Date(a.dateTime).getTime(),
+                      )
+                      .slice(0, 5);
+
+                    return appointments.length > 0 ? (
+                      <div className="space-y-3">
+                        {appointments.map((appointment) => (
+                          <div
+                            key={appointment.id}
+                            className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                          >
+                            <div>
+                              <p className="font-medium text-sm">
+                                {new Date(
+                                  appointment.dateTime,
+                                ).toLocaleDateString()}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {appointment.treatmentNotes || "Sin notas"}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                appointment.status === "completed" &&
+                                  "status-success",
+                                appointment.status === "scheduled" &&
+                                  "status-info",
+                                appointment.status === "cancelled" &&
+                                  "status-error",
+                              )}
+                            >
+                              {appointment.status === "completed" &&
+                                "Completada"}
+                              {appointment.status === "scheduled" &&
+                                "Programada"}
+                              {appointment.status === "cancelled" &&
+                                "Cancelada"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No hay citas registradas
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
             )}

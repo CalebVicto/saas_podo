@@ -1,117 +1,321 @@
-import * as React from "react";
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
-
+import React from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  MoreHorizontal,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { ButtonProps, buttonVariants } from "@/components/ui/button";
 
-const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
-  <nav
-    role="navigation"
-    aria-label="pagination"
-    className={cn("mx-auto flex w-full justify-center", className)}
-    {...props}
-  />
-);
-Pagination.displayName = "Pagination";
+export interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  showPageSizeSelector?: boolean;
+  pageSizeOptions?: number[];
+  className?: string;
+}
 
-const PaginationContent = React.forwardRef<
-  HTMLUListElement,
-  React.ComponentProps<"ul">
->(({ className, ...props }, ref) => (
-  <ul
-    ref={ref}
-    className={cn("flex flex-row items-center gap-1", className)}
-    {...props}
-  />
-));
-PaginationContent.displayName = "PaginationContent";
-
-const PaginationItem = React.forwardRef<
-  HTMLLIElement,
-  React.ComponentProps<"li">
->(({ className, ...props }, ref) => (
-  <li ref={ref} className={cn("", className)} {...props} />
-));
-PaginationItem.displayName = "PaginationItem";
-
-type PaginationLinkProps = {
-  isActive?: boolean;
-} & Pick<ButtonProps, "size"> &
-  React.ComponentProps<"a">;
-
-const PaginationLink = ({
+export function Pagination({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  showPageSizeSelector = true,
+  pageSizeOptions = [10, 15, 25, 50],
   className,
-  isActive,
-  size = "icon",
-  ...props
-}: PaginationLinkProps) => (
-  <a
-    aria-current={isActive ? "page" : undefined}
-    className={cn(
-      buttonVariants({
-        variant: isActive ? "outline" : "ghost",
-        size,
-      }),
-      className,
-    )}
-    {...props}
-  />
-);
-PaginationLink.displayName = "PaginationLink";
+}: PaginationProps) {
+  // Calculate displayed range
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
 
-const PaginationPrevious = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
-  <PaginationLink
-    aria-label="Go to previous page"
-    size="default"
-    className={cn("gap-1 pl-2.5", className)}
-    {...props}
-  >
-    <ChevronLeft className="h-4 w-4" />
-    <span>Previous</span>
-  </PaginationLink>
-);
-PaginationPrevious.displayName = "PaginationPrevious";
+  // Generate page numbers to show
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 7; // Maximum number of page buttons to show
 
-const PaginationNext = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
-  <PaginationLink
-    aria-label="Go to next page"
-    size="default"
-    className={cn("gap-1 pr-2.5", className)}
-    {...props}
-  >
-    <span>Next</span>
-    <ChevronRight className="h-4 w-4" />
-  </PaginationLink>
-);
-PaginationNext.displayName = "PaginationNext";
+    if (totalPages <= maxVisible) {
+      // Show all pages if total is small
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
 
-const PaginationEllipsis = ({
-  className,
-  ...props
-}: React.ComponentProps<"span">) => (
-  <span
-    aria-hidden
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
-    {...props}
-  >
-    <MoreHorizontal className="h-4 w-4" />
-    <span className="sr-only">More pages</span>
-  </span>
-);
-PaginationEllipsis.displayName = "PaginationEllipsis";
+      if (currentPage <= 4) {
+        // Show pages 2, 3, 4, 5 and ellipsis + last page
+        for (let i = 2; i <= 5; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        // Show first page + ellipsis + last 4 pages
+        pages.push("...");
+        for (let i = totalPages - 4; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        // Show first + ellipsis + current-1, current, current+1 + ellipsis + last
+        pages.push("...");
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push("...");
+        pages.push(totalPages);
+      }
+    }
 
-export {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-};
+    return pages;
+  };
+
+  const pageNumbers = getPageNumbers();
+
+  const goToFirstPage = () => onPageChange(1);
+  const goToLastPage = () => onPageChange(totalPages);
+  const goToPreviousPage = () => onPageChange(Math.max(1, currentPage - 1));
+  const goToNextPage = () =>
+    onPageChange(Math.min(totalPages, currentPage + 1));
+
+  if (totalPages <= 1 && !showPageSizeSelector) {
+    return null;
+  }
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col sm:flex-row items-center justify-between gap-4",
+        className,
+      )}
+    >
+      {/* Page info and page size selector */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-muted-foreground">
+        <div>
+          Mostrando {startItem}-{endItem} de {totalItems} elementos
+        </div>
+
+        {showPageSizeSelector && onPageSizeChange && (
+          <div className="flex items-center gap-2">
+            <span>Elementos por página:</span>
+            <Select
+              value={pageSize.toString()}
+              onValueChange={(value) => onPageSizeChange(parseInt(value))}
+            >
+              <SelectTrigger className="w-16 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          {/* First page button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToFirstPage}
+            disabled={currentPage === 1}
+            className="h-8 w-8 p-0"
+            title="Primera página"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+
+          {/* Previous page button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToPreviousPage}
+            disabled={currentPage === 1}
+            className="h-8 w-8 p-0"
+            title="Página anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          {/* Page number buttons */}
+          <div className="flex items-center gap-1">
+            {pageNumbers.map((page, index) => (
+              <React.Fragment key={index}>
+                {page === "..." ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="h-8 w-8 p-0"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => onPageChange(page as number)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {page}
+                  </Button>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Next page button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToNextPage}
+            disabled={currentPage === totalPages}
+            className="h-8 w-8 p-0"
+            title="Página siguiente"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+
+          {/* Last page button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToLastPage}
+            disabled={currentPage === totalPages}
+            className="h-8 w-8 p-0"
+            title="Última página"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Hook for managing pagination state
+export interface UsePaginationProps {
+  totalItems: number;
+  initialPageSize?: number;
+  initialPage?: number;
+}
+
+export interface UsePaginationReturn {
+  currentPage: number;
+  pageSize: number;
+  totalPages: number;
+  startIndex: number;
+  endIndex: number;
+  goToPage: (page: number) => void;
+  setPageSize: (size: number) => void;
+  goToFirstPage: () => void;
+  goToLastPage: () => void;
+  goToNextPage: () => void;
+  goToPreviousPage: () => void;
+  resetPagination: () => void;
+}
+
+export function usePagination({
+  totalItems,
+  initialPageSize = 15,
+  initialPage = 1,
+}: UsePaginationProps): UsePaginationReturn {
+  const [currentPage, setCurrentPage] = React.useState(initialPage);
+  const [pageSize, setPageSizeState] = React.useState(initialPageSize);
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  // Ensure current page is valid when totalItems or pageSize changes
+  React.useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(totalItems / pageSize));
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage);
+    }
+  }, [totalItems, pageSize, currentPage]);
+
+  const goToPage = React.useCallback(
+    (page: number) => {
+      const maxPage = Math.ceil(totalItems / pageSize);
+      setCurrentPage(Math.max(1, Math.min(page, maxPage)));
+    },
+    [totalItems, pageSize],
+  );
+
+  const setPageSize = React.useCallback((size: number) => {
+    setPageSizeState(size);
+    // Reset to first page when changing page size
+    setCurrentPage(1);
+  }, []);
+
+  const goToFirstPage = React.useCallback(() => {
+    setCurrentPage(1);
+  }, []);
+
+  const goToLastPage = React.useCallback(() => {
+    const maxPage = Math.ceil(totalItems / pageSize);
+    setCurrentPage(Math.max(1, maxPage));
+  }, [totalItems, pageSize]);
+
+  const goToNextPage = React.useCallback(() => {
+    const maxPage = Math.ceil(totalItems / pageSize);
+    setCurrentPage((prev) => Math.min(prev + 1, maxPage));
+  }, [totalItems, pageSize]);
+
+  const goToPreviousPage = React.useCallback(() => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  }, []);
+
+  const resetPagination = React.useCallback(() => {
+    setCurrentPage(initialPage);
+    setPageSizeState(initialPageSize);
+  }, [initialPage, initialPageSize]);
+
+  return {
+    currentPage,
+    pageSize,
+    totalPages,
+    startIndex,
+    endIndex,
+    goToPage,
+    setPageSize,
+    goToFirstPage,
+    goToLastPage,
+    goToNextPage,
+    goToPreviousPage,
+    resetPagination,
+  };
+}
+
+// Utility function to paginate an array
+export function paginateArray<T>(
+  array: T[],
+  currentPage: number,
+  pageSize: number,
+): T[] {
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  return array.slice(startIndex, endIndex);
+}

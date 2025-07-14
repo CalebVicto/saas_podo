@@ -1,4 +1,5 @@
 import type { BaseRepository } from "../interfaces";
+import type { PaginatedResponse, PaginatedSearchParams } from "@shared/api";
 
 export abstract class LocalStorageBaseRepository<
   T extends { id: string },
@@ -48,9 +49,38 @@ export abstract class LocalStorageBaseRepository<
     );
   }
 
-  async getAll(): Promise<T[]> {
+  async getAll(params?: PaginatedSearchParams): Promise<PaginatedResponse<T>> {
     await this.simulateNetworkDelay();
-    return this.loadFromStorage();
+    let items = this.loadFromStorage();
+
+    // Apply search filter if provided
+    if (params?.search) {
+      const searchQuery = params.search.toLowerCase();
+      items = items.filter((item) =>
+        Object.values(item).some(
+          (value) =>
+            typeof value === "string" &&
+            value.toLowerCase().includes(searchQuery),
+        ),
+      );
+    }
+
+    // Apply pagination
+    const page = params?.page || 1;
+    const limit = params?.limit || 15;
+    const totalItems = items.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedItems = items.slice(startIndex, endIndex);
+
+    return {
+      items: paginatedItems,
+      total: totalItems,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   async getById(id: string): Promise<T | null> {
@@ -107,31 +137,29 @@ export abstract class LocalStorageBaseRepository<
     this.saveToStorage(filteredItems);
   }
 
-  protected findByField<K extends keyof T>(
+  protected async findByField<K extends keyof T>(
     field: K,
     value: T[K],
   ): Promise<T[]> {
-    return this.getAll().then((items) =>
-      items.filter((item) => item[field] === value),
-    );
+    const response = await this.getAll();
+    return response.items.filter((item) => item[field] === value);
   }
 
-  protected searchByFields<K extends keyof T>(
+  protected async searchByFields<K extends keyof T>(
     fields: K[],
     query: string,
   ): Promise<T[]> {
-    return this.getAll().then((items) => {
-      const lowercaseQuery = query.toLowerCase();
-      return items.filter((item) =>
-        fields.some((field) => {
-          const value = item[field];
-          return (
-            typeof value === "string" &&
-            value.toLowerCase().includes(lowercaseQuery)
-          );
-        }),
-      );
-    });
+    const response = await this.getAll();
+    const lowercaseQuery = query.toLowerCase();
+    return response.items.filter((item) =>
+      fields.some((field) => {
+        const value = item[field];
+        return (
+          typeof value === "string" &&
+          value.toLowerCase().includes(lowercaseQuery)
+        );
+      }),
+    );
   }
 
   protected filterByDateRange(
@@ -147,6 +175,27 @@ export abstract class LocalStorageBaseRepository<
       const itemDate = new Date(item[dateField] as string);
       return itemDate >= start && itemDate <= end;
     });
+  }
+
+  protected async paginateResults(
+    items: T[],
+    params?: { page?: number; limit?: number },
+  ): Promise<PaginatedResponse<T>> {
+    const page = params?.page || 1;
+    const limit = params?.limit || 15;
+    const totalItems = items.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedItems = items.slice(startIndex, endIndex);
+
+    return {
+      items: paginatedItems,
+      total: totalItems,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   clearStorage(): void {
