@@ -45,6 +45,11 @@ import {
   getMockPayments,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import {
+  Pagination,
+  usePagination,
+  paginateArray,
+} from "@/components/ui/pagination";
 
 interface User {
   id: string;
@@ -70,6 +75,12 @@ export function Patients() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination
+  const pagination = usePagination({
+    totalItems: filteredPatients.length,
+    initialPageSize: 12,
+  });
 
   // Form state for new/edit patient
   const [formData, setFormData] = useState<CreatePatientRequest>({
@@ -101,7 +112,9 @@ export function Patients() {
         patient.phone.includes(searchTerm),
     );
     setFilteredPatients(filtered);
-  }, [patients, searchTerm]);
+    // Reset pagination when filters change
+    pagination.resetPagination();
+  }, [patients, searchTerm, pagination]);
 
   const loadPatients = async () => {
     setIsLoading(true);
@@ -265,134 +278,154 @@ export function Patients() {
         </Card>
 
         {/* Patients List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
-            // Loading skeletons
-            Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i} className="card-modern">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="loading-shimmer h-6 rounded"></div>
-                    <div className="loading-shimmer h-4 rounded"></div>
-                    <div className="loading-shimmer h-4 w-2/3 rounded"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : filteredPatients.length === 0 ? (
-            <div className="col-span-full text-center py-12">
-              <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                {searchTerm
-                  ? "No se encontraron pacientes"
-                  : "No hay pacientes registrados"}
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                {searchTerm
-                  ? "Intenta con otros términos de búsqueda"
-                  : "Comienza agregando tu primer paciente"}
-              </p>
-              {!searchTerm && (
-                <Button
-                  onClick={() => setIsAddDialogOpen(true)}
-                  className="btn-primary"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar Paciente
-                </Button>
-              )}
-            </div>
-          ) : (
-            filteredPatients.map((patient) => {
-              const appointments = getPatientAppointments(patient.id);
-              const lastAppointment = appointments.sort(
-                (a, b) =>
-                  new Date(b.dateTime).getTime() -
-                  new Date(a.dateTime).getTime(),
-              )[0];
-
-              return (
-                <Card
-                  key={patient.id}
-                  className="card-modern hover:shadow-lg transition-all duration-200"
-                >
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {isLoading ? (
+              // Loading skeletons
+              Array.from({ length: pagination.pageSize }).map((_, i) => (
+                <Card key={i} className="card-modern">
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <User className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {patient.firstName} {patient.lastName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {calculateAge(patient.birthDate)} años •{" "}
-                            {patient.sex === "female"
-                              ? "Femenino"
-                              : patient.sex === "male"
-                                ? "Masculino"
-                                : "Otro"}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="status-info">
-                        {appointments.length} citas
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">DNI:</span>
-                        <span className="font-medium">
-                          {patient.documentId}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Tel:</span>
-                        <span className="font-medium">{patient.phone}</span>
-                      </div>
-                      {lastAppointment && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">
-                            Última cita:
-                          </span>
-                          <span className="font-medium">
-                            {new Date(
-                              lastAppointment.dateTime,
-                            ).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => navigate(`/patients/${patient.id}`)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver Detalle
-                      </Button>
-                      <Button
-                        onClick={() => openEditDialog(patient)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Editar
-                      </Button>
+                    <div className="space-y-4">
+                      <div className="loading-shimmer h-6 rounded"></div>
+                      <div className="loading-shimmer h-4 rounded"></div>
+                      <div className="loading-shimmer h-4 w-2/3 rounded"></div>
                     </div>
                   </CardContent>
                 </Card>
-              );
-            })
+              ))
+            ) : filteredPatients.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  {searchTerm
+                    ? "No se encontraron pacientes"
+                    : "No hay pacientes registrados"}
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  {searchTerm
+                    ? "Intenta con otros términos de búsqueda"
+                    : "Comienza agregando tu primer paciente"}
+                </p>
+                {!searchTerm && (
+                  <Button
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="btn-primary"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Agregar Paciente
+                  </Button>
+                )}
+              </div>
+            ) : (
+              paginateArray(
+                filteredPatients,
+                pagination.currentPage,
+                pagination.pageSize,
+              ).map((patient) => {
+                const appointments = getPatientAppointments(patient.id);
+                const lastAppointment = appointments.sort(
+                  (a, b) =>
+                    new Date(b.dateTime).getTime() -
+                    new Date(a.dateTime).getTime(),
+                )[0];
+
+                return (
+                  <Card
+                    key={patient.id}
+                    className="card-modern hover:shadow-lg transition-all duration-200"
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                            <User className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">
+                              {patient.firstName} {patient.lastName}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {calculateAge(patient.birthDate)} años •{" "}
+                              {patient.sex === "female"
+                                ? "Femenino"
+                                : patient.sex === "male"
+                                  ? "Masculino"
+                                  : "Otro"}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="status-info">
+                          {appointments.length} citas
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center gap-2 text-sm">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">DNI:</span>
+                          <span className="font-medium">
+                            {patient.documentId}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">Tel:</span>
+                          <span className="font-medium">{patient.phone}</span>
+                        </div>
+                        {lastAppointment && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              Última cita:
+                            </span>
+                            <span className="font-medium">
+                              {new Date(
+                                lastAppointment.dateTime,
+                              ).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => navigate(`/patients/${patient.id}`)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver Detalle
+                        </Button>
+                        <Button
+                          onClick={() => openEditDialog(patient)}
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Editar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Pagination */}
+          {filteredPatients.length > 0 && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={filteredPatients.length}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.goToPage}
+              onPageSizeChange={pagination.setPageSize}
+              showPageSizeSelector={true}
+              pageSizeOptions={[6, 12, 18, 24]}
+            />
           )}
         </div>
 
