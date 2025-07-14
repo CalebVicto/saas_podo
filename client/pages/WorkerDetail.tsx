@@ -139,6 +139,36 @@ export function WorkerDetail() {
         });
       });
 
+      // Calculate payment method breakdown
+      const paymentMethodCounts: Record<
+        string,
+        { count: number; amount: number }
+      > = {};
+      paymentsData
+        .filter((p) => p.status === "completed")
+        .forEach((payment) => {
+          if (!paymentMethodCounts[payment.method]) {
+            paymentMethodCounts[payment.method] = { count: 0, amount: 0 };
+          }
+          paymentMethodCounts[payment.method].count++;
+          paymentMethodCounts[payment.method].amount += payment.amount;
+        });
+
+      const totalMethodAmount = Object.values(paymentMethodCounts).reduce(
+        (sum, data) => sum + data.amount,
+        0,
+      );
+
+      const paymentMethodBreakdown = Object.entries(paymentMethodCounts).map(
+        ([method, data]) => ({
+          method,
+          count: data.count,
+          amount: data.amount,
+          percentage:
+            totalMethodAmount > 0 ? (data.amount / totalMethodAmount) * 100 : 0,
+        }),
+      );
+
       const workerStats: WorkerStats = {
         totalAppointments,
         revenueGenerated,
@@ -147,6 +177,7 @@ export function WorkerDetail() {
         averageRating: 4.7, // Mock rating
         completionRate: (completedAppointments / totalAppointments) * 100 || 0,
         monthlyAppointments: mockMonthlyPerformance,
+        paymentMethodBreakdown,
       };
 
       setWorker(foundWorker);
