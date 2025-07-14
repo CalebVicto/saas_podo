@@ -47,16 +47,13 @@ import {
 import { cn } from "@/lib/utils";
 import { Appointment, CreateAppointmentRequest, Payment } from "@shared/api";
 import {
-  getMockAppointments,
-  getMockPatients,
-  getMockWorkers,
-} from "@/lib/mockData";
+  useAppointmentRepository,
+  usePatientRepository,
+  useWorkerRepository,
+} from "@/lib/repositories";
 import Layout from "@/components/Layout";
-import {
-  Pagination,
-  usePagination,
-  paginateArray,
-} from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 
 interface User {
   id: string;
@@ -97,11 +94,10 @@ const statusConfig = {
 export function Appointments() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [filteredAppointments, setFilteredAppointments] = useState<
-    Appointment[]
-  >([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const appointmentRepository = useAppointmentRepository();
+  const patientRepository = usePatientRepository();
+  const workerRepository = useWorkerRepository();
+
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [workerFilter, setWorkerFilter] = useState<string>("all");
@@ -111,17 +107,13 @@ export function Appointments() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [workers, setWorkers] = useState<any[]>([]);
 
-  // Pagination
-  const pagination = usePagination({
-    totalItems: filteredAppointments.length,
+  // Repository-based pagination
+  const pagination = useRepositoryPagination<Appointment>({
     initialPageSize: 15,
   });
-
-  // Get available data
-  const patients = getMockPatients();
-  const workers = getMockWorkers();
 
   // Form state for new/edit appointment
   const [formData, setFormData] = useState<CreateAppointmentRequest>({
@@ -140,92 +132,62 @@ export function Appointments() {
     notes: "",
   });
 
-  // Load appointments on component mount
+  // Load initial data
   useEffect(() => {
     if (!user) {
       navigate("/login");
       return;
     }
-    loadAppointments();
+    loadInitialData();
   }, [user, navigate]);
 
-  // Filter appointments based on search and filters
+  // Load appointments whenever pagination or filters change
   useEffect(() => {
-    let filtered = appointments;
-
-    // Text search
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (appointment) =>
-          appointment.patient?.firstName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.patient?.lastName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.worker?.firstName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.worker?.lastName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          appointment.treatmentNotes
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(
-        (appointment) => appointment.status === statusFilter,
-      );
-    }
-
-    // Date filter
-    if (dateFilter) {
-      filtered = filtered.filter((appointment) =>
-        appointment.dateTime.startsWith(dateFilter),
-      );
-    }
-
-    // Worker filter (for non-admin users or when filter is applied)
-    if (workerFilter !== "all") {
-      filtered = filtered.filter(
-        (appointment) => appointment.workerId === workerFilter,
-      );
-    } else if (user?.role === "worker") {
-      // Workers only see their own appointments
-      filtered = filtered.filter(
-        (appointment) => appointment.workerId === user.id,
-      );
-    }
-
-    setFilteredAppointments(filtered);
-    // Reset pagination when filters change
-    pagination.resetPagination();
+    loadAppointments();
   }, [
-    appointments,
-    searchTerm,
+    pagination.currentPage,
+    pagination.pageSize,
+    pagination.searchTerm,
     statusFilter,
     dateFilter,
     workerFilter,
-    user,
-    pagination,
   ]);
 
-  const loadAppointments = async () => {
-    setIsLoading(true);
+  const loadInitialData = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockAppointments = getMockAppointments();
-      setAppointments(mockAppointments);
+      // Load patients and workers for dropdowns
+      const [patientsResponse, workersResponse] = await Promise.all([
+        patientRepository.getAll({ limit: 1000 }),
+        workerRepository.getAll({ limit: 1000 }),
+      ]);
+      setPatients(patientsResponse.items);
+      setWorkers(workersResponse.items);
     } catch (error) {
-      console.error("Error loading appointments:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error loading initial data:", error);
     }
+  };
+
+  const loadAppointments = async () => {
+    const filters: any = {
+      ...pagination.filters,
+    };
+
+    // Add custom filters
+    if (statusFilter !== "all") {
+      filters.status = statusFilter;
+    }
+    if (dateFilter) {
+      filters.date = dateFilter;
+    }
+    if (workerFilter !== "all") {
+      filters.workerId = workerFilter;
+    } else if (user?.role === "worker") {
+      // Workers only see their own appointments
+      filters.workerId = user.id;
+    }
+
+    pagination.setFilters(filters);
+    await pagination.loadData((params) => appointmentRepository.getAll(params));
   };
 
   const handleAddAppointment = async () => {
@@ -882,7 +844,7 @@ export function Appointments() {
                   onChange={(e) =>
                     setFormData({ ...formData, diagnosis: e.target.value })
                   }
-                  placeholder="Diagnóstico preliminar o confirmado"
+                  placeholder="Diagn��stico preliminar o confirmado"
                 />
               </div>
             </div>
