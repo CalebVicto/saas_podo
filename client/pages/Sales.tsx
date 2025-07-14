@@ -1006,10 +1006,7 @@ export function Sales() {
             <Card className="card-modern flex-1">
               <CardHeader>
                 <CardTitle>
-                  Historial de Ventas ({filteredSales.length}
-                  {filteredSales.length !== sales.length &&
-                    ` de ${sales.length}`}
-                  )
+                  Historial de Ventas ({salesPagination.totalItems})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -1024,7 +1021,7 @@ export function Sales() {
                       ),
                     )}
                   </div>
-                ) : filteredSales.length === 0 ? (
+                ) : salesPagination.data.length === 0 ? (
                   <div className="text-center py-12">
                     <Receipt className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -1060,11 +1057,7 @@ export function Sales() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {paginateArray(
-                            filteredSales,
-                            salesPagination.currentPage,
-                            salesPagination.pageSize,
-                          ).map((sale) => {
+                          {salesPagination.data.map((sale) => {
                             const { date, time } = formatDateTime(
                               sale.createdAt,
                             );
@@ -1147,7 +1140,7 @@ export function Sales() {
                     <Pagination
                       currentPage={salesPagination.currentPage}
                       totalPages={salesPagination.totalPages}
-                      totalItems={filteredSales.length}
+                      totalItems={salesPagination.totalItems}
                       pageSize={salesPagination.pageSize}
                       onPageChange={salesPagination.goToPage}
                       onPageSizeChange={salesPagination.setPageSize}
