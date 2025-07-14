@@ -55,7 +55,7 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
     );
   };
 
-  if (!user) return null;
+  if (!isAuthenticated || !user) return null;
 
   return (
     <div className="h-screen bg-background flex overflow-hidden m-0 p-0">
