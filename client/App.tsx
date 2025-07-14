@@ -54,14 +54,28 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Redirect root to login */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              {/* Redirect root to dashboard if authenticated, otherwise to login */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute fallbackPath="/login">
+                    <Navigate to="/dashboard" replace />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Authentication */}
               <Route path="/login" element={<Login />} />
 
-              {/* Main Application Routes */}
-              <Route path="/dashboard" element={<Dashboard />} />
+              {/* Main Application Routes - All Protected */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/patients" element={<Patients />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/appointments" element={<Appointments />} />
