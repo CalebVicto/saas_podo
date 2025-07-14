@@ -30,6 +30,7 @@ import Categories from "./pages/Categories";
 import UserAccounts from "./pages/UserAccounts";
 import ServicePackages from "./pages/ServicePackages";
 import NotFound from "./pages/NotFound";
+import ExampleRepositoryUsage from "./pages/ExampleRepositoryUsage";
 
 // Placeholder components for future implementation
 
@@ -74,6 +75,10 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/sales" element={<Sales />} />
             <Route path="/settings" element={<Settings />} />
+            <Route
+              path="/repository-example"
+              element={<ExampleRepositoryUsage />}
+            />
 
             {/* Catch-all route for 404 */}
             <Route path="*" element={<NotFound />} />
