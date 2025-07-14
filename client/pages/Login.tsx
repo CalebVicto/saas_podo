@@ -1,82 +1,20 @@
 import React, { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Activity, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 interface LoginFormData {
   email: string;
   password: string;
 }
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: "admin" | "worker";
-}
-
-// Mock authentication - In a real app, this would be an API call
-const mockLogin = async (
-  email: string,
-  password: string,
-): Promise<User | null> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Mock users for demo
-  const users = [
-    {
-      id: "1",
-      email: "admin@podocare.com",
-      password: "admin123",
-      name: "Dr. María González",
-      role: "admin" as const,
-    },
-    {
-      id: "2",
-      email: "worker@podocare.com",
-      password: "worker123",
-      name: "Carlos Rodríguez",
-      role: "worker" as const,
-    },
-  ];
-
-  const user = users.find((u) => u.email === email && u.password === password);
-  return user
-    ? { id: user.id, email: user.email, name: user.name, role: user.role }
-    : null;
-};
-
-// Simple auth context simulation
-const useAuth = () => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("podocare_user");
-    return stored ? JSON.parse(stored) : null;
-  });
-
-  const login = async (email: string, password: string) => {
-    const user = await mockLogin(email, password);
-    if (user) {
-      localStorage.setItem("podocare_user", JSON.stringify(user));
-      setUser(user);
-      return user;
-    }
-    return null;
-  };
-
-  const logout = () => {
-    localStorage.removeItem("podocare_user");
-    setUser(null);
-  };
-
-  return { user, login, logout };
-};
-
 export function Login() {
-  const { user, login } = useAuth();
+  const { isAuthenticated, login } = useAuth();
+  const location = useLocation();
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
     password: "",
@@ -85,9 +23,12 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Get the intended destination or default to dashboard
+  const from = location.state?.from?.pathname || "/dashboard";
+
   // Redirect if already logged in
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated) {
+    return <Navigate to={from} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,14 +37,14 @@ export function Login() {
     setError("");
 
     try {
-      const result = await login(formData.email, formData.password);
-      if (!result) {
-        setError(
-          "Credenciales inválidas. Por favor, verifica tu email y contraseña.",
-        );
-      }
+      await login(formData.email, formData.password);
+      // Navigation will be handled automatically by the redirect above
     } catch (err) {
-      setError("Error de conexión. Por favor, inténtalo de nuevo.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Credenciales inválidas. Por favor, verifica tu email y contraseña.",
+      );
     } finally {
       setIsLoading(false);
     }
