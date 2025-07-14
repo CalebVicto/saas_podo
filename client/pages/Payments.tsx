@@ -15,6 +15,8 @@ import {
   Smartphone,
   Building,
   Banknote,
+  Wallet,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,26 +71,41 @@ const paymentMethodConfig = {
     label: "Efectivo",
     icon: Banknote,
     className: "bg-green-100 text-green-800 border-green-200",
+    cardColor: "text-green-600",
+    cardBg: "bg-green-50",
+    iconBg: "bg-green-100",
   },
   yape: {
     label: "Yape",
     icon: Smartphone,
     className: "bg-purple-100 text-purple-800 border-purple-200",
+    cardColor: "text-purple-600",
+    cardBg: "bg-purple-50",
+    iconBg: "bg-purple-100",
   },
   plin: {
     label: "Plin",
     icon: Smartphone,
     className: "bg-blue-100 text-blue-800 border-blue-200",
+    cardColor: "text-blue-600",
+    cardBg: "bg-blue-50",
+    iconBg: "bg-blue-100",
   },
   transfer: {
     label: "Transferencia",
-    icon: Building,
+    icon: ArrowUpDown,
     className: "bg-orange-100 text-orange-800 border-orange-200",
+    cardColor: "text-orange-600",
+    cardBg: "bg-orange-50",
+    iconBg: "bg-orange-100",
   },
   card: {
     label: "Tarjeta",
     icon: CreditCard,
     className: "bg-gray-100 text-gray-800 border-gray-200",
+    cardColor: "text-indigo-600",
+    cardBg: "bg-indigo-50",
+    iconBg: "bg-indigo-100",
   },
 };
 
@@ -270,6 +287,34 @@ export function Payments() {
   const completedPayments = payments.filter((p) => p.status === "completed");
   const pendingPayments = payments.filter((p) => p.status === "pending");
 
+  // Calculate daily income by payment method
+  const getDailyPaymentMethodStats = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const todayPayments = payments.filter((p) => {
+      const paymentDate = p.paidAt || p.createdAt;
+      return paymentDate.startsWith(today) && p.status === "completed";
+    });
+
+    const methodStats: Record<string, { amount: number; count: number }> = {};
+
+    // Initialize all methods
+    Object.keys(paymentMethodConfig).forEach((method) => {
+      methodStats[method] = { amount: 0, count: 0 };
+    });
+
+    // Calculate stats for today's payments
+    todayPayments.forEach((payment) => {
+      if (methodStats[payment.method]) {
+        methodStats[payment.method].amount += payment.amount;
+        methodStats[payment.method].count += 1;
+      }
+    });
+
+    return methodStats;
+  };
+
+  const dailyMethodStats = getDailyPaymentMethodStats();
+
   if (!user) return null;
 
   return (
@@ -368,6 +413,66 @@ export function Payments() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Daily Payment Method Summary */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-foreground">
+              💰 Ingresos de Hoy por Método de Pago
+            </h3>
+            <Badge variant="outline" className="text-xs">
+              {new Date().toLocaleDateString("es-ES", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {Object.entries(paymentMethodConfig).map(([method, config]) => {
+              const stats = dailyMethodStats[method];
+              const IconComponent = config.icon;
+              return (
+                <Card
+                  key={method}
+                  className="card-modern hover:shadow-md transition-all duration-200"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={cn("p-2 rounded-lg", config.iconBg)}>
+                        <IconComponent
+                          className={cn("w-5 h-5", config.cardColor)}
+                        />
+                      </div>
+                      {stats.count > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {stats.count}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {method === "cash" && "💵"}
+                        {method === "yape" && "📱"}
+                        {method === "plin" && "📲"}
+                        {method === "card" && "💳"}
+                        {method === "transfer" && "🏦"} {config.label}
+                      </p>
+                      <p className="text-lg font-bold text-foreground">
+                        S/ {stats.amount.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {stats.count} {stats.count === 1 ? "pago" : "pagos"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
 
         {/* Filters */}
