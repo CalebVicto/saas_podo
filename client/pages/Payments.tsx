@@ -52,6 +52,11 @@ import {
   getMockSales,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import {
+  Pagination,
+  usePagination,
+  paginateArray,
+} from "@/components/ui/pagination";
 
 interface User {
   id: string;
@@ -141,6 +146,12 @@ export function Payments() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Pagination
+  const pagination = usePagination({
+    totalItems: filteredPayments.length,
+    initialPageSize: 15,
+  });
+
   // Get available data
   const appointments = getMockAppointments();
   const sales = getMockSales();
@@ -194,7 +205,16 @@ export function Payments() {
     }
 
     setFilteredPayments(filtered);
-  }, [payments, searchTerm, methodFilter, statusFilter, dateFilter]);
+    // Reset pagination when filters change
+    pagination.resetPagination();
+  }, [
+    payments,
+    searchTerm,
+    methodFilter,
+    statusFilter,
+    dateFilter,
+    pagination,
+  ]);
 
   const loadPayments = async () => {
     setIsLoading(true);
@@ -547,10 +567,10 @@ export function Payments() {
               )
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             {isLoading ? (
               <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: pagination.pageSize }).map((_, i) => (
                   <div key={i} className="loading-shimmer h-16 rounded"></div>
                 ))}
               </div>
@@ -577,26 +597,29 @@ export function Payments() {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Monto</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Concepto</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments
-                      .sort(
-                        (a, b) =>
-                          new Date(b.paidAt || b.createdAt).getTime() -
-                          new Date(a.paidAt || a.createdAt).getTime(),
-                      )
-                      .map((payment) => {
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Monto</TableHead>
+                        <TableHead>Método</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Concepto</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginateArray(
+                        filteredPayments.sort(
+                          (a, b) =>
+                            new Date(b.paidAt || b.createdAt).getTime() -
+                            new Date(a.paidAt || a.createdAt).getTime(),
+                        ),
+                        pagination.currentPage,
+                        pagination.pageSize,
+                      ).map((payment) => {
                         const methodInfo = paymentMethodConfig[payment.method];
                         const statusInfo = statusConfig[payment.status];
                         const source = getPaymentSource(payment);
@@ -671,9 +694,22 @@ export function Payments() {
                           </TableRow>
                         );
                       })}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalItems={filteredPayments.length}
+                  pageSize={pagination.pageSize}
+                  onPageChange={pagination.goToPage}
+                  onPageSizeChange={pagination.setPageSize}
+                  showPageSizeSelector={true}
+                  pageSizeOptions={[10, 15, 25, 50]}
+                />
+              </>
             )}
           </CardContent>
         </Card>
