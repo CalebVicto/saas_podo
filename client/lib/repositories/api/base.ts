@@ -1,4 +1,5 @@
 import type { BaseRepository, RepositoryConfig } from "../interfaces";
+import type { PaginatedResponse, PaginatedSearchParams } from "@shared/api";
 
 export abstract class ApiBaseRepository<T extends { id: string }, TCreate>
   implements BaseRepository<T, TCreate>
@@ -37,8 +38,9 @@ export abstract class ApiBaseRepository<T extends { id: string }, TCreate>
     return response.json();
   }
 
-  async getAll(): Promise<T[]> {
-    return this.request<T[]>("");
+  async getAll(params?: PaginatedSearchParams): Promise<PaginatedResponse<T>> {
+    const queryString = params ? this.buildQueryString(params) : "";
+    return this.request<PaginatedResponse<T>>(queryString);
   }
 
   async getById(id: string): Promise<T | null> {
