@@ -192,25 +192,11 @@ export function Appointments() {
 
   const handleAddAppointment = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const patient = patients.find((p) => p.id === formData.patientId);
-      const worker = workers.find((w) => w.id === formData.workerId);
-
-      const newAppointment: Appointment = {
-        id: Date.now().toString(),
-        ...formData,
-        status: "scheduled",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        patient,
-        worker,
-      };
-
-      setAppointments([...appointments, newAppointment]);
+      await appointmentRepository.create(formData);
       setIsAddDialogOpen(false);
       resetForm();
+      // Refresh the data
+      await loadAppointments();
     } catch (error) {
       console.error("Error adding appointment:", error);
     }
@@ -220,28 +206,12 @@ export function Appointments() {
     if (!selectedAppointment) return;
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const patient = patients.find((p) => p.id === formData.patientId);
-      const worker = workers.find((w) => w.id === formData.workerId);
-
-      const updatedAppointment: Appointment = {
-        ...selectedAppointment,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-        patient,
-        worker,
-      };
-
-      setAppointments(
-        appointments.map((a) =>
-          a.id === selectedAppointment.id ? updatedAppointment : a,
-        ),
-      );
+      await appointmentRepository.update(selectedAppointment.id, formData);
       setIsEditDialogOpen(false);
       setSelectedAppointment(null);
       resetForm();
+      // Refresh the data
+      await loadAppointments();
     } catch (error) {
       console.error("Error updating appointment:", error);
     }
@@ -252,20 +222,9 @@ export function Appointments() {
     newStatus: Appointment["status"],
   ) => {
     try {
-      const updatedAppointment = appointments.find(
-        (a) => a.id === appointmentId,
-      );
-      if (!updatedAppointment) return;
-
-      const updated = {
-        ...updatedAppointment,
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setAppointments(
-        appointments.map((a) => (a.id === appointmentId ? updated : a)),
-      );
+      await appointmentRepository.update(appointmentId, { status: newStatus });
+      // Refresh the data
+      await loadAppointments();
     } catch (error) {
       console.error("Error updating appointment status:", error);
     }
