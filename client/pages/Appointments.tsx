@@ -539,15 +539,7 @@ export function Appointments() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginateArray(
-                        filteredAppointments.sort(
-                          (a, b) =>
-                            new Date(a.dateTime).getTime() -
-                            new Date(b.dateTime).getTime(),
-                        ),
-                        pagination.currentPage,
-                        pagination.pageSize,
-                      ).map((appointment) => {
+                      {pagination.data.map((appointment) => {
                         const { date, time } = formatDateTime(
                           appointment.dateTime,
                         );
