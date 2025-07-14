@@ -2,33 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import Sidebar from "./Sidebar";
-
-interface User {
-  id: string;
-  name: string;
-  role: "admin" | "worker";
-}
 
 interface LayoutProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
 }
-
-const useAuth = () => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("podocare_user");
-    return stored ? JSON.parse(stored) : null;
-  });
-
-  const logout = () => {
-    localStorage.removeItem("podocare_user");
-    setUser(null);
-  };
-
-  return { user, logout };
-};
 
 export function Layout({ children, title, subtitle }: LayoutProps) {
   const { user, logout } = useAuth();
