@@ -534,8 +534,371 @@ export function Patients() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit and View dialogs - keeping the same as before for brevity */}
-        {/* ... (keeping existing dialogs) */}
+        {/* Edit Patient Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="w-5 h-5 text-primary" />
+                Editar Paciente
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editFirstName">Nombres *</Label>
+                  <Input
+                    id="editFirstName"
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, firstName: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editLastName">Apellidos *</Label>
+                  <Input
+                    id="editLastName"
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, lastName: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editDocumentId">DNI *</Label>
+                  <Input
+                    id="editDocumentId"
+                    value={formData.documentId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, documentId: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editPhone">Teléfono *</Label>
+                  <Input
+                    id="editPhone"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editSex">Sexo *</Label>
+                  <Select
+                    value={formData.sex}
+                    onValueChange={(value: "male" | "female" | "other") =>
+                      setFormData({ ...formData, sex: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="female">Femenino</SelectItem>
+                      <SelectItem value="male">Masculino</SelectItem>
+                      <SelectItem value="other">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editBirthDate">Fecha de Nacimiento *</Label>
+                  <Input
+                    id="editBirthDate"
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, birthDate: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editClinicalNotes">Notas Clínicas</Label>
+                <Textarea
+                  id="editClinicalNotes"
+                  value={formData.clinicalNotes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, clinicalNotes: e.target.value })
+                  }
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setSelectedPatient(null);
+                  resetForm();
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleEditPatient}
+                className="btn-primary"
+                disabled={
+                  !formData.firstName ||
+                  !formData.lastName ||
+                  !formData.documentId ||
+                  !formData.phone ||
+                  !formData.birthDate
+                }
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Actualizar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Patient Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-primary" />
+                Perfil del Paciente
+              </DialogTitle>
+            </DialogHeader>
+
+            {selectedPatient && (
+              <div className="space-y-6 py-4">
+                {/* Patient Info */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">
+                      Información Personal
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          Nombre Completo
+                        </Label>
+                        <p className="font-medium">
+                          {selectedPatient.firstName} {selectedPatient.lastName}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          DNI
+                        </Label>
+                        <p className="font-medium">
+                          {selectedPatient.documentId}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          Teléfono
+                        </Label>
+                        <p className="font-medium">{selectedPatient.phone}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          Edad
+                        </Label>
+                        <p className="font-medium">
+                          {calculateAge(selectedPatient.birthDate)} años
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          Sexo
+                        </Label>
+                        <p className="font-medium">
+                          {selectedPatient.sex === "female"
+                            ? "Femenino"
+                            : selectedPatient.sex === "male"
+                              ? "Masculino"
+                              : "Otro"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">
+                      Estadísticas
+                    </h3>
+                    <div className="space-y-3">
+                      {(() => {
+                        const appointments = getPatientAppointments(
+                          selectedPatient.id,
+                        );
+                        const payments = getPatientPayments(selectedPatient.id);
+                        const totalPaid = payments.reduce(
+                          (sum, p) => sum + p.amount,
+                          0,
+                        );
+
+                        return (
+                          <>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Total de Citas
+                              </Label>
+                              <p className="font-medium">
+                                {appointments.length}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Citas Completadas
+                              </Label>
+                              <p className="font-medium">
+                                {
+                                  appointments.filter(
+                                    (a) => a.status === "completed",
+                                  ).length
+                                }
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Total Pagado
+                              </Label>
+                              <p className="font-medium">
+                                S/ {totalPaid.toFixed(2)}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-muted-foreground text-sm">
+                                Paciente desde
+                              </Label>
+                              <p className="font-medium">
+                                {new Date(
+                                  selectedPatient.createdAt,
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clinical Notes */}
+                {selectedPatient.clinicalNotes && (
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">
+                      Notas Clínicas
+                    </h3>
+                    <div className="bg-muted/30 p-4 rounded-lg">
+                      <p className="text-sm leading-relaxed">
+                        {selectedPatient.clinicalNotes}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Appointments */}
+                <div>
+                  <h3 className="font-semibold text-foreground mb-3">
+                    Citas Recientes
+                  </h3>
+                  {(() => {
+                    const appointments = getPatientAppointments(
+                      selectedPatient.id,
+                    )
+                      .sort(
+                        (a, b) =>
+                          new Date(b.dateTime).getTime() -
+                          new Date(a.dateTime).getTime(),
+                      )
+                      .slice(0, 5);
+
+                    return appointments.length > 0 ? (
+                      <div className="space-y-3">
+                        {appointments.map((appointment) => (
+                          <div
+                            key={appointment.id}
+                            className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                          >
+                            <div>
+                              <p className="font-medium text-sm">
+                                {new Date(
+                                  appointment.dateTime,
+                                ).toLocaleDateString()}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {appointment.treatmentNotes || "Sin notas"}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                appointment.status === "completed" &&
+                                  "status-success",
+                                appointment.status === "scheduled" &&
+                                  "status-info",
+                                appointment.status === "cancelled" &&
+                                  "status-error",
+                              )}
+                            >
+                              {appointment.status === "completed" &&
+                                "Completada"}
+                              {appointment.status === "scheduled" &&
+                                "Programada"}
+                              {appointment.status === "cancelled" &&
+                                "Cancelada"}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No hay citas registradas
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (selectedPatient) {
+                    openEditDialog(selectedPatient);
+                    setIsViewDialogOpen(false);
+                  }
+                }}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsViewDialogOpen(false);
+                  setSelectedPatient(null);
+                }}
+                className="btn-primary"
+              >
+                Cerrar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
