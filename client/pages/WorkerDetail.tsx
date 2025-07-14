@@ -58,6 +58,12 @@ interface WorkerStats {
   averageRating: number;
   completionRate: number;
   monthlyAppointments: { month: string; count: number; revenue: number }[];
+  paymentMethodBreakdown: {
+    method: string;
+    amount: number;
+    count: number;
+    percentage: number;
+  }[];
 }
 
 // Mock monthly performance data
@@ -133,6 +139,36 @@ export function WorkerDetail() {
         });
       });
 
+      // Calculate payment method breakdown
+      const paymentMethodCounts: Record<
+        string,
+        { count: number; amount: number }
+      > = {};
+      paymentsData
+        .filter((p) => p.status === "completed")
+        .forEach((payment) => {
+          if (!paymentMethodCounts[payment.method]) {
+            paymentMethodCounts[payment.method] = { count: 0, amount: 0 };
+          }
+          paymentMethodCounts[payment.method].count++;
+          paymentMethodCounts[payment.method].amount += payment.amount;
+        });
+
+      const totalMethodAmount = Object.values(paymentMethodCounts).reduce(
+        (sum, data) => sum + data.amount,
+        0,
+      );
+
+      const paymentMethodBreakdown = Object.entries(paymentMethodCounts).map(
+        ([method, data]) => ({
+          method,
+          count: data.count,
+          amount: data.amount,
+          percentage:
+            totalMethodAmount > 0 ? (data.amount / totalMethodAmount) * 100 : 0,
+        }),
+      );
+
       const workerStats: WorkerStats = {
         totalAppointments,
         revenueGenerated,
@@ -141,6 +177,7 @@ export function WorkerDetail() {
         averageRating: 4.7, // Mock rating
         completionRate: (completedAppointments / totalAppointments) * 100 || 0,
         monthlyAppointments: mockMonthlyPerformance,
+        paymentMethodBreakdown,
       };
 
       setWorker(foundWorker);
@@ -218,6 +255,53 @@ export function WorkerDetail() {
       default:
         return status;
     }
+  };
+
+  const getPaymentMethodConfig = () => {
+    return {
+      cash: {
+        label: "💵 Efectivo",
+        icon: Wallet,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        iconBg: "bg-green-100",
+      },
+      yape: {
+        label: "📱 Yape",
+        icon: Smartphone,
+        color: "text-purple-600",
+        bgColor: "bg-purple-50",
+        iconBg: "bg-purple-100",
+      },
+      plin: {
+        label: "📲 Plin",
+        icon: Smartphone,
+        color: "text-blue-600",
+        bgColor: "bg-blue-50",
+        iconBg: "bg-blue-100",
+      },
+      card: {
+        label: "💳 Tarjeta",
+        icon: CreditCard,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-50",
+        iconBg: "bg-indigo-100",
+      },
+      transfer: {
+        label: "🏦 Transferencia",
+        icon: ArrowUpDown,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
+        iconBg: "bg-orange-100",
+      },
+      other: {
+        label: "Otros",
+        icon: PlusCircle,
+        color: "text-gray-600",
+        bgColor: "bg-gray-50",
+        iconBg: "bg-gray-100",
+      },
+    };
   };
 
   if (isLoading) {
@@ -510,6 +594,56 @@ export function WorkerDetail() {
             </Card>
           </div>
         </div>
+
+        {/* Payment Methods Breakdown */}
+        {stats.paymentMethodBreakdown.length > 0 && (
+          <Card className="card-modern">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-primary" />
+                Ingresos por Método de Pago
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                {stats.paymentMethodBreakdown.map((method) => {
+                  const config =
+                    getPaymentMethodConfig()[
+                      method.method as keyof ReturnType<
+                        typeof getPaymentMethodConfig
+                      >
+                    ] || getPaymentMethodConfig().other;
+                  const IconComponent = config.icon;
+                  return (
+                    <div
+                      key={method.method}
+                      className="flex flex-col items-center p-4 bg-muted/30 rounded-lg"
+                    >
+                      <div
+                        className={cn("p-3 rounded-full mb-3", config.iconBg)}
+                      >
+                        <IconComponent
+                          className={cn("w-6 h-6", config.color)}
+                        />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {config.label}
+                        </p>
+                        <p className="text-lg font-bold text-foreground">
+                          S/ {method.amount.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {method.count} pagos ({method.percentage.toFixed(1)}%)
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Detailed Analytics */}
         <Tabs defaultValue="performance" className="w-full">

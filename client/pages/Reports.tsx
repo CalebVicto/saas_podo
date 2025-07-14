@@ -12,6 +12,11 @@ import {
   ShoppingBag,
   FileText,
   Eye,
+  Wallet,
+  Smartphone,
+  CreditCard,
+  ArrowUpDown,
+  PlusCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -335,6 +340,53 @@ export function Reports() {
     return labels[method as keyof typeof labels] || method;
   };
 
+  const getPaymentMethodConfig = () => {
+    return {
+      cash: {
+        label: "💵 Efectivo",
+        icon: Wallet,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        iconBg: "bg-green-100",
+      },
+      yape: {
+        label: "📱 Yape",
+        icon: Smartphone,
+        color: "text-purple-600",
+        bgColor: "bg-purple-50",
+        iconBg: "bg-purple-100",
+      },
+      plin: {
+        label: "📲 Plin",
+        icon: Smartphone,
+        color: "text-blue-600",
+        bgColor: "bg-blue-50",
+        iconBg: "bg-blue-100",
+      },
+      card: {
+        label: "💳 Tarjeta",
+        icon: CreditCard,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-50",
+        iconBg: "bg-indigo-100",
+      },
+      transfer: {
+        label: "🏦 Transferencia",
+        icon: ArrowUpDown,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
+        iconBg: "bg-orange-100",
+      },
+      other: {
+        label: "Otros",
+        icon: PlusCircle,
+        color: "text-gray-600",
+        bgColor: "bg-gray-50",
+        iconBg: "bg-gray-100",
+      },
+    };
+  };
+
   if (!isAdmin) return null;
 
   return (
@@ -480,6 +532,63 @@ export function Reports() {
         {/* Report Results */}
         {reportData && (
           <>
+            {/* Payment Method Summary Cards */}
+            {reportData.paymentMethodData.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Resumen por Método de Pago
+                  </h3>
+                  <Badge variant="outline" className="text-xs">
+                    {reportData.paymentMethodData.length} métodos activos
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                  {reportData.paymentMethodData.map((method) => {
+                    const config =
+                      getPaymentMethodConfig()[
+                        method.method as keyof ReturnType<
+                          typeof getPaymentMethodConfig
+                        >
+                      ] || getPaymentMethodConfig().other;
+                    const IconComponent = config.icon;
+                    return (
+                      <Card
+                        key={method.method}
+                        className="card-modern hover:shadow-md transition-all duration-200"
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div
+                              className={cn("p-2 rounded-lg", config.iconBg)}
+                            >
+                              <IconComponent
+                                className={cn("w-5 h-5", config.color)}
+                              />
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {method.percentage.toFixed(1)}%
+                            </Badge>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {config.label}
+                            </p>
+                            <p className="text-lg font-bold text-foreground">
+                              S/ {method.amount.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {method.count} transacciones
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card className="card-modern">
