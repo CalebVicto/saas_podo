@@ -40,16 +40,13 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Patient, CreatePatientRequest } from "@shared/api";
 import {
-  getMockPatients,
-  getMockAppointments,
-  getMockPayments,
-} from "@/lib/mockData";
+  usePatientRepository,
+  useAppointmentRepository,
+  usePaymentRepository,
+} from "@/lib/repositories";
 import Layout from "@/components/Layout";
-import {
-  Pagination,
-  usePagination,
-  paginateArray,
-} from "@/components/ui/pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 
 interface User {
   id: string;
@@ -67,18 +64,17 @@ const useAuth = () => {
 export function Patients() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const patientRepository = usePatientRepository();
+  const appointmentRepository = useAppointmentRepository();
+  const paymentRepository = usePaymentRepository();
+
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Pagination
-  const pagination = usePagination({
-    totalItems: filteredPatients.length,
+  // Repository-based pagination
+  const pagination = useRepositoryPagination<Patient>({
     initialPageSize: 12,
   });
 
@@ -102,49 +98,27 @@ export function Patients() {
     loadPatients();
   }, [user, navigate]);
 
-  // Filter patients based on search term
+  // Load patients whenever pagination state changes
   useEffect(() => {
-    const filtered = patients.filter(
-      (patient) =>
-        patient.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.documentId.includes(searchTerm) ||
-        patient.phone.includes(searchTerm),
-    );
-    setFilteredPatients(filtered);
-    // Reset pagination when filters change
-    pagination.resetPagination();
-  }, [patients, searchTerm, pagination]);
+    loadPatients();
+  }, [
+    pagination.currentPage,
+    pagination.pageSize,
+    pagination.searchTerm,
+    pagination.filters,
+  ]);
 
   const loadPatients = async () => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockPatients = getMockPatients();
-      setPatients(mockPatients);
-    } catch (error) {
-      console.error("Error loading patients:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    await pagination.loadData((params) => patientRepository.getAll(params));
   };
 
   const handleAddPatient = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newPatient: Patient = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setPatients([...patients, newPatient]);
+      await patientRepository.create(formData);
       setIsAddDialogOpen(false);
       resetForm();
+      // Refresh the data
+      await loadPatients();
     } catch (error) {
       console.error("Error adding patient:", error);
     }
@@ -154,21 +128,12 @@ export function Patients() {
     if (!selectedPatient) return;
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const updatedPatient: Patient = {
-        ...selectedPatient,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setPatients(
-        patients.map((p) => (p.id === selectedPatient.id ? updatedPatient : p)),
-      );
+      await patientRepository.update(selectedPatient.id, formData);
       setIsEditDialogOpen(false);
       setSelectedPatient(null);
       resetForm();
+      // Refresh the data
+      await loadPatients();
     } catch (error) {
       console.error("Error updating patient:", error);
     }
@@ -219,16 +184,30 @@ export function Patients() {
     return age;
   };
 
-  const getPatientAppointments = (patientId: string) => {
-    return getMockAppointments().filter((apt) => apt.patientId === patientId);
+  const getPatientAppointments = async (patientId: string) => {
+    try {
+      const response = await appointmentRepository.getAll({
+        patientId,
+        limit: 100, // Get all appointments for this patient
+      });
+      return response.items;
+    } catch (error) {
+      console.error("Error loading patient appointments:", error);
+      return [];
+    }
   };
 
-  const getPatientPayments = (patientId: string) => {
-    const appointments = getPatientAppointments(patientId);
-    const appointmentIds = appointments.map((apt) => apt.id);
-    return getMockPayments().filter((payment) =>
-      appointmentIds.includes(payment.appointmentId || ""),
-    );
+  const getPatientPayments = async (patientId: string) => {
+    try {
+      const response = await paymentRepository.getAll({
+        patientId,
+        limit: 100, // Get all payments for this patient
+      });
+      return response.items;
+    } catch (error) {
+      console.error("Error loading patient payments:", error);
+      return [];
+    }
   };
 
   if (!user) return null;
@@ -264,8 +243,8 @@ export function Patients() {
                 <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Buscar por nombre, DNI o teléfono..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={pagination.searchTerm}
+                  onChange={(e) => pagination.setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -280,7 +259,7 @@ export function Patients() {
         {/* Patients List */}
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {isLoading ? (
+            {pagination.isLoading ? (
               // Loading skeletons
               Array.from({ length: pagination.pageSize }).map((_, i) => (
                 <Card key={i} className="card-modern">
@@ -293,20 +272,20 @@ export function Patients() {
                   </CardContent>
                 </Card>
               ))
-            ) : filteredPatients.length === 0 ? (
+            ) : pagination.data.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {searchTerm
+                  {pagination.searchTerm
                     ? "No se encontraron pacientes"
                     : "No hay pacientes registrados"}
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  {searchTerm
+                  {pagination.searchTerm
                     ? "Intenta con otros términos de búsqueda"
                     : "Comienza agregando tu primer paciente"}
                 </p>
-                {!searchTerm && (
+                {!pagination.searchTerm && (
                   <Button
                     onClick={() => setIsAddDialogOpen(true)}
                     className="btn-primary"
@@ -317,18 +296,7 @@ export function Patients() {
                 )}
               </div>
             ) : (
-              paginateArray(
-                filteredPatients,
-                pagination.currentPage,
-                pagination.pageSize,
-              ).map((patient) => {
-                const appointments = getPatientAppointments(patient.id);
-                const lastAppointment = appointments.sort(
-                  (a, b) =>
-                    new Date(b.dateTime).getTime() -
-                    new Date(a.dateTime).getTime(),
-                )[0];
-
+              pagination.data.map((patient) => {
                 return (
                   <Card
                     key={patient.id}
@@ -355,7 +323,7 @@ export function Patients() {
                           </div>
                         </div>
                         <Badge variant="outline" className="status-info">
-                          {appointments.length} citas
+                          Paciente
                         </Badge>
                       </div>
 
@@ -372,19 +340,6 @@ export function Patients() {
                           <span className="text-muted-foreground">Tel:</span>
                           <span className="font-medium">{patient.phone}</span>
                         </div>
-                        {lastAppointment && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              Última cita:
-                            </span>
-                            <span className="font-medium">
-                              {new Date(
-                                lastAppointment.dateTime,
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -415,11 +370,11 @@ export function Patients() {
           </div>
 
           {/* Pagination */}
-          {filteredPatients.length > 0 && (
+          {pagination.totalItems > 0 && (
             <Pagination
               currentPage={pagination.currentPage}
               totalPages={pagination.totalPages}
-              totalItems={filteredPatients.length}
+              totalItems={pagination.totalItems}
               pageSize={pagination.pageSize}
               onPageChange={pagination.goToPage}
               onPageSizeChange={pagination.setPageSize}
