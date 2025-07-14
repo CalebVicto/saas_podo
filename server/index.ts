@@ -18,5 +18,10 @@ export function createServer() {
 
   app.get("/api/demo", handleDemo);
 
+  // Authentication endpoints
+  app.post("/api/auth/validate", validateToken);
+  app.post("/api/auth/refresh", refreshToken);
+  app.post("/api/auth/logout", logout);
+
   return app;
 }
