@@ -664,7 +664,7 @@ export function Appointments() {
                 <Pagination
                   currentPage={pagination.currentPage}
                   totalPages={pagination.totalPages}
-                  totalItems={filteredAppointments.length}
+                  totalItems={pagination.totalItems}
                   pageSize={pagination.pageSize}
                   onPageChange={pagination.goToPage}
                   onPageSizeChange={pagination.setPageSize}
