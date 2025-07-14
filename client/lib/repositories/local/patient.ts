@@ -1,4 +1,9 @@
-import type { Patient, CreatePatientRequest } from "@shared/api";
+import type {
+  Patient,
+  CreatePatientRequest,
+  PaginatedResponse,
+  PaginatedSearchParams,
+} from "@shared/api";
 import type { IPatientRepository } from "../interfaces";
 import { LocalStorageBaseRepository } from "./base";
 import { mockPatients } from "../../mockData";
@@ -17,11 +22,25 @@ export class LocalPatientRepository
     return patients.find((p) => p.documentId === documentId) || null;
   }
 
-  async searchPatients(query: string): Promise<Patient[]> {
-    return this.searchByFields(
-      ["firstName", "lastName", "documentId", "phone"],
-      query,
-    );
+  async searchPatients(
+    params: PaginatedSearchParams,
+  ): Promise<PaginatedResponse<Patient>> {
+    await this.simulateNetworkDelay();
+    let patients = this.loadFromStorage();
+
+    // Apply search filter
+    if (params.search) {
+      const searchQuery = params.search.toLowerCase();
+      patients = patients.filter(
+        (patient) =>
+          patient.firstName.toLowerCase().includes(searchQuery) ||
+          patient.lastName.toLowerCase().includes(searchQuery) ||
+          patient.documentId.toLowerCase().includes(searchQuery) ||
+          patient.phone.toLowerCase().includes(searchQuery),
+      );
+    }
+
+    return this.paginateResults(patients, params);
   }
 
   async getPatientStats(): Promise<{
