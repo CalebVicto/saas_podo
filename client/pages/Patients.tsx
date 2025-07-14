@@ -729,59 +729,22 @@ export function Patients() {
                       Estadísticas
                     </h3>
                     <div className="space-y-3">
-                      {(() => {
-                        const appointments = getPatientAppointments(
-                          selectedPatient.id,
-                        );
-                        const payments = getPatientPayments(selectedPatient.id);
-                        const totalPaid = payments.reduce(
-                          (sum, p) => sum + p.amount,
-                          0,
-                        );
-
-                        return (
-                          <>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Total de Citas
-                              </Label>
-                              <p className="font-medium">
-                                {appointments.length}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Citas Completadas
-                              </Label>
-                              <p className="font-medium">
-                                {
-                                  appointments.filter(
-                                    (a) => a.status === "completed",
-                                  ).length
-                                }
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Total Pagado
-                              </Label>
-                              <p className="font-medium">
-                                S/ {totalPaid.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Paciente desde
-                              </Label>
-                              <p className="font-medium">
-                                {new Date(
-                                  selectedPatient.createdAt,
-                                ).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </>
-                        );
-                      })()}
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          Paciente desde
+                        </Label>
+                        <p className="font-medium">
+                          {new Date(
+                            selectedPatient.createdAt,
+                          ).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">
+                          Estado
+                        </Label>
+                        <p className="font-medium">Activo</p>
+                      </div>
                     </div>
                   </div>
                 </div>
