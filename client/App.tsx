@@ -76,32 +76,173 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route path="/patients" element={<Patients />} />
-              <Route path="/patients/:id" element={<PatientDetail />} />
-              <Route path="/appointments" element={<Appointments />} />
-              <Route path="/appointments/new" element={<CreateAppointment />} />
+              <Route
+                path="/patients"
+                element={
+                  <ProtectedRoute>
+                    <Patients />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/patients/:id"
+                element={
+                  <ProtectedRoute>
+                    <PatientDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/appointments"
+                element={
+                  <ProtectedRoute>
+                    <Appointments />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/appointments/new"
+                element={
+                  <ProtectedRoute>
+                    <CreateAppointment />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/appointments/schedule"
-                element={<ScheduleAppointment />}
+                element={
+                  <ProtectedRoute>
+                    <ScheduleAppointment />
+                  </ProtectedRoute>
+                }
               />
-              <Route path="/payments" element={<Payments />} />
-              <Route path="/abonos" element={<Abonos />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
-              <Route path="/categories" element={<Categories />} />
-              <Route path="/packages" element={<Packages />} />
-              <Route path="/kardex" element={<Kardex />} />
-              <Route path="/workers" element={<Workers />} />
-              <Route path="/workers/:id" element={<WorkerDetail />} />
-              <Route path="/worker-types" element={<WorkerTypes />} />
-              <Route path="/user-accounts" element={<UserAccounts />} />
-              <Route path="/service-packages" element={<ServicePackages />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/sales" element={<Sales />} />
-              <Route path="/settings" element={<Settings />} />
+              <Route
+                path="/payments"
+                element={
+                  <ProtectedRoute>
+                    <Payments />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/abonos"
+                element={
+                  <ProtectedRoute>
+                    <Abonos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products"
+                element={
+                  <ProtectedRoute>
+                    <Products />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/products/:id"
+                element={
+                  <ProtectedRoute>
+                    <ProductDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/categories"
+                element={
+                  <ProtectedRoute>
+                    <Categories />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/packages"
+                element={
+                  <ProtectedRoute>
+                    <Packages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kardex"
+                element={
+                  <ProtectedRoute>
+                    <Kardex />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workers"
+                element={
+                  <ProtectedRoute>
+                    <Workers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workers/:id"
+                element={
+                  <ProtectedRoute>
+                    <WorkerDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/worker-types"
+                element={
+                  <ProtectedRoute>
+                    <WorkerTypes />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/user-accounts"
+                element={
+                  <ProtectedRoute requireRole="admin">
+                    <UserAccounts />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/service-packages"
+                element={
+                  <ProtectedRoute>
+                    <ServicePackages />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sales"
+                element={
+                  <ProtectedRoute>
+                    <Sales />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <Settings />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/repository-example"
-                element={<ExampleRepositoryUsage />}
+                element={
+                  <ProtectedRoute>
+                    <ExampleRepositoryUsage />
+                  </ProtectedRoute>
+                }
               />
 
               {/* Catch-all route for 404 */}
