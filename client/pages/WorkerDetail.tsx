@@ -220,6 +220,53 @@ export function WorkerDetail() {
     }
   };
 
+  const getPaymentMethodConfig = () => {
+    return {
+      cash: {
+        label: "💵 Efectivo",
+        icon: Wallet,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        iconBg: "bg-green-100",
+      },
+      yape: {
+        label: "📱 Yape",
+        icon: Smartphone,
+        color: "text-purple-600",
+        bgColor: "bg-purple-50",
+        iconBg: "bg-purple-100",
+      },
+      plin: {
+        label: "📲 Plin",
+        icon: Smartphone,
+        color: "text-blue-600",
+        bgColor: "bg-blue-50",
+        iconBg: "bg-blue-100",
+      },
+      card: {
+        label: "💳 Tarjeta",
+        icon: CreditCard,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-50",
+        iconBg: "bg-indigo-100",
+      },
+      transfer: {
+        label: "🏦 Transferencia",
+        icon: ArrowUpDown,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
+        iconBg: "bg-orange-100",
+      },
+      other: {
+        label: "Otros",
+        icon: PlusCircle,
+        color: "text-gray-600",
+        bgColor: "bg-gray-50",
+        iconBg: "bg-gray-100",
+      },
+    };
+  };
+
   if (isLoading) {
     return (
       <Layout
