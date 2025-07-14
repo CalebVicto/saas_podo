@@ -38,8 +38,11 @@ import ExampleRepositoryUsage from "./pages/ExampleRepositoryUsage";
 const queryClient = new QueryClient();
 
 // Initialize the authenticated API with token expiration handler
+// This will be called automatically on 401 responses
 const handleTokenExpired = () => {
-  // This will be handled by the AuthProvider
+  // Clear auth storage and redirect to login
+  const { tokenStorage } = require("@/lib/auth");
+  tokenStorage.clear();
   window.location.href = "/login";
 };
 
