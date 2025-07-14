@@ -52,6 +52,11 @@ import {
   getMockWorkers,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import {
+  Pagination,
+  usePagination,
+  paginateArray,
+} from "@/components/ui/pagination";
 
 interface User {
   id: string;
@@ -107,6 +112,12 @@ export function Appointments() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pagination
+  const pagination = usePagination({
+    totalItems: filteredAppointments.length,
+    initialPageSize: 15,
+  });
 
   // Get available data
   const patients = getMockPatients();
@@ -191,7 +202,17 @@ export function Appointments() {
     }
 
     setFilteredAppointments(filtered);
-  }, [appointments, searchTerm, statusFilter, dateFilter, workerFilter, user]);
+    // Reset pagination when filters change
+    pagination.resetPagination();
+  }, [
+    appointments,
+    searchTerm,
+    statusFilter,
+    dateFilter,
+    workerFilter,
+    user,
+    pagination,
+  ]);
 
   const loadAppointments = async () => {
     setIsLoading(true);
@@ -561,10 +582,10 @@ export function Appointments() {
               )
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             {isLoading ? (
               <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: pagination.pageSize }).map((_, i) => (
                   <div key={i} className="loading-shimmer h-16 rounded"></div>
                 ))}
               </div>
@@ -588,26 +609,29 @@ export function Appointments() {
                 </Button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fecha & Hora</TableHead>
-                      <TableHead>Paciente</TableHead>
-                      <TableHead>Trabajador</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Duración</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAppointments
-                      .sort(
-                        (a, b) =>
-                          new Date(a.dateTime).getTime() -
-                          new Date(b.dateTime).getTime(),
-                      )
-                      .map((appointment) => {
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha & Hora</TableHead>
+                        <TableHead>Paciente</TableHead>
+                        <TableHead>Trabajador</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Duración</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginateArray(
+                        filteredAppointments.sort(
+                          (a, b) =>
+                            new Date(a.dateTime).getTime() -
+                            new Date(b.dateTime).getTime(),
+                        ),
+                        pagination.currentPage,
+                        pagination.pageSize,
+                      ).map((appointment) => {
                         const { date, time } = formatDateTime(
                           appointment.dateTime,
                         );
@@ -724,9 +748,22 @@ export function Appointments() {
                           </TableRow>
                         );
                       })}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalItems={filteredAppointments.length}
+                  pageSize={pagination.pageSize}
+                  onPageChange={pagination.goToPage}
+                  onPageSizeChange={pagination.setPageSize}
+                  showPageSizeSelector={true}
+                  pageSizeOptions={[10, 15, 25, 50]}
+                />
+              </>
             )}
           </CardContent>
         </Card>
