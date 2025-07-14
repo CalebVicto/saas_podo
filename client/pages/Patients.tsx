@@ -763,66 +763,37 @@ export function Patients() {
                   </div>
                 )}
 
-                {/* Recent Appointments */}
+                {/* Quick Actions */}
                 <div>
                   <h3 className="font-semibold text-foreground mb-3">
-                    Citas Recientes
+                    Acciones Rápidas
                   </h3>
-                  {(() => {
-                    const appointments = getPatientAppointments(
-                      selectedPatient.id,
-                    )
-                      .sort(
-                        (a, b) =>
-                          new Date(b.dateTime).getTime() -
-                          new Date(a.dateTime).getTime(),
-                      )
-                      .slice(0, 5);
-
-                    return appointments.length > 0 ? (
-                      <div className="space-y-3">
-                        {appointments.map((appointment) => (
-                          <div
-                            key={appointment.id}
-                            className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium text-sm">
-                                {new Date(
-                                  appointment.dateTime,
-                                ).toLocaleDateString()}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {appointment.treatmentNotes || "Sin notas"}
-                              </p>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                appointment.status === "completed" &&
-                                  "status-success",
-                                appointment.status === "scheduled" &&
-                                  "status-info",
-                                appointment.status === "cancelled" &&
-                                  "status-error",
-                              )}
-                            >
-                              {appointment.status === "completed" &&
-                                "Completada"}
-                              {appointment.status === "scheduled" &&
-                                "Programada"}
-                              {appointment.status === "cancelled" &&
-                                "Cancelada"}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        No hay citas registradas
-                      </p>
-                    );
-                  })()}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate(`/patients/${selectedPatient.id}`)
+                      }
+                      className="flex-1"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Perfil Completo
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        navigate(
+                          `/appointments/new?patientId=${selectedPatient.id}`,
+                        )
+                      }
+                      className="flex-1"
+                    >
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Nueva Cita
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
