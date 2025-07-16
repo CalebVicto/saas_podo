@@ -75,13 +75,16 @@ const ExampleRepositoryUsage: React.FC = () => {
   const handleCreatePatient = async () => {
     try {
       const newPatient = await patientRepo.create({
+        documentType: "dni",
+        documentNumber: `${Date.now()}`,
         firstName: "New",
-        lastName: "Patient",
-        documentId: `DNI${Date.now()}`,
+        paternalSurname: "Patient",
+        maternalSurname: "Demo",
+        gender: "m",
         phone: "+51 999 999 999",
-        sex: "other",
         birthDate: "1990-01-01",
-        clinicalNotes: "Created via repository pattern",
+        otherConditions: "Created via repository pattern",
+        balance: 0,
       });
 
       setPatients([...patients, newPatient]);
@@ -238,10 +241,10 @@ const ExampleRepositoryUsage: React.FC = () => {
                     >
                       <div>
                         <p className="font-medium">
-                          {patient.firstName} {patient.lastName}
+                          {patient.firstName} {patient.paternalSurname} {patient.maternalSurname}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {patient.documentId} • {patient.phone}
+                          {patient.documentNumber} • {patient.phone}
                         </p>
                       </div>
                       <Badge variant="outline">{patient.sex}</Badge>

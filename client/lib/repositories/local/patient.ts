@@ -1,6 +1,5 @@
 import type {
   Patient,
-  CreatePatientRequest,
   PaginatedResponse,
   PaginatedSearchParams,
 } from "@shared/api";
@@ -9,17 +8,17 @@ import { LocalStorageBaseRepository } from "./base";
 import { mockPatients } from "../../mockData";
 
 export class LocalPatientRepository
-  extends LocalStorageBaseRepository<Patient, CreatePatientRequest>
+  extends LocalStorageBaseRepository<Patient, Patient>
   implements IPatientRepository
 {
   constructor() {
     super("podocare_patients", mockPatients);
   }
 
-  async getByDocumentId(documentId: string): Promise<Patient | null> {
+  async getByDocumentId(documentNumber: string): Promise<Patient | null> {
     await this.simulateNetworkDelay();
     const patients = this.loadFromStorage();
-    return patients.find((p) => p.documentId === documentId) || null;
+    return patients.find((p) => p.documentNumber === documentNumber) || null;
   }
 
   async searchPatients(
@@ -34,9 +33,10 @@ export class LocalPatientRepository
       patients = patients.filter(
         (patient) =>
           patient.firstName.toLowerCase().includes(searchQuery) ||
-          patient.lastName.toLowerCase().includes(searchQuery) ||
-          patient.documentId.toLowerCase().includes(searchQuery) ||
-          patient.phone.toLowerCase().includes(searchQuery),
+          patient.paternalSurname.toLowerCase().includes(searchQuery) ||
+          patient.maternalSurname.toLowerCase().includes(searchQuery) ||
+          patient.documentNumber.toLowerCase().includes(searchQuery) ||
+          (patient.phone || "").toLowerCase().includes(searchQuery),
       );
     }
 
