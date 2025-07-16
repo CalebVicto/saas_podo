@@ -4,6 +4,7 @@ import type {
   PatientListResponse,
   PaginatedResponse,
   PaginatedSearchParams,
+  Patient,
 } from "@shared/api";
 
 export class PatientRepository {
@@ -17,7 +18,7 @@ export class PatientRepository {
 
   async getAll(
     params?: PaginatedSearchParams,
-  ): Promise<PaginatedResponse<PatientListItem>> {
+  ): Promise<PaginatedResponse<Patient>> {
     const query = this.buildQuery(params);
     const resp = await apiGet<PatientListResponse>(`/patient${query}`);
     if (resp.error || !resp.data) {

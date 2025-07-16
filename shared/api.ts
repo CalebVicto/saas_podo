@@ -20,16 +20,23 @@ export interface LoginResponse {
 
 // Patient Types
 export interface Patient {
-  id: string;
+  id?: any;
+  documentType: 'dni' | 'passport';
+  documentNumber: string;
   firstName: string;
-  lastName: string;
-  documentId: string; // DNI
-  phone: string;
-  sex: "male" | "female" | "other";
+  paternalSurname: string;
+  maternalSurname: string;
+  gender: 'm' | 'f';
+  email?: string;
+  phone?: string;
   birthDate: string;
-  clinicalNotes?: string;
-  createdAt: string;
-  updatedAt: string;
+  allergy?: string;
+  diabetic?: boolean;
+  hypertensive?: boolean;
+  otherConditions?: string;
+  firstNameNormalized?: string;
+  lastNameNormalized?: string;
+  balance: number;
 }
 
 export interface CreatePatientRequest {
@@ -359,16 +366,27 @@ export interface SearchParams {
   [key: string]: any;
 }
 
-export interface PaginatedSearchParams extends PaginationParams, SearchParams {}
+export interface PaginatedSearchParams extends PaginationParams, SearchParams { }
 
 // Patient listing data returned by the real API
+
 export interface PatientListItem {
   id: string;
+  documentType: string;
   documentNumber: string;
   firstName: string;
   paternalSurname: string;
   maternalSurname: string;
-  phone: string;
+  gender: string;
+  firstNameNormalized: string;
+  lastNameNormalized: string;
+  email: null;
+  phone: null;
+  birthDate: string;
+  allergy: null;
+  diabetic: boolean;
+  hypertensive: boolean;
+  otherConditions: string;
   balance: number;
 }
 
@@ -376,7 +394,7 @@ export interface PatientListResponse {
   state: string;
   message: string;
   data: {
-    data: PatientListItem[];
+    data: Patient[];
     total: number;
     page: number;
     limit: number;
