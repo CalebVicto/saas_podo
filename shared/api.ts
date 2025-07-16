@@ -360,3 +360,25 @@ export interface SearchParams {
 }
 
 export interface PaginatedSearchParams extends PaginationParams, SearchParams {}
+
+// Patient listing data returned by the real API
+export interface PatientListItem {
+  id: string;
+  documentNumber: string;
+  firstName: string;
+  paternalSurname: string;
+  maternalSurname: string;
+  phone: string;
+  balance: number;
+}
+
+export interface PatientListResponse {
+  state: string;
+  message: string;
+  data: {
+    data: PatientListItem[];
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
