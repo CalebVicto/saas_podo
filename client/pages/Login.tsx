@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
 interface LoginFormData {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -16,7 +16,7 @@ export function Login() {
   const { isAuthenticated, login } = useAuth();
   const location = useLocation();
   const [formData, setFormData] = useState<LoginFormData>({
-    email: "",
+    username: "",
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -37,13 +37,13 @@ export function Login() {
     setError("");
 
     try {
-      await login(formData.email, formData.password);
+      await login(formData.username, formData.password);
       // Navigation will be handled automatically by the redirect above
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Credenciales inválidas. Por favor, verifica tu email y contraseña.",
+          : "Credenciales inválidas. Por favor, verifica tu usuario y contraseña.",
       );
     } finally {
       setIsLoading(false);
@@ -133,18 +133,18 @@ export function Login() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label
-                  htmlFor="email"
+                  htmlFor="username"
                   className="text-sm font-medium text-foreground"
                 >
-                  Correo Electrónico
+                  Usuario
                 </Label>
                 <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={formData.username}
                   onChange={handleInputChange}
-                  placeholder="tu@email.com"
+                  placeholder="usuario"
                   required
                   className={cn(
                     "input-modern",
@@ -224,8 +224,8 @@ export function Login() {
                   size="sm"
                   onClick={() => {
                     setFormData({
-                      email: "admin@podocare.com",
-                      password: "admin123",
+                      username: "admin@demo.com",
+                      password: "demo123",
                     });
                     setError("");
                   }}
@@ -242,8 +242,8 @@ export function Login() {
                   size="sm"
                   onClick={() => {
                     setFormData({
-                      email: "worker@podocare.com",
-                      password: "worker123",
+                      username: "worker@demo.com",
+                      password: "demo123",
                     });
                     setError("");
                   }}

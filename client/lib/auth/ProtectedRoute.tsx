@@ -4,7 +4,7 @@ import { useAuth } from "./context";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requireRole?: "admin" | "worker";
+  requireRole?: "admin" | "worker" | "trabajador";
   fallbackPath?: string;
 }
 
@@ -34,7 +34,11 @@ export function ProtectedRoute({
   }
 
   // Check role-based access if required
-  if (requireRole && user?.role !== requireRole) {
+  if (
+    requireRole &&
+    user?.role !== requireRole &&
+    !(requireRole === "trabajador" && user?.role === "worker")
+  ) {
     // If user doesn't have required role, redirect to dashboard or show unauthorized
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
