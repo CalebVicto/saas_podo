@@ -46,7 +46,7 @@ const handleTokenExpired = () => {
   window.location.href = "/login";
 };
 
-initializeApi("http://localhost:3000/api/", handleTokenExpired);
+initializeApi("http://localhost:3000/api", handleTokenExpired);
 
 const App = () => (
   <AuthProvider>
