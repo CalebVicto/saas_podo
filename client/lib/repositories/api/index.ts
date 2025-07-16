@@ -1,6 +1,5 @@
 import type {
   Patient,
-  CreatePatientRequest,
   Worker,
   CreateWorkerRequest,
   Appointment,
@@ -37,11 +36,11 @@ import { ApiBaseRepository } from "./base";
 
 // Patient Repository
 export class ApiPatientRepository
-  extends ApiBaseRepository<Patient, CreatePatientRequest>
+  extends ApiBaseRepository<Patient, Patient>
   implements IPatientRepository
 {
   constructor(config: RepositoryConfig) {
-    super(config, "/patients");
+    super(config, "/patient");
   }
 
   async getByDocumentId(documentId: string): Promise<Patient | null> {

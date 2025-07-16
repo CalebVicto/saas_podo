@@ -1,6 +1,5 @@
 import type {
   Patient,
-  CreatePatientRequest,
   Worker,
   CreateWorkerRequest,
   Appointment,
@@ -35,7 +34,7 @@ export interface BaseRepository<T, TCreate> {
 
 // Patient Repository Interface
 export interface IPatientRepository
-  extends BaseRepository<Patient, CreatePatientRequest> {
+  extends BaseRepository<Patient, Patient> {
   getByDocumentId(documentId: string): Promise<Patient | null>;
   searchPatients(
     params: PaginatedSearchParams,

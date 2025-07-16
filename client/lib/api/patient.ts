@@ -1,10 +1,11 @@
-import { apiGet } from "@/lib/auth";
+import { apiGet, apiPost, apiPut } from "@/lib/auth";
 import type {
   PatientListItem,
   PatientListResponse,
   PaginatedResponse,
   PaginatedSearchParams,
   Patient,
+  ApiResponse,
 } from "@shared/api";
 
 export class PatientRepository {
@@ -37,6 +38,22 @@ export class PatientRepository {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async create(data: Patient): Promise<Patient> {
+    const resp = await apiPost<ApiResponse<Patient>>("/patient", data);
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to create patient");
+    }
+    return resp.data.data;
+  }
+
+  async update(id: string, data: Partial<Patient>): Promise<Patient> {
+    const resp = await apiPut<ApiResponse<Patient>>(`/patient/${id}`, data);
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to update patient");
+    }
+    return resp.data.data;
   }
 }
 

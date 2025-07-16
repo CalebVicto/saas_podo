@@ -38,7 +38,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Patient, CreatePatientRequest, PatientListItem } from "@shared/api";
+import { Patient } from "@shared/api";
 import {
   usePatientRepository,
   useAppointmentRepository,
@@ -47,7 +47,6 @@ import {
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
-import { PatientRepository } from "@/lib/api/patient";
 
 interface User {
   id: string;
@@ -64,7 +63,6 @@ const useAuth = () => {
 
 export function Patients() {
   const { user } = useAuth();
-  const repo = useMemo(() => new PatientRepository(), []);
 
   const navigate = useNavigate();
   const patientRepository = usePatientRepository();
@@ -82,14 +80,16 @@ export function Patients() {
   });
 
   // Form state for new/edit patient
-  const [formData, setFormData] = useState<CreatePatientRequest>({
+  const [formData, setFormData] = useState<Patient>({
+    documentType: "dni",
+    documentNumber: "",
     firstName: "",
-    lastName: "",
-    documentId: "",
+    paternalSurname: "",
+    maternalSurname: "",
+    gender: "f",
     phone: "",
-    sex: "female",
     birthDate: "",
-    clinicalNotes: "",
+    balance: 0,
   });
 
   // Load patients whenever pagination state changes
@@ -104,7 +104,7 @@ export function Patients() {
   ]);
 
   const loadPatients = async () => {
-    await pagination.loadData((params) => repo.getAll(params));
+    await pagination.loadData((params) => patientRepository.getAll(params));
   };
 
   const handleAddPatient = async () => {
@@ -136,27 +136,39 @@ export function Patients() {
 
   const resetForm = () => {
     setFormData({
+      documentType: "dni",
+      documentNumber: "",
       firstName: "",
-      lastName: "",
-      documentId: "",
+      paternalSurname: "",
+      maternalSurname: "",
+      gender: "f",
       phone: "",
-      sex: "female",
       birthDate: "",
-      clinicalNotes: "",
+      balance: 0,
     });
   };
 
   const openEditDialog = (patient: Patient) => {
     setSelectedPatient(patient);
-    // setFormData({
-    //   firstName: patient.firstName,
-    //   lastName: patient.lastName,
-    //   documentId: patient.documentId,
-    //   phone: patient.phone,
-    //   sex: patient.sex,
-    //   birthDate: patient.birthDate,
-    //   clinicalNotes: patient.clinicalNotes || "",
-    // });
+    setFormData({
+      documentType: patient.documentType,
+      documentNumber: patient.documentNumber,
+      firstName: patient.firstName,
+      paternalSurname: patient.paternalSurname,
+      maternalSurname: patient.maternalSurname,
+      gender: patient.gender,
+      email: patient.email,
+      phone: patient.phone || "",
+      birthDate: patient.birthDate,
+      allergy: patient.allergy,
+      diabetic: patient.diabetic,
+      hypertensive: patient.hypertensive,
+      otherConditions: patient.otherConditions || "",
+      firstNameNormalized: patient.firstNameNormalized,
+      lastNameNormalized: patient.lastNameNormalized,
+      balance: patient.balance,
+      id: patient.id,
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -405,14 +417,26 @@ export function Patients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Apellidos *</Label>
+                  <Label htmlFor="paternal">Apellido Paterno *</Label>
                   <Input
-                    id="lastName"
-                    value={formData.lastName}
+                    id="paternal"
+                    value={formData.paternalSurname}
                     onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
+                      setFormData({ ...formData, paternalSurname: e.target.value })
                     }
                     placeholder="González"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maternal">Apellido Materno *</Label>
+                  <Input
+                    id="maternal"
+                    value={formData.maternalSurname}
+                    onChange={(e) =>
+                      setFormData({ ...formData, maternalSurname: e.target.value })
+                    }
+                    placeholder="López"
                     required
                   />
                 </div>
@@ -420,12 +444,12 @@ export function Patients() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="documentId">DNI *</Label>
+                  <Label htmlFor="documentNumber">DNI *</Label>
                   <Input
-                    id="documentId"
-                    value={formData.documentId}
+                    id="documentNumber"
+                    value={formData.documentNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, documentId: e.target.value })
+                      setFormData({ ...formData, documentNumber: e.target.value })
                     }
                     placeholder="12345678"
                     required
@@ -447,20 +471,19 @@ export function Patients() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="sex">Sexo *</Label>
+                  <Label htmlFor="gender">Sexo *</Label>
                   <Select
-                    value={formData.sex}
-                    onValueChange={(value: "male" | "female" | "other") =>
-                      setFormData({ ...formData, sex: value })
+                    value={formData.gender}
+                    onValueChange={(value: "m" | "f") =>
+                      setFormData({ ...formData, gender: value })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="female">Femenino</SelectItem>
-                      <SelectItem value="male">Masculino</SelectItem>
-                      <SelectItem value="other">Otro</SelectItem>
+                      <SelectItem value="f">Femenino</SelectItem>
+                      <SelectItem value="m">Masculino</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -479,12 +502,12 @@ export function Patients() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="clinicalNotes">Notas Clínicas</Label>
+                <Label htmlFor="otherConditions">Notas Clínicas</Label>
                 <Textarea
-                  id="clinicalNotes"
-                  value={formData.clinicalNotes}
+                  id="otherConditions"
+                  value={formData.otherConditions || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, clinicalNotes: e.target.value })
+                    setFormData({ ...formData, otherConditions: e.target.value })
                   }
                   placeholder="Historial médico, alergias, tratamientos previos..."
                   rows={3}
@@ -507,8 +530,9 @@ export function Patients() {
                 className="btn-primary"
                 disabled={
                   !formData.firstName ||
-                  !formData.lastName ||
-                  !formData.documentId ||
+                  !formData.paternalSurname ||
+                  !formData.maternalSurname ||
+                  !formData.documentNumber ||
                   !formData.phone ||
                   !formData.birthDate
                 }
@@ -544,12 +568,23 @@ export function Patients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="editLastName">Apellidos *</Label>
+                  <Label htmlFor="editPaternal">Apellido Paterno *</Label>
                   <Input
-                    id="editLastName"
-                    value={formData.lastName}
+                    id="editPaternal"
+                    value={formData.paternalSurname}
                     onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
+                      setFormData({ ...formData, paternalSurname: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editMaternal">Apellido Materno *</Label>
+                  <Input
+                    id="editMaternal"
+                    value={formData.maternalSurname}
+                    onChange={(e) =>
+                      setFormData({ ...formData, maternalSurname: e.target.value })
                     }
                     required
                   />
@@ -558,12 +593,12 @@ export function Patients() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="editDocumentId">DNI *</Label>
+                  <Label htmlFor="editDocumentNumber">DNI *</Label>
                   <Input
-                    id="editDocumentId"
-                    value={formData.documentId}
+                    id="editDocumentNumber"
+                    value={formData.documentNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, documentId: e.target.value })
+                      setFormData({ ...formData, documentNumber: e.target.value })
                     }
                     required
                   />
@@ -583,20 +618,19 @@ export function Patients() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="editSex">Sexo *</Label>
+                  <Label htmlFor="editGender">Sexo *</Label>
                   <Select
-                    value={formData.sex}
-                    onValueChange={(value: "male" | "female" | "other") =>
-                      setFormData({ ...formData, sex: value })
+                    value={formData.gender}
+                    onValueChange={(value: "m" | "f") =>
+                      setFormData({ ...formData, gender: value })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="female">Femenino</SelectItem>
-                      <SelectItem value="male">Masculino</SelectItem>
-                      <SelectItem value="other">Otro</SelectItem>
+                      <SelectItem value="f">Femenino</SelectItem>
+                      <SelectItem value="m">Masculino</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -615,12 +649,12 @@ export function Patients() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="editClinicalNotes">Notas Clínicas</Label>
+                <Label htmlFor="editOtherConditions">Notas Clínicas</Label>
                 <Textarea
-                  id="editClinicalNotes"
-                  value={formData.clinicalNotes}
+                  id="editOtherConditions"
+                  value={formData.otherConditions || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, clinicalNotes: e.target.value })
+                    setFormData({ ...formData, otherConditions: e.target.value })
                   }
                   rows={3}
                 />
@@ -643,8 +677,9 @@ export function Patients() {
                 className="btn-primary"
                 disabled={
                   !formData.firstName ||
-                  !formData.lastName ||
-                  !formData.documentId ||
+                  !formData.paternalSurname ||
+                  !formData.maternalSurname ||
+                  !formData.documentNumber ||
                   !formData.phone ||
                   !formData.birthDate
                 }

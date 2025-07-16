@@ -57,11 +57,11 @@ import {
   Patient,
   Worker,
   Appointment,
-  CreatePatientRequest,
   ScheduleAppointmentRequest,
   ScheduledAppointment,
 } from "@shared/api";
 import { getMockPatients, getMockWorkers } from "@/lib/mockData";
+import { usePatientRepository } from "@/lib/repositories";
 import Layout from "@/components/Layout";
 
 // Calendar imports
@@ -280,14 +280,17 @@ function CreatePatientModal({
   onClose: () => void;
   onPatientCreated: (patient: Patient) => void;
 }) {
-  const [formData, setFormData] = useState<CreatePatientRequest>({
+  const patientRepo = usePatientRepository();
+  const [formData, setFormData] = useState<Patient>({
+    documentType: "dni",
+    documentNumber: "",
     firstName: "",
-    lastName: "",
-    documentId: "",
+    paternalSurname: "",
+    maternalSurname: "",
+    gender: "f",
     phone: "",
-    sex: "female",
     birthDate: "",
-    clinicalNotes: "",
+    balance: 0,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -298,13 +301,16 @@ function CreatePatientModal({
     if (!formData.firstName.trim()) {
       newErrors.firstName = "Nombre es requerido";
     }
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Apellido es requerido";
+    if (!formData.paternalSurname.trim()) {
+      newErrors.paternalSurname = "Apellido paterno es requerido";
     }
-    if (!formData.documentId.trim()) {
-      newErrors.documentId = "DNI es requerido";
-    } else if (!/^\d{8}$/.test(formData.documentId)) {
-      newErrors.documentId = "DNI debe tener 8 dígitos";
+    if (!formData.maternalSurname.trim()) {
+      newErrors.maternalSurname = "Apellido materno es requerido";
+    }
+    if (!formData.documentNumber.trim()) {
+      newErrors.documentNumber = "DNI es requerido";
+    } else if (!/^\d{8}$/.test(formData.documentNumber)) {
+      newErrors.documentNumber = "DNI debe tener 8 dígitos";
     }
     if (!formData.phone.trim()) {
       newErrors.phone = "Teléfono es requerido";
@@ -324,29 +330,21 @@ function CreatePatientModal({
 
     setIsSaving(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Create new patient object
-      const newPatient: Patient = {
-        id: `patient_${Date.now()}`,
-        ...formData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
+      const newPatient = await patientRepo.create(formData);
       onPatientCreated(newPatient);
       onClose();
 
       // Reset form
       setFormData({
+        documentType: "dni",
+        documentNumber: "",
         firstName: "",
-        lastName: "",
-        documentId: "",
+        paternalSurname: "",
+        maternalSurname: "",
+        gender: "f",
         phone: "",
-        sex: "female",
         birthDate: "",
-        clinicalNotes: "",
+        balance: 0,
       });
       setErrors({});
     } catch (error) {
