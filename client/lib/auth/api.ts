@@ -1,9 +1,17 @@
 import { tokenStorage } from "./storage";
 
-export interface ApiResponse<T = any> {
+// Generic HTTP response returned by AuthenticatedFetch helpers
+export interface HttpResponse<T = any> {
   data?: T;
   error?: string;
   status: number;
+}
+
+// Shape returned by the backend API
+export interface ApiResponse<T> {
+  state: string;
+  message: string;
+  data: T;
 }
 
 export class AuthenticatedFetch {
@@ -28,7 +36,7 @@ export class AuthenticatedFetch {
     return headers;
   }
 
-  private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  private async handleResponse<T>(response: Response): Promise<HttpResponse<T>> {
     const status = response.status;
 
     // Handle 401 Unauthorized
@@ -78,7 +86,7 @@ export class AuthenticatedFetch {
   async get<T>(
     endpoint: string,
     options?: RequestInit,
-  ): Promise<ApiResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     const response = await fetch(url, {
       method: "GET",
@@ -93,7 +101,7 @@ export class AuthenticatedFetch {
     endpoint: string,
     data?: any,
     options?: RequestInit,
-  ): Promise<ApiResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     const response = await fetch(url, {
       method: "POST",
@@ -109,7 +117,7 @@ export class AuthenticatedFetch {
     endpoint: string,
     data?: any,
     options?: RequestInit,
-  ): Promise<ApiResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     const response = await fetch(url, {
       method: "PUT",
@@ -125,7 +133,7 @@ export class AuthenticatedFetch {
     endpoint: string,
     data?: any,
     options?: RequestInit,
-  ): Promise<ApiResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     const response = await fetch(url, {
       method: "PATCH",
@@ -140,7 +148,7 @@ export class AuthenticatedFetch {
   async delete<T>(
     endpoint: string,
     options?: RequestInit,
-  ): Promise<ApiResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     const response = await fetch(url, {
       method: "DELETE",
@@ -183,7 +191,7 @@ export function initializeApi(
 export async function apiGet<T>(
   endpoint: string,
   options?: RequestInit,
-): Promise<ApiResponse<T>> {
+): Promise<HttpResponse<T>> {
   return getDefaultApi().get<T>(endpoint, options);
 }
 
@@ -191,7 +199,7 @@ export async function apiPost<T>(
   endpoint: string,
   data?: any,
   options?: RequestInit,
-): Promise<ApiResponse<T>> {
+): Promise<HttpResponse<T>> {
   return getDefaultApi().post<T>(endpoint, data, options);
 }
 
@@ -199,7 +207,7 @@ export async function apiPut<T>(
   endpoint: string,
   data?: any,
   options?: RequestInit,
-): Promise<ApiResponse<T>> {
+): Promise<HttpResponse<T>> {
   return getDefaultApi().put<T>(endpoint, data, options);
 }
 
@@ -207,14 +215,14 @@ export async function apiPatch<T>(
   endpoint: string,
   data?: any,
   options?: RequestInit,
-): Promise<ApiResponse<T>> {
+): Promise<HttpResponse<T>> {
   return getDefaultApi().patch<T>(endpoint, data, options);
 }
 
 export async function apiDelete<T>(
   endpoint: string,
   options?: RequestInit,
-): Promise<ApiResponse<T>> {
+): Promise<HttpResponse<T>> {
   return getDefaultApi().delete<T>(endpoint, options);
 }
 
@@ -251,12 +259,25 @@ export interface VerifyTokenSuccess {
 export async function loginRequest(
   username: string,
   password: string,
-): Promise<ApiResponse<LoginSuccess>> {
-  return apiPost<LoginSuccess>("/auth/login", { username, password });
+): Promise<HttpResponse<LoginSuccess>> {
+  const resp = await apiPost<ApiResponse<LoginSuccess>>("/auth/login", {
+    username,
+    password,
+  });
+  return {
+    status: resp.status,
+    error: resp.error,
+    data: resp.data?.data,
+  };
 }
 
-export async function verifyTokenRequest(): Promise<ApiResponse<VerifyTokenSuccess>> {
-  return apiGet<VerifyTokenSuccess>("/auth/verify");
+export async function verifyTokenRequest(): Promise<HttpResponse<VerifyTokenSuccess>> {
+  const resp = await apiGet<ApiResponse<VerifyTokenSuccess>>("/auth/verify");
+  return {
+    status: resp.status,
+    error: resp.error,
+    data: resp.data?.data,
+  };
 }
 
 // Refresh token function

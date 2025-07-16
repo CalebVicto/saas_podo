@@ -28,7 +28,7 @@ export {
   verifyTokenRequest,
   refreshToken,
 } from "./api";
-export type { ApiResponse } from "./api";
+export type { HttpResponse, ApiResponse } from "./api";
 
 // Protected route component
 export { ProtectedRoute } from "./ProtectedRoute";

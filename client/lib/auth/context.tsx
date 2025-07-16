@@ -57,9 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyToken = async () => {
     try {
       const { data } = await verifyTokenRequest();
-      const dataResp = data.data;
-      if (dataResp?.valid) {
-        const d = dataResp.data;
+      if (data?.valid) {
+        const d = data.data;
         const mapped: User = {
           id: d.id,
           username: d.username,
@@ -96,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (response.error || !response.data) {
       throw new Error(response.error || "Login failed");
     }
-    const { token: accessToken, user: u } = response.data.data;
+    const { token: accessToken, user: u } = response.data;
     const mapped: User = {
       id: u.id,
       username: u.username,
