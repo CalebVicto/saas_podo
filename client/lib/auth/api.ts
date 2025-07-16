@@ -219,28 +219,44 @@ export async function apiDelete<T>(
 }
 
 // Token validation function
-export async function validateToken(token: string): Promise<boolean> {
-  try {
-    // For mock purposes, always return true if token exists
-    // In a real app, this would validate with your backend
-    if (token && token.startsWith("mock_jwt_token_")) {
-      return true;
-    }
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
 
-    // Simulate API call to validate token
-    const response = await fetch("/api/auth/validate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+export interface LoginSuccess {
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    role: string;
+    firstName: string;
+    lastName: string;
+  };
+}
 
-    return response.ok;
-  } catch (error) {
-    console.error("Token validation failed:", error);
-    return false;
-  }
+export interface VerifyTokenSuccess {
+  valid: boolean;
+  data: {
+    id: string;
+    username: string;
+    name: string;
+    lastName: string;
+    role: string;
+    iat: number;
+    exp: number;
+  };
+}
+
+export async function loginRequest(
+  username: string,
+  password: string,
+): Promise<ApiResponse<LoginSuccess>> {
+  return apiPost<LoginSuccess>("/auth/login", { username, password });
+}
+
+export async function verifyTokenRequest(): Promise<ApiResponse<VerifyTokenSuccess>> {
+  return apiGet<VerifyTokenSuccess>("/auth/verify");
 }
 
 // Refresh token function

@@ -1,18 +1,28 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { tokenStorage } from "./storage";
-import { validateToken } from "./api";
+import { loginRequest, verifyTokenRequest } from "./api";
+
+export type Role = "admin" | "worker";
 
 export interface User {
   id: string;
-  email: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
   name: string;
-  role: "admin" | "worker";
+  email?: string;
 }
 
 export interface LoginResponse {
-  user: User;
-  accessToken: string;
-  refreshToken?: string;
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    role: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
 export interface AuthContextType {
@@ -20,9 +30,12 @@ export interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (username: string, password: string) => Promise<User>;
   logout: () => void;
+  verifyToken: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  isAdmin: () => boolean;
+  isTrabajador: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,92 +47,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAuthenticated = !!user && !!token;
 
-  // Initialize auth state on mount
   useEffect(() => {
     initializeAuth();
   }, []);
 
-  const initializeAuth = async () => {
-    try {
-      const storedToken = tokenStorage.getToken();
-      const storedUser = tokenStorage.getUser();
+  const mapRole = (role: string): Role =>
+    role === "trabajador" ? "worker" : (role as Role);
 
-      if (storedToken && storedUser) {
-        // Validate token with the server
-        const isValid = await validateToken(storedToken);
-        if (isValid) {
-          setToken(storedToken);
-          setUser(storedUser);
-        } else {
-          // Token is invalid, clear storage
-          tokenStorage.clear();
-        }
+  const verifyToken = async () => {
+    try {
+      const response = await verifyTokenRequest();
+      if (response.data?.valid) {
+        const d = response.data.data;
+        const mapped: User = {
+          id: d.id,
+          username: d.username,
+          firstName: d.name,
+          lastName: d.lastName,
+          role: mapRole(d.role),
+          name: `${d.name} ${d.lastName}`,
+          email: d.username,
+        };
+        setUser(mapped);
+        tokenStorage.setUser(mapped);
+      } else {
+        logout();
       }
-    } catch (error) {
-      console.error("Failed to initialize auth:", error);
-      tokenStorage.clear();
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.error("Failed to verify token:", err);
+      logout();
     }
   };
 
-  const login = async (email: string, password: string): Promise<User> => {
-    try {
-      // Mock login for demo - replace with real API call
-      const response = await mockLogin(email, password);
-
-      if (!response) {
-        throw new Error("Invalid credentials");
-      }
-
-      const { user, accessToken, refreshToken } = response;
-
-      // Store tokens and user data
-      tokenStorage.setToken(accessToken);
-      tokenStorage.setUser(user);
-      if (refreshToken) {
-        tokenStorage.setRefreshToken(refreshToken);
-      }
-
-      setToken(accessToken);
-      setUser(user);
-
-      return user;
-    } catch (error) {
-      throw error;
+  const initializeAuth = async () => {
+    const storedToken = tokenStorage.getToken();
+    if (!storedToken) {
+      setIsLoading(false);
+      return;
     }
+    setToken(storedToken);
+    await verifyToken();
+    setIsLoading(false);
+  };
+
+  const login = async (username: string, password: string): Promise<User> => {
+    const response = await loginRequest(username, password);
+    if (response.error || !response.data) {
+      throw new Error(response.error || "Login failed");
+    }
+    const { token: accessToken, user: u } = response.data;
+    const mapped: User = {
+      id: u.id,
+      username: u.username,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: mapRole(u.role),
+      name: `${u.firstName} ${u.lastName}`,
+      email: u.username,
+    };
+    tokenStorage.setToken(accessToken);
+    tokenStorage.setUser(mapped);
+    setToken(accessToken);
+    setUser(mapped);
+    return mapped;
   };
 
   const logout = () => {
     tokenStorage.clear();
     setToken(null);
     setUser(null);
-    // Redirect to login page
     window.location.href = "/login";
   };
 
   const refreshAuth = async () => {
-    try {
-      const refreshToken = tokenStorage.getRefreshToken();
-      if (!refreshToken) {
-        throw new Error("No refresh token available");
-      }
-
-      // In a real app, call your refresh token endpoint
-      // const response = await refreshTokenAPI(refreshToken);
-      // For now, just re-validate the current token
-      const currentToken = tokenStorage.getToken();
-      if (currentToken) {
-        const isValid = await validateToken(currentToken);
-        if (!isValid) {
-          logout();
-        }
-      }
-    } catch (error) {
-      console.error("Failed to refresh auth:", error);
-      logout();
-    }
+    await verifyToken();
   };
+
+  const isAdmin = () => user?.role === "admin";
+  const isTrabajador = () =>
+    user?.role === "worker" || user?.role === "trabajador";
 
   const value: AuthContextType = {
     user,
@@ -128,10 +134,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated,
     login,
     logout,
+    verifyToken,
     refreshAuth,
+    isAdmin,
+    isTrabajador,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {isLoading ? (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextType {
@@ -141,51 +160,3 @@ export function useAuth(): AuthContextType {
   }
   return context;
 }
-
-// Mock login function - replace with real API call
-const mockLogin = async (
-  email: string,
-  password: string,
-): Promise<LoginResponse | null> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // Mock users for demo
-  const users = [
-    {
-      id: "1",
-      email: "admin@podocare.com",
-      password: "admin123",
-      name: "Dr. María González",
-      role: "admin" as const,
-    },
-    {
-      id: "2",
-      email: "worker@podocare.com",
-      password: "worker123",
-      name: "Carlos Rodríguez",
-      role: "worker" as const,
-    },
-  ];
-
-  const user = users.find((u) => u.email === email && u.password === password);
-
-  if (!user) {
-    return null;
-  }
-
-  // Generate mock JWT token (in production, this comes from your server)
-  const accessToken = `mock_jwt_token_${user.id}_${Date.now()}`;
-  const refreshToken = `mock_refresh_token_${user.id}_${Date.now()}`;
-
-  return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    },
-    accessToken,
-    refreshToken,
-  };
-};
