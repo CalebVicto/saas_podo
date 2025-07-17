@@ -25,6 +25,7 @@ import CreateAppointment from "./pages/CreateAppointment";
 import ScheduleAppointment from "./pages/ScheduleAppointment";
 import Abonos from "./pages/Abonos";
 import PatientDetail from "./pages/PatientDetail";
+import CreatePatient from "./pages/CreatePatient";
 import ProductDetail from "./pages/ProductDetail";
 import WorkerDetail from "./pages/WorkerDetail";
 import Categories from "./pages/Categories";
@@ -84,6 +85,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Patients />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/patients/new"
+                element={
+                  <ProtectedRoute>
+                    <CreatePatient />
                   </ProtectedRoute>
                 }
               />
