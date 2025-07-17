@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
+  Edit,
   User,
   Phone,
   Calendar,
@@ -342,6 +343,14 @@ export function PatientDetail() {
           >
             <ArrowLeft className="w-4 h-4" />
             Volver a Pacientes
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/patients/${patient.id}/edit`)}
+            className="flex items-center gap-2"
+          >
+            <Edit className="w-4 h-4" />
+            Editar
           </Button>
         </div>
 
