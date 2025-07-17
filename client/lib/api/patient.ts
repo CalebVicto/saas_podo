@@ -7,6 +7,7 @@ import type {
   Patient,
   UpdatePatientDto,
   ApiResponse,
+  PatientDetailStatistics,
 } from "@shared/api";
 
 export class PatientRepository {
@@ -26,12 +27,7 @@ export class PatientRepository {
     if (resp.error || !resp.data) {
       throw new Error(resp.error || "Failed to fetch patients");
     }
-    const {
-      data: items,
-      total,
-      page,
-      limit,
-    } = resp.data.data;
+    const { data: items, total, page, limit } = resp.data.data;
     return {
       items,
       total,
@@ -64,5 +60,14 @@ export class PatientRepository {
     }
     return resp.data.data;
   }
-}
 
+  async getDetailStatistics(id: string): Promise<PatientDetailStatistics> {
+    const resp = await apiGet<ApiResponse<PatientDetailStatistics>>(
+      `/patient/${id}/detail-statistics`,
+    );
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to fetch patient detail");
+    }
+    return resp.data.data;
+  }
+}
