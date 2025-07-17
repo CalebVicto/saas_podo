@@ -84,6 +84,9 @@ interface CreateWorkerRequest {
   email: string;
   phone: string;
   specialization?: string;
+  workerType?: string;
+  hasSystemAccess?: boolean;
+  systemPassword?: string;
   isActive: boolean;
 }
 

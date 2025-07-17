@@ -294,7 +294,7 @@ export function PatientDetail() {
 
   return (
     <Layout
-      title={`${patient.firstName} ${patient.lastName}`}
+      title={`${patient.firstName} ${patient.paternalSurname}`}
       subtitle="Historial completo del paciente"
     >
       <div className="p-6 space-y-6">
@@ -327,17 +327,17 @@ export function PatientDetail() {
                 <Avatar className="w-20 h-20">
                   <AvatarFallback className="text-xl bg-primary text-primary-foreground">
                     {patient.firstName.charAt(0)}
-                    {patient.lastName.charAt(0)}
+                    {patient.paternalSurname.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
                   <h1 className="text-2xl font-bold">
-                    {patient.firstName} {patient.lastName}
+                    {patient.firstName} {patient.paternalSurname} {patient.maternalSurname}
                   </h1>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <BadgeIcon className="w-4 h-4 text-muted-foreground" />
-                      <span>DNI: {patient.documentId}</span>
+                      <span>DNI: {patient.documentNumber}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-muted-foreground" />
@@ -352,7 +352,7 @@ export function PatientDetail() {
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="capitalize">{patient.sex}</span>
+                      <span className="capitalize">{patient.gender === "f" ? "Femenino" : patient.gender === "m" ? "Masculino" : "Otro"}</span>
                     </div>
                   </div>
 
@@ -438,7 +438,7 @@ export function PatientDetail() {
             </div>
 
             {/* Clinical Notes */}
-            {patient.clinicalNotes && (
+            {((patient as any).clinicalNotes || patient.otherConditions) && (
               <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
@@ -447,7 +447,7 @@ export function PatientDetail() {
                       Notas Clínicas
                     </h4>
                     <p className="text-sm text-amber-700">
-                      {patient.clinicalNotes}
+                      {(patient as any).clinicalNotes || patient.otherConditions}
                     </p>
                   </div>
                 </div>
