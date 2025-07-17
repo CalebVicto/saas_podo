@@ -82,7 +82,6 @@ export function Patients() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [backendError, setBackendError] = useState<string>("");
-  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   // Repository-based pagination
   const pagination = useRepositoryPagination<Patient>({
@@ -115,34 +114,6 @@ export function Patients() {
 
   const loadPatients = async () => {
     await pagination.loadData((params) => patientRepository.getAll(params));
-  };
-
-  const handleAddPatient = async () => {
-    try {
-      await patientRepository.create(formData);
-      setIsAddDialogOpen(false);
-      resetForm();
-      // Refresh the data
-      await loadPatients();
-    } catch (error) {
-      console.error("Error adding patient:", error);
-    }
-  };
-
-  const handleEditPatient = async () => {
-    if (!selectedPatient) return;
-
-    try {
-      await patientRepository.update(selectedPatient.id, formData);
-      setIsEditDialogOpen(false);
-      setSelectedPatient(null);
-      resetForm();
-      await loadPatients();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Error desconocido";
-      setBackendError(msg);
-      setErrorDialogOpen(true);
-    }
   };
 
   const resetForm = () => {
@@ -183,11 +154,6 @@ export function Patients() {
     setIsEditDialogOpen(true);
   };
 
-  const openViewDialog = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setIsViewDialogOpen(true);
-  };
-
   const calculateAge = (birthDate: string) => {
     const today = new Date();
     const birth = new Date(birthDate);
@@ -202,31 +168,6 @@ export function Patients() {
     return age;
   };
 
-  const getPatientAppointments = async (patientId: string) => {
-    try {
-      const response = await appointmentRepository.getAll({
-        patientId,
-        limit: 100, // Get all appointments for this patient
-      });
-      return response.items;
-    } catch (error) {
-      console.error("Error loading patient appointments:", error);
-      return [];
-    }
-  };
-
-  const getPatientPayments = async (patientId: string) => {
-    try {
-      const response = await paymentRepository.getAll({
-        patientId,
-        limit: 100, // Get all payments for this patient
-      });
-      return response.items;
-    } catch (error) {
-      console.error("Error loading patient payments:", error);
-      return [];
-    }
-  };
 
   if (!user) return null;
 
@@ -266,16 +207,27 @@ export function Patients() {
                   className="pl-10"
                 />
               </div>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                Filtros
-              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Patients List */}
         <div className="space-y-6">
+          {/* Pagination */}
+          {pagination.totalItems > 0 && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={pagination.goToPage}
+              onPageSizeChange={pagination.setPageSize}
+              showPageSizeSelector={true}
+              pageSizeOptions={[6, 12, 18, 24]}
+            />
+          )}
+
+          {/* Patients Card */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {pagination.isLoading ? (
               // Loading skeletons
@@ -372,7 +324,7 @@ export function Patients() {
                           Ver Detalle
                         </Button>
                         <Button
-                          onClick={() => openEditDialog(patient as Patient)}
+                          onClick={() => navigate(`/patients/${patient.id}/edit`)}
                           variant="outline"
                           size="sm"
                           className="flex-1"
@@ -388,524 +340,8 @@ export function Patients() {
             )}
           </div>
 
-          {/* Pagination */}
-          {pagination.totalItems > 0 && (
-            <Pagination
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              totalItems={pagination.totalItems}
-              pageSize={pagination.pageSize}
-              onPageChange={pagination.goToPage}
-              onPageSizeChange={pagination.setPageSize}
-              showPageSizeSelector={true}
-              pageSizeOptions={[6, 12, 18, 24]}
-            />
-          )}
         </div>
 
-        {/* Add Patient Dialog */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                Nuevo Paciente
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">Nombres *</Label>
-                  <Input
-                    id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                    placeholder="María"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="paternal">Apellido Paterno *</Label>
-                  <Input
-                    id="paternal"
-                    value={formData.paternalSurname}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        paternalSurname: e.target.value,
-                      })
-                    }
-                    placeholder="González"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maternal">Apellido Materno *</Label>
-                  <Input
-                    id="maternal"
-                    value={formData.maternalSurname}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        maternalSurname: e.target.value,
-                      })
-                    }
-                    placeholder="López"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="documentNumber">DNI *</Label>
-                  <Input
-                    id="documentNumber"
-                    value={formData.documentNumber}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        documentNumber: e.target.value,
-                      })
-                    }
-                    placeholder="12345678"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Teléfono *</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="+51 987 654 321"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Sexo *</Label>
-                  <Select
-                    value={formData.gender}
-                    onValueChange={(value: "m" | "f") =>
-                      setFormData({ ...formData, gender: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="f">Femenino</SelectItem>
-                      <SelectItem value="m">Masculino</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="birthDate">Fecha de Nacimiento *</Label>
-                  <Input
-                    id="birthDate"
-                    type="date"
-                    value={formData.birthDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, birthDate: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="otherConditions">Notas Clínicas</Label>
-                <Textarea
-                  id="otherConditions"
-                  value={formData.otherConditions || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      otherConditions: e.target.value,
-                    })
-                  }
-                  placeholder="Historial médico, alergias, tratamientos previos..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsAddDialogOpen(false);
-                  resetForm();
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleAddPatient}
-                className="btn-primary"
-                disabled={
-                  !formData.firstName ||
-                  !formData.paternalSurname ||
-                  !formData.maternalSurname ||
-                  !formData.documentNumber ||
-                  !formData.phone ||
-                  !formData.birthDate
-                }
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Paciente
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Patient Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Edit className="w-5 h-5 text-primary" />
-                Editar Paciente
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editFirstName">Nombres *</Label>
-                  <Input
-                    id="editFirstName"
-                    value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editPaternal">Apellido Paterno *</Label>
-                  <Input
-                    id="editPaternal"
-                    value={formData.paternalSurname}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        paternalSurname: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editMaternal">Apellido Materno *</Label>
-                  <Input
-                    id="editMaternal"
-                    value={formData.maternalSurname}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        maternalSurname: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editDocumentNumber">DNI *</Label>
-                  <Input
-                    id="editDocumentNumber"
-                    value={formData.documentNumber}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        documentNumber: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editPhone">Teléfono *</Label>
-                  <Input
-                    id="editPhone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editGender">Sexo *</Label>
-                  <Select
-                    value={formData.gender}
-                    onValueChange={(value: "m" | "f") =>
-                      setFormData({ ...formData, gender: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="f">Femenino</SelectItem>
-                      <SelectItem value="m">Masculino</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editBirthDate">Fecha de Nacimiento *</Label>
-                  <Input
-                    id="editBirthDate"
-                    type="date"
-                    value={formData.birthDate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, birthDate: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="editOtherConditions">Notas Clínicas</Label>
-                <Textarea
-                  id="editOtherConditions"
-                  value={formData.otherConditions || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      otherConditions: e.target.value,
-                    })
-                  }
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsEditDialogOpen(false);
-                  setSelectedPatient(null);
-                  resetForm();
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleEditPatient}
-                className="btn-primary"
-                disabled={
-                  !formData.firstName ||
-                  !formData.paternalSurname ||
-                  !formData.maternalSurname ||
-                  !formData.documentNumber ||
-                  !formData.phone ||
-                  !formData.birthDate
-                }
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Actualizar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Error</AlertDialogTitle>
-              <AlertDialogDescription className="text-destructive">
-                {backendError || "Ocurrió un error al actualizar el paciente."}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <Button onClick={() => setErrorDialogOpen(false)}>Cerrar</Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* View Patient Dialog */}
-        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-primary" />
-                Perfil del Paciente
-              </DialogTitle>
-            </DialogHeader>
-
-            {selectedPatient && (
-              <div className="space-y-6 py-4">
-                {/* Patient Info */}
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-3">
-                      Información Personal
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Nombre Completo
-                        </Label>
-                        <p className="font-medium">
-                          {selectedPatient.firstName}{" "}
-                          {selectedPatient.paternalSurname}{" "}
-                          {selectedPatient.maternalSurname}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          DNI
-                        </Label>
-                        <p className="font-medium">
-                          {selectedPatient.documentNumber}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Teléfono
-                        </Label>
-                        <p className="font-medium">{selectedPatient.phone}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Edad
-                        </Label>
-                        <p className="font-medium">
-                          {calculateAge(selectedPatient.birthDate)} años
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Sexo
-                        </Label>
-                        <p className="font-medium">
-                          {selectedPatient.gender === "f"
-                            ? "Femenino"
-                            : selectedPatient.gender === "m"
-                              ? "Masculino"
-                              : "Otro"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-3">
-                      Estadísticas
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Paciente desde
-                        </Label>
-                        <p className="font-medium">
-                          {/* {new Date(
-                            selectedPatient.createdAt,
-                          ).toLocaleDateString()} */}
-                          'Por Implementar'
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Estado
-                        </Label>
-                        <p className="font-medium">Activo</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clinical Notes */}
-                {selectedPatient.otherConditions && (
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-3">
-                      Notas Clínicas
-                    </h3>
-                    <div className="bg-muted/30 p-4 rounded-lg">
-                      <p className="text-sm leading-relaxed">
-                        {selectedPatient.otherConditions}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Quick Actions */}
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">
-                    Acciones Rápidas
-                  </h3>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        navigate(`/patients/${selectedPatient.id}`)
-                      }
-                      className="flex-1"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Ver Perfil Completo
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        navigate(
-                          `/appointments/new?patientId=${selectedPatient.id}`,
-                        )
-                      }
-                      className="flex-1"
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Nueva Cita
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (selectedPatient) {
-                    openEditDialog(selectedPatient);
-                    setIsViewDialogOpen(false);
-                  }
-                }}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Editar
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsViewDialogOpen(false);
-                  setSelectedPatient(null);
-                }}
-                className="btn-primary"
-              >
-                Cerrar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </Layout>
   );

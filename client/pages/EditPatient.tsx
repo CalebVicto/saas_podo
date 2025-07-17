@@ -57,6 +57,17 @@ export default function EditPatient() {
       if (!id) return;
       try {
         const patient = await repository.getById(id);
+
+        if (!patient) {
+          navigate("/patients");
+          return;
+        }
+
+        // Convertir date  "birthDate": "2000-01-01T00:00:00.000Z",
+        if (patient.birthDate) {
+          patient.birthDate = new Date(patient.birthDate).toISOString().split("T")[0];
+        }
+
         setFormData(patient);
       } catch (err) {
         console.error("Error loading patient:", err);
