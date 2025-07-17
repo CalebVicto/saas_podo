@@ -26,6 +26,7 @@ import ScheduleAppointment from "./pages/ScheduleAppointment";
 import Abonos from "./pages/Abonos";
 import PatientDetail from "./pages/PatientDetail";
 import CreatePatient from "./pages/CreatePatient";
+import EditPatient from "./pages/EditPatient";
 import ProductDetail from "./pages/ProductDetail";
 import WorkerDetail from "./pages/WorkerDetail";
 import Categories from "./pages/Categories";
@@ -93,6 +94,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <CreatePatient />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/patients/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <EditPatient />
                   </ProtectedRoute>
                 }
               />

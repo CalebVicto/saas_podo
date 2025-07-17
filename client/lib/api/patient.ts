@@ -5,6 +5,7 @@ import type {
   PaginatedResponse,
   PaginatedSearchParams,
   Patient,
+  UpdatePatientDto,
   ApiResponse,
 } from "@shared/api";
 
@@ -48,7 +49,15 @@ export class PatientRepository {
     return resp.data.data;
   }
 
-  async update(id: string, data: Partial<Patient>): Promise<Patient> {
+  async getById(id: string): Promise<Patient> {
+    const resp = await apiGet<ApiResponse<Patient>>(`/patient/${id}`);
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to fetch patient");
+    }
+    return resp.data.data;
+  }
+
+  async update(id: string, data: UpdatePatientDto): Promise<Patient> {
     const resp = await apiPut<ApiResponse<Patient>>(`/patient/${id}`, data);
     if (resp.error || !resp.data) {
       throw new Error(resp.error || "Failed to update patient");

@@ -35,6 +35,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -73,6 +81,8 @@ export function Patients() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [backendError, setBackendError] = useState<string>("");
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   // Repository-based pagination
   const pagination = useRepositoryPagination<Patient>({
@@ -127,10 +137,11 @@ export function Patients() {
       setIsEditDialogOpen(false);
       setSelectedPatient(null);
       resetForm();
-      // Refresh the data
       await loadPatients();
     } catch (error) {
-      console.error("Error updating patient:", error);
+      const msg = error instanceof Error ? error.message : "Error desconocido";
+      setBackendError(msg);
+      setErrorDialogOpen(true);
     }
   };
 
@@ -714,6 +725,20 @@ export function Patients() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Error</AlertDialogTitle>
+              <AlertDialogDescription className="text-destructive">
+                {backendError || "Ocurrió un error al actualizar el paciente."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <Button onClick={() => setErrorDialogOpen(false)}>Cerrar</Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* View Patient Dialog */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>

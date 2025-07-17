@@ -49,6 +49,22 @@ export interface CreatePatientRequest {
   clinicalNotes?: string;
 }
 
+export interface UpdatePatientDto {
+  documentType?: 'dni' | 'passport';
+  documentNumber?: string;
+  firstName?: string;
+  paternalSurname?: string;
+  maternalSurname?: string;
+  gender?: 'm' | 'f';
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  allergy?: string;
+  diabetic?: boolean;
+  hypertensive?: boolean;
+  otherConditions?: string;
+}
+
 // Worker Types
 export interface Worker {
   id: string;
