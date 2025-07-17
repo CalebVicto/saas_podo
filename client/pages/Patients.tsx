@@ -40,10 +40,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Patient } from "@shared/api";
 import {
-  usePatientRepository,
   useAppointmentRepository,
   usePaymentRepository,
 } from "@/lib/repositories";
+import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
@@ -65,7 +65,7 @@ export function Patients() {
   const { user } = useAuth();
 
   const navigate = useNavigate();
-  const patientRepository = usePatientRepository();
+  const patientRepository = useMemo(() => new PatientRepository(), []);
   const appointmentRepository = useAppointmentRepository();
   const paymentRepository = usePaymentRepository();
 
@@ -422,7 +422,10 @@ export function Patients() {
                     id="paternal"
                     value={formData.paternalSurname}
                     onChange={(e) =>
-                      setFormData({ ...formData, paternalSurname: e.target.value })
+                      setFormData({
+                        ...formData,
+                        paternalSurname: e.target.value,
+                      })
                     }
                     placeholder="González"
                     required
@@ -434,7 +437,10 @@ export function Patients() {
                     id="maternal"
                     value={formData.maternalSurname}
                     onChange={(e) =>
-                      setFormData({ ...formData, maternalSurname: e.target.value })
+                      setFormData({
+                        ...formData,
+                        maternalSurname: e.target.value,
+                      })
                     }
                     placeholder="López"
                     required
@@ -449,7 +455,10 @@ export function Patients() {
                     id="documentNumber"
                     value={formData.documentNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, documentNumber: e.target.value })
+                      setFormData({
+                        ...formData,
+                        documentNumber: e.target.value,
+                      })
                     }
                     placeholder="12345678"
                     required
@@ -507,7 +516,10 @@ export function Patients() {
                   id="otherConditions"
                   value={formData.otherConditions || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, otherConditions: e.target.value })
+                    setFormData({
+                      ...formData,
+                      otherConditions: e.target.value,
+                    })
                   }
                   placeholder="Historial médico, alergias, tratamientos previos..."
                   rows={3}
@@ -573,7 +585,10 @@ export function Patients() {
                     id="editPaternal"
                     value={formData.paternalSurname}
                     onChange={(e) =>
-                      setFormData({ ...formData, paternalSurname: e.target.value })
+                      setFormData({
+                        ...formData,
+                        paternalSurname: e.target.value,
+                      })
                     }
                     required
                   />
@@ -584,7 +599,10 @@ export function Patients() {
                     id="editMaternal"
                     value={formData.maternalSurname}
                     onChange={(e) =>
-                      setFormData({ ...formData, maternalSurname: e.target.value })
+                      setFormData({
+                        ...formData,
+                        maternalSurname: e.target.value,
+                      })
                     }
                     required
                   />
@@ -598,7 +616,10 @@ export function Patients() {
                     id="editDocumentNumber"
                     value={formData.documentNumber}
                     onChange={(e) =>
-                      setFormData({ ...formData, documentNumber: e.target.value })
+                      setFormData({
+                        ...formData,
+                        documentNumber: e.target.value,
+                      })
                     }
                     required
                   />
@@ -654,7 +675,10 @@ export function Patients() {
                   id="editOtherConditions"
                   value={formData.otherConditions || ""}
                   onChange={(e) =>
-                    setFormData({ ...formData, otherConditions: e.target.value })
+                    setFormData({
+                      ...formData,
+                      otherConditions: e.target.value,
+                    })
                   }
                   rows={3}
                 />
@@ -715,7 +739,8 @@ export function Patients() {
                           Nombre Completo
                         </Label>
                         <p className="font-medium">
-                          {selectedPatient.firstName} {selectedPatient.paternalSurname}{" "}
+                          {selectedPatient.firstName}{" "}
+                          {selectedPatient.paternalSurname}{" "}
                           {selectedPatient.maternalSurname}
                         </p>
                       </div>
