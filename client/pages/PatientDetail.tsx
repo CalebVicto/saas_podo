@@ -51,18 +51,9 @@ import {
   Abono,
   AbonoUsage,
   PatientPackage,
-  Payment,
+  PatientDetailStatistics,
 } from "@shared/api";
-import {
-  getMockPatients,
-  getMockAppointments,
-  getMockSales,
-  getMockAbonos,
-  getMockAbonoUsage,
-  mockPatientPackages,
-  getPatientAbonoBalance,
-  getMockPayments,
-} from "@/lib/mockData";
+import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 
 const appointmentStatusConfig = {
@@ -109,8 +100,8 @@ export function PatientDetail() {
   const [abonos, setAbonos] = useState<Abono[]>([]);
   const [abonoUsage, setAbonoUsage] = useState<AbonoUsage[]>([]);
   const [patientPackages, setPatientPackages] = useState<PatientPackage[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const repository = useMemo(() => new PatientRepository(), []);
   const [activeTab, setActiveTab] = useState("appointments");
 
   useEffect(() => {
@@ -125,44 +116,14 @@ export function PatientDetail() {
 
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const allPatients = getMockPatients();
-      const foundPatient = allPatients.find((p) => p.id === id);
-
-      if (!foundPatient) {
-        navigate("/patients");
-        return;
-      }
-
-      setPatient(foundPatient);
-
-      // Load related data
-      const allAppointments = getMockAppointments();
-      const patientAppointments = allAppointments.filter(
-        (a) => a.patientId === id,
-      );
-      setAppointments(patientAppointments);
-
-      const allSales = getMockSales();
-      const patientSales = allSales.filter((s) => s.customerId === id);
-      setSales(patientSales);
-
-      const allAbonos = getMockAbonos();
-      const patientAbonos = allAbonos.filter((a) => a.patientId === id);
-      setAbonos(patientAbonos);
-
-      const allAbonoUsage = getMockAbonoUsage();
-      setAbonoUsage(allAbonoUsage);
-
-      const allPatientPackages = mockPatientPackages;
-      const patientPackageList = allPatientPackages.filter(
-        (pp) => pp.patientId === id,
-      );
-      setPatientPackages(patientPackageList);
-
-      const allPayments = getMockPayments();
-      setPayments(allPayments);
+      const detail: PatientDetailStatistics =
+        await repository.getDetailStatistics(id);
+      setPatient(detail.patient);
+      setAppointments(detail.appointments || []);
+      setSales(detail.sales || []);
+      setAbonos(detail.abonos || []);
+      setAbonoUsage(detail.abonoUsage || []);
+      setPatientPackages(detail.patientPackages || []);
     } catch (error) {
       console.error("Error loading patient data:", error);
     } finally {
@@ -213,7 +174,10 @@ export function PatientDetail() {
       (a) => a.status === "completed",
     ).length;
     const totalSpent = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const currentAbonoBalance = getPatientAbonoBalance(patient.id);
+    const currentAbonoBalance = abonos.reduce(
+      (total, a) => total + a.remainingAmount,
+      0,
+    );
     const activePackages = patientPackages.filter((pp) => pp.isActive).length;
 
     return {

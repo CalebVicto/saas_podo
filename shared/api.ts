@@ -21,12 +21,12 @@ export interface LoginResponse {
 // Patient Types
 export interface Patient {
   id?: any;
-  documentType: 'dni' | 'passport';
+  documentType: "dni" | "passport";
   documentNumber: string;
   firstName: string;
   paternalSurname: string;
   maternalSurname: string;
-  gender: 'm' | 'f';
+  gender: "m" | "f";
   email?: string;
   phone?: string;
   birthDate: string;
@@ -50,12 +50,12 @@ export interface CreatePatientRequest {
 }
 
 export interface UpdatePatientDto {
-  documentType?: 'dni' | 'passport';
+  documentType?: "dni" | "passport";
   documentNumber?: string;
   firstName?: string;
   paternalSurname?: string;
   maternalSurname?: string;
-  gender?: 'm' | 'f';
+  gender?: "m" | "f";
   email?: string;
   phone?: string;
   birthDate?: string;
@@ -382,7 +382,7 @@ export interface SearchParams {
   [key: string]: any;
 }
 
-export interface PaginatedSearchParams extends PaginationParams, SearchParams { }
+export interface PaginatedSearchParams extends PaginationParams, SearchParams {}
 
 // Patient listing data returned by the real API
 
@@ -415,4 +415,13 @@ export interface PatientListResponse {
     page: number;
     limit: number;
   };
+}
+
+export interface PatientDetailStatistics {
+  patient: Patient;
+  appointments: Appointment[];
+  sales: Sale[];
+  abonos: Abono[];
+  abonoUsage: AbonoUsage[];
+  patientPackages: PatientPackage[];
 }
