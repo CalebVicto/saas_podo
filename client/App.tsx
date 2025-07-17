@@ -261,7 +261,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-          <RepositoryDebugPanel />
+          {/* <RepositoryDebugPanel /> */}
         </TooltipProvider>
       </QueryClientProvider>
     </RepositoryProvider>
