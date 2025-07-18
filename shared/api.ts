@@ -102,7 +102,7 @@ export interface Appointment {
   duration: number; // in minutes
   treatmentNotes?: string;
   diagnosis?: string;
-  status: "scheduled" | "completed" | "cancelled" | "no_show";
+  status: "registered" | "paid";
   createdAt: string;
   updatedAt: string;
   patient?: Patient;

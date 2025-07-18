@@ -57,30 +57,30 @@ import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 
 const appointmentStatusConfig = {
-  scheduled: {
-    label: "Programada",
+  registered: {
+    label: "Registrada",
     icon: Clock,
     className: "status-info",
     color: "blue",
   },
-  completed: {
-    label: "Completada",
+  paid: {
+    label: "Pagada",
     icon: CheckCircle,
     className: "status-success",
     color: "green",
   },
-  cancelled: {
-    label: "Cancelada",
-    icon: XCircle,
-    className: "status-error",
-    color: "red",
-  },
-  no_show: {
-    label: "No Asistió",
-    icon: AlertCircle,
-    className: "status-warning",
-    color: "yellow",
-  },
+  // cancelled: {
+  //   label: "Cancelada",
+  //   icon: XCircle,
+  //   className: "status-error",
+  //   color: "red",
+  // },
+  // no_show: {
+  //   label: "No Asistió",
+  //   icon: AlertCircle,
+  //   className: "status-warning",
+  //   color: "yellow",
+  // },
 };
 
 const paymentMethodConfig = {
@@ -171,7 +171,7 @@ export function PatientDetail() {
 
     const totalAppointments = appointments.length;
     const completedAppointments = appointments.filter(
-      (a) => a.status === "completed",
+      (a) => a.status === "paid",
     ).length;
     const totalSpent = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
     const currentAbonoBalance = abonos.reduce(
@@ -197,9 +197,9 @@ export function PatientDetail() {
     if (stats?.currentAbonoBalance && stats.currentAbonoBalance > 0) {
       tags.push({ label: "Tiene Saldo", color: "green" });
     }
-    if (appointments.some((a) => a.status === "scheduled")) {
-      tags.push({ label: "Cita Pendiente", color: "orange" });
-    }
+    // if (appointments.some((a) => a.status === "scheduled")) {
+    //   tags.push({ label: "Cita Pendiente", color: "orange" });
+    // }
     return tags;
   };
 
@@ -294,7 +294,7 @@ export function PatientDetail() {
 
   return (
     <Layout
-      title={`${patient.firstName} ${patient.lastName}`}
+      title={`${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`}
       subtitle="Historial completo del paciente"
     >
       <div className="p-6 space-y-6">
@@ -327,17 +327,17 @@ export function PatientDetail() {
                 <Avatar className="w-20 h-20">
                   <AvatarFallback className="text-xl bg-primary text-primary-foreground">
                     {patient.firstName.charAt(0)}
-                    {patient.lastName.charAt(0)}
+                    {patient.paternalSurname.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
                   <h1 className="text-2xl font-bold">
-                    {patient.firstName} {patient.lastName}
+                    {patient.firstName} {patient.paternalSurname}
                   </h1>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                       <BadgeIcon className="w-4 h-4 text-muted-foreground" />
-                      <span>DNI: {patient.documentId}</span>
+                      <span>{patient.documentType} {patient.documentNumber}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-muted-foreground" />
@@ -352,7 +352,7 @@ export function PatientDetail() {
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="capitalize">{patient.sex}</span>
+                      <span className="capitalize">{patient.gender == "m" ? "Masculino" : "Femenino"}</span>
                     </div>
                   </div>
 
@@ -366,9 +366,9 @@ export function PatientDetail() {
                           "text-xs",
                           tag.color === "blue" && "bg-blue-100 text-blue-800",
                           tag.color === "green" &&
-                            "bg-green-100 text-green-800",
+                          "bg-green-100 text-green-800",
                           tag.color === "orange" &&
-                            "bg-orange-100 text-orange-800",
+                          "bg-orange-100 text-orange-800",
                         )}
                       >
                         <Tag className="w-3 h-3 mr-1" />
@@ -438,7 +438,7 @@ export function PatientDetail() {
             </div>
 
             {/* Clinical Notes */}
-            {patient.clinicalNotes && (
+            {patient.otherConditions && (
               <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
@@ -447,7 +447,7 @@ export function PatientDetail() {
                       Notas Clínicas
                     </h4>
                     <p className="text-sm text-amber-700">
-                      {patient.clinicalNotes}
+                      {patient.otherConditions}
                     </p>
                   </div>
                 </div>
@@ -551,90 +551,94 @@ export function PatientDetail() {
                 ) : (
                   <div className="space-y-4">
                     {appointments
-                      .sort(
-                        (a, b) =>
-                          new Date(b.dateTime).getTime() -
-                          new Date(a.dateTime).getTime(),
-                      )
-                      .map((appointment) => (
-                        <div
-                          key={appointment.id}
-                          className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-semibold">
-                                  {formatDateTime(appointment.dateTime)}
-                                </h4>
-                                {getStatusBadge(
-                                  appointment.status,
-                                  "appointment",
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((appointment: any) => {
+                        const paymentLabel = paymentMethodConfig[appointment.paymentMethod]?.label ?? appointment.paymentMethod;
+                        const productCount = appointment.products?.length || 0;
+
+                        return (
+                          <div
+                            key={appointment.id}
+                            className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="flex items-start justify-between relative">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h4 className="font-semibold">
+                                    {formatDateTime(appointment.createdAt)}
+                                  </h4>
+                                  {getStatusBadge(appointment.status, "appointment")}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                  {appointment.userId && (
+                                    <div>
+                                      <p className="text-muted-foreground">Trabajador:</p>
+                                      <p className="font-medium">
+                                        {appointment.userId.firstName} {appointment.userId.lastName}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {appointment.duration && (
+                                    <div>
+                                      <p className="text-muted-foreground">Duración:</p>
+                                      <p className="font-medium">{appointment.duration} minutos</p>
+                                    </div>
+                                  )}
+
+                                  {appointment.diagnosis && (
+                                    <div>
+                                      <p className="text-muted-foreground">Diagnóstico:</p>
+                                      <p className="font-medium">{appointment.diagnosis}</p>
+                                    </div>
+                                  )}
+
+                                  {appointment.treatment && (
+                                    <div>
+                                      <p className="text-muted-foreground">Tratamiento:</p>
+                                      <p className="font-medium">{appointment.treatment}</p>
+                                    </div>
+                                  )}
+
+                                  {appointment.treatmentPrice && (
+                                    <div>
+                                      <p className="text-muted-foreground">Precio Tratamiento:</p>
+                                      <p className="font-medium">
+                                        {formatCurrency(appointment.treatmentPrice)}
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  {productCount > 0 && (
+                                    <div>
+                                      <p className="text-muted-foreground">Productos comprados:</p>
+                                      <p className="font-medium">{productCount} producto(s)</p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {appointment.status === "paid" && (
+                                  <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                                    <div className="flex items-center justify-between text-sm">
+                                      <span className="text-green-800">Pagado ({paymentLabel}):</span>
+                                      <span className="font-bold text-green-900">
+                                        {formatCurrency(appointment.appointmentPrice || 0)}
+                                      </span>
+                                    </div>
+                                  </div>
                                 )}
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                <div>
-                                  <p className="text-muted-foreground">
-                                    Trabajador:
-                                  </p>
-                                  <p className="font-medium">
-                                    {appointment.worker?.firstName}{" "}
-                                    {appointment.worker?.lastName}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground">
-                                    Duración:
-                                  </p>
-                                  <p className="font-medium">
-                                    {appointment.duration} minutos
-                                  </p>
-                                </div>
-                                {appointment.diagnosis && (
-                                  <div>
-                                    <p className="text-muted-foreground">
-                                      Diagnóstico:
-                                    </p>
-                                    <p className="font-medium">
-                                      {appointment.diagnosis}
-                                    </p>
-                                  </div>
-                                )}
-                                {appointment.treatmentNotes && (
-                                  <div>
-                                    <p className="text-muted-foreground">
-                                      Tratamiento:
-                                    </p>
-                                    <p className="font-medium">
-                                      {appointment.treatmentNotes}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {appointment.payment && (
-                                <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="text-green-800">
-                                      Pagado:
-                                    </span>
-                                    <span className="font-bold text-green-900">
-                                      {formatCurrency(
-                                        appointment.payment.amount,
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
+                              <Button variant="ghost"
+                                onClick={() => navigate(`/appointments/${appointment.id}`)}
+                                size="sm" style={{ position: "absolute", top: "0", right: "0" }}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
                             </div>
-
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </TabsContent>
@@ -673,49 +677,74 @@ export function PatientDetail() {
                 ) : (
                   <div className="space-y-4">
                     {sales
-                      .sort(
-                        (a, b) =>
-                          new Date(b.createdAt).getTime() -
-                          new Date(a.createdAt).getTime(),
-                      )
-                      .map((sale) => (
-                        <div
-                          key={sale.id}
-                          className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-semibold">
-                                  Venta #{sale.id}
-                                </h4>
-                                <Badge variant="secondary" className="text-xs">
-                                  {formatDate(sale.createdAt)}
-                                </Badge>
-                              </div>
+                      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((sale: any) => {
+                        const totalProducts = sale.saleItems?.reduce(
+                          (sum: number, item: any) => sum + item.quantity,
+                          0
+                        );
+                        const paymentLabel =
+                          paymentMethodConfig[sale.paymentMethod]?.label || sale.paymentMethod;
 
-                              <div className="space-y-2">
+                        return (
+                          <div
+                            key={sale.id}
+                            className={cn(
+                              "border rounded-lg p-4 transition-colors relative",
+                              sale.paymentMethod
+                                ? "hover:bg-muted/30"
+                                : "bg-red-50 border-red-200"
+                            )}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 space-y-3">
+                                {/* Fecha + Estado */}
+                                <div className="flex items-center gap-3">
+                                  <h4 className="font-semibold text-base">
+                                    Venta del {formatDate(sale.date)}
+                                  </h4>
+                                  {sale.paymentMethod ? (
+                                    <Badge variant="default" className="text-xs">
+                                      Pagado ({paymentLabel})
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="text-xs">
+                                      No pagado
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                {/* Productos */}
                                 <div className="text-sm">
-                                  <p className="text-muted-foreground">
-                                    Productos:
+                                  <p className="text-muted-foreground mb-1">
+                                    {totalProducts} producto(s):
                                   </p>
                                   <div className="space-y-1">
-                                    {sale.items.map((item) => (
+                                    {sale.saleItems.map((item: any, idx: number) => (
                                       <div
-                                        key={item.id}
-                                        className="flex justify-between"
+                                        key={idx}
+                                        className="flex justify-between items-center"
                                       >
                                         <span>
-                                          {item.product?.name} x{item.quantity}
+                                          {item.product?.name} × {item.quantity}
                                         </span>
                                         <span className="font-medium">
-                                          {formatCurrency(item.totalPrice)}
+                                          {formatCurrency(item.quantity * item.price)}
                                         </span>
                                       </div>
                                     ))}
                                   </div>
                                 </div>
 
+                                {/* Nota (si hay) */}
+                                {sale.note && sale.note.trim() !== "" && (
+                                  <div className="text-sm">
+                                    <p className="text-muted-foreground">Nota:</p>
+                                    <p className="font-medium">{sale.note}</p>
+                                  </div>
+                                )}
+
+                                {/* Total */}
                                 <div className="pt-2 border-t">
                                   <div className="flex justify-between font-bold">
                                     <span>Total:</span>
@@ -724,34 +753,17 @@ export function PatientDetail() {
                                     </span>
                                   </div>
                                 </div>
-
-                                {sale.payment && (
-                                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                                    <div className="flex items-center justify-between text-sm">
-                                      <span className="text-green-800">
-                                        Pagado (
-                                        {
-                                          paymentMethodConfig[
-                                            sale.payment.method
-                                          ]?.label
-                                        }
-                                        ):
-                                      </span>
-                                      <span className="font-bold text-green-900">
-                                        {formatCurrency(sale.payment.amount)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
                               </div>
-                            </div>
 
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                              <Button variant="ghost" size="sm" style={{ position: "absolute", top: "10px", right: "10px" }}
+                                onClick={() => navigate(`/sales/${sale.id}`)}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </TabsContent>
@@ -895,32 +907,32 @@ export function PatientDetail() {
                               {abonoUsage.filter(
                                 (usage) => usage.abonoId === abono.id,
                               ).length > 0 && (
-                                <div className="mt-3 pt-3 border-t">
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    Historial de uso:
-                                  </p>
-                                  <div className="space-y-1">
-                                    {abonoUsage
-                                      .filter(
-                                        (usage) => usage.abonoId === abono.id,
-                                      )
-                                      .map((usage) => (
-                                        <div
-                                          key={usage.id}
-                                          className="flex justify-between text-xs"
-                                        >
-                                          <span>
-                                            {formatDate(usage.usedAt)} -{" "}
-                                            {usage.notes || "Uso de abono"}
-                                          </span>
-                                          <span className="font-medium text-red-600">
-                                            -{formatCurrency(usage.amount)}
-                                          </span>
-                                        </div>
-                                      ))}
+                                  <div className="mt-3 pt-3 border-t">
+                                    <p className="text-sm text-muted-foreground mb-2">
+                                      Historial de uso:
+                                    </p>
+                                    <div className="space-y-1">
+                                      {abonoUsage
+                                        .filter(
+                                          (usage) => usage.abonoId === abono.id,
+                                        )
+                                        .map((usage) => (
+                                          <div
+                                            key={usage.id}
+                                            className="flex justify-between text-xs"
+                                          >
+                                            <span>
+                                              {formatDate(usage.usedAt)} -{" "}
+                                              {usage.notes || "Uso de abono"}
+                                            </span>
+                                            <span className="font-medium text-red-600">
+                                              -{formatCurrency(usage.amount)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
                             </div>
 
                             <Button variant="ghost" size="sm">
