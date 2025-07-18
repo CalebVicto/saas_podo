@@ -236,7 +236,7 @@ export function PatientDetail() {
     ).length;
     const totalSpent = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
     const currentAbonoBalance = abonos.reduce(
-      (total, a) => total + a.remainingAmount,
+      (total, a) => total + a.amount,
       0,
     );
     const activePackages = patientPackages.filter((pp) => pp.isActive).length;
@@ -878,7 +878,7 @@ export function PatientDetail() {
                       Este paciente no ha realizado prepagos.
                     </p>
                     <Button
-                      onClick={() => navigate("/abonos")}
+                      onClick={() => setFormViewAddBalance(true)}
                       variant="outline"
                     >
                       <Wallet className="w-4 h-4 mr-2" />
@@ -888,120 +888,63 @@ export function PatientDetail() {
                 ) : (
                   <div className="space-y-4">
                     {abonos
-                      .sort(
-                        (a, b) =>
-                          new Date(b.registeredAt).getTime() -
-                          new Date(a.registeredAt).getTime(),
-                      )
-                      .map((abono) => (
-                        <div
-                          key={abono.id}
-                          className={cn(
-                            "border rounded-lg p-4 transition-colors",
-                            abono.remainingAmount > 0 && abono.isActive
-                              ? "bg-green-50 border-green-200"
-                              : "hover:bg-muted/30",
-                          )}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h4 className="font-semibold">
-                                  Abono {abono.method.toUpperCase()}
-                                </h4>
-                                <Badge
-                                  variant={
-                                    abono.isActive && abono.remainingAmount > 0
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                  className="text-xs"
-                                >
-                                  {abono.isActive && abono.remainingAmount > 0
-                                    ? "Activo"
-                                    : abono.remainingAmount === 0
-                                      ? "Agotado"
-                                      : "Inactivo"}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  {formatDate(abono.registeredAt)}
-                                </span>
-                              </div>
+                      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .map((abono: any) => {
+                        const paymentLabel =
+                          paymentMethodConfig[abono.paymentMethod]?.label || abono.paymentMethod;
+                        const isCredit = abono.type === "credit";
+                        const typeLabel = isCredit ? "Entrada" : "Salida";
+                        const amountSign = isCredit ? "+" : "-";
+                        const bgColor = isCredit
+                          ? "bg-green-50 border-green-200"
+                          : "bg-red-50 border-red-200";
+                        const amountColor = isCredit ? "text-green-900" : "text-red-900";
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                                <div>
-                                  <p className="text-muted-foreground">
-                                    Monto Original:
-                                  </p>
-                                  <p className="font-bold text-lg">
-                                    {formatCurrency(abono.amount)}
-                                  </p>
+                        return (
+                          <div
+                            key={abono.id}
+                            className={`border rounded-lg p-4 transition-colors ${bgColor} relative`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 space-y-2">
+                                {/* Encabezado */}
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="default" className="text-xs">
+                                    {formatDate(abono.createdAt)}
+                                  </Badge>
+                                  <h4 className="font-semibold text-base">
+                                    {typeLabel} por <span className="uppercase">{paymentLabel}</span>
+                                  </h4>
                                 </div>
-                                <div>
-                                  <p className="text-muted-foreground">
-                                    Monto Usado:
-                                  </p>
-                                  <p className="font-medium text-red-600">
-                                    {formatCurrency(abono.usedAmount)}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground">
-                                    Monto Restante:
-                                  </p>
-                                  <p className="font-medium text-green-600">
-                                    {formatCurrency(abono.remainingAmount)}
-                                  </p>
-                                </div>
-                              </div>
 
-                              {abono.notes && (
-                                <div className="mt-2 p-2 bg-muted/50 rounded text-sm">
-                                  <p className="text-muted-foreground">
-                                    Notas:
-                                  </p>
-                                  <p>{abono.notes}</p>
-                                </div>
-                              )}
-
-                              {/* Usage History */}
-                              {abonoUsage.filter(
-                                (usage) => usage.abonoId === abono.id,
-                              ).length > 0 && (
-                                  <div className="mt-3 pt-3 border-t">
-                                    <p className="text-sm text-muted-foreground mb-2">
-                                      Historial de uso:
+                                {/* Descripción y monto */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                  <div>
+                                    <p className="text-muted-foreground">Monto:</p>
+                                    <p className={`font-bold text-lg ${amountColor}`}>
+                                      {amountSign} {formatCurrency(abono.amount)}
                                     </p>
-                                    <div className="space-y-1">
-                                      {abonoUsage
-                                        .filter(
-                                          (usage) => usage.abonoId === abono.id,
-                                        )
-                                        .map((usage) => (
-                                          <div
-                                            key={usage.id}
-                                            className="flex justify-between text-xs"
-                                          >
-                                            <span>
-                                              {formatDate(usage.usedAt)} -{" "}
-                                              {usage.notes || "Uso de abono"}
-                                            </span>
-                                            <span className="font-medium text-red-600">
-                                              -{formatCurrency(usage.amount)}
-                                            </span>
-                                          </div>
-                                        ))}
-                                    </div>
                                   </div>
-                                )}
-                            </div>
 
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                                  {abono.description && (
+                                    <div>
+                                      <p className="text-muted-foreground">Descripción:</p>
+                                      <p className="font-medium">{abono.description}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <Button variant="ghost" size="sm"
+                                onClick={() => navigate(`/abonos/${abono.id}`)}
+                                style={{ position: "absolute", top: "10px", right: "10px" }}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 )}
               </TabsContent>
