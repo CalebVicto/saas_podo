@@ -161,7 +161,7 @@ export function Sidebar({
       title: "Ventas y Pagos",
       icon: CreditCard,
       items: [
-        { icon: ShoppingCart, label: "Ventas / POS", path: "/sales" },
+        { icon: ShoppingCart, label: "Ventas / POS", path: "/pos" },
         { icon: DollarSign, label: "Pagos", path: "/payments" },
         { icon: Wallet, label: "Abonos", path: "/abonos" },
       ],

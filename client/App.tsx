@@ -21,6 +21,7 @@ import Kardex from "./pages/Kardex";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Sales from "./pages/Sales";
+import Pos from "./pages/Pos";
 import CreateAppointment from "./pages/CreateAppointment";
 import ScheduleAppointment from "./pages/ScheduleAppointment";
 import Abonos from "./pages/Abonos";
@@ -238,6 +239,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Reports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/pos"
+                element={
+                  <ProtectedRoute>
+                    <Pos />
                   </ProtectedRoute>
                 }
               />
