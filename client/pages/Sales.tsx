@@ -50,9 +50,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Product, Sale, SaleItem, Payment } from "@shared/api";
 import {
-  getAllMockProducts,
+  Product,
+  Sale,
+  SaleItem,
+  ApiResponse,
+  PaginatedResponse,
+  PaginatedSearchParams,
+} from "@shared/api";
+import { apiGet, apiPost } from "@/lib/auth";
+import {
   getMockProductCategories,
   getMockPatients,
   getWorkerSales,
@@ -79,7 +86,7 @@ interface SaleForm {
   customerId?: string;
   items: CartItem[];
   totalAmount: number;
-  paymentMethod: "cash" | "yape" | "plin" | "transfer" | "card";
+  paymentMethod: "efectivo" | "yape" | "transferencia" | "pos";
   notes?: string;
 }
 
@@ -114,7 +121,7 @@ export function Sales() {
   const [saleForm, setSaleForm] = useState<SaleForm>({
     items: [],
     totalAmount: 0,
-    paymentMethod: "cash",
+    paymentMethod: "efectivo",
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
@@ -122,6 +129,11 @@ export function Sales() {
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
+
+  // Pagination for products
+  const productPagination = useRepositoryPagination<Product>({
+    initialPageSize: 10,
+  });
 
   // Sales History state
   const [sales, setSales] = useState<Sale[]>([]);
@@ -147,6 +159,18 @@ export function Sales() {
     loadData();
     loadSalesData();
   }, [user, navigate]);
+
+  // Reload products when filters or pagination change
+  useEffect(() => {
+    if (!user) return;
+    loadData();
+  }, [
+    user,
+    searchTerm,
+    selectedCategory,
+    productPagination.currentPage,
+    productPagination.pageSize,
+  ]);
 
   // Update sale form when cart changes (POS mode)
   useEffect(() => {
@@ -232,21 +256,38 @@ export function Sales() {
     setProductError(null);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await productPagination.loadData(async (params: PaginatedSearchParams) => {
+        const searchParams = new URLSearchParams();
+        if (params.page) searchParams.append("page", String(params.page));
+        if (params.limit) searchParams.append("limit", String(params.limit));
+        if (searchTerm) searchParams.append("search", searchTerm);
+        if (selectedCategory !== "all")
+          searchParams.append("categoryId", selectedCategory);
 
-      const allProducts = getAllMockProducts();
+        const resp = await apiGet<ApiResponse<{
+          data: Product[];
+          total: number;
+          page: number;
+          limit: number;
+        }>>(`/product?${searchParams.toString()}`);
+
+        if (resp.error || !resp.data) {
+          throw new Error(resp.error || "Failed to fetch products");
+        }
+
+        const { data, total, page, limit } = resp.data.data;
+        return {
+          items: data,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        } as PaginatedResponse<Product>;
+      });
+
+      setProducts(productPagination.data);
       const mockCategories = getMockProductCategories();
       const mockPatients = getMockPatients();
-
-      if (!Array.isArray(allProducts)) {
-        throw new Error("Invalid products data structure");
-      }
-
-      const mockProducts = allProducts.filter(
-        (p) => p && p.isActive && p.stock > 0 && p.price > 0,
-      );
-
-      setProducts(mockProducts);
       setCategories(mockCategories || []);
       setPatients(mockPatients || []);
     } catch (error) {
@@ -284,18 +325,7 @@ export function Sales() {
     }
   };
 
-  const filteredProducts = products.filter((product) => {
-    if (!product || !product.id || !product.name || !product.sku) {
-      return false;
-    }
-
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "all" || product.categoryId === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = products;
 
   // POS Functions
   const addToCart = (product: Product, event?: React.MouseEvent) => {
@@ -383,7 +413,7 @@ export function Sales() {
       setSaleForm({
         items: [],
         totalAmount: 0,
-        paymentMethod: "cash",
+        paymentMethod: "efectivo",
       });
     } catch (error) {
       console.error("Error clearing cart:", error);
@@ -396,41 +426,22 @@ export function Sales() {
 
     setIsProcessing(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const newSale: Sale = {
-        id: Date.now().toString(),
-        items: cart.map(
-          (item, index): SaleItem => ({
-            id: `${Date.now()}-${index}`,
-            saleId: Date.now().toString(),
-            productId: item.product.id,
-            quantity: item.quantity,
-            unitPrice: item.product.price,
-            totalPrice: item.subtotal,
-            product: item.product,
-          }),
-        ),
-        totalAmount: saleForm.totalAmount,
+      const resp = await apiPost<ApiResponse<Sale>>("/sale", {
         customerId: saleForm.customerId,
-        sellerId: user?.id || "1",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        saleItems: cart.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price,
+        })),
+        paymentMethod: saleForm.paymentMethod,
+        note: saleForm.notes || "",
+      });
 
-      const payment: Payment = {
-        id: (Date.now() + 1).toString(),
-        saleId: newSale.id,
-        amount: saleForm.totalAmount,
-        method: saleForm.paymentMethod,
-        status: "completed",
-        paidAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Error al procesar la venta");
+      }
 
-      newSale.payment = payment;
-      setCompletedSale(newSale);
+      setCompletedSale(resp.data.data);
 
       clearCart();
       setIsConfirmDialogOpen(false);
@@ -469,11 +480,10 @@ export function Sales() {
 
   const getPaymentMethodLabel = (method: string) => {
     const labels = {
-      cash: "Efectivo",
+      efectivo: "Efectivo",
       yape: "Yape",
-      plin: "Plin",
-      transfer: "Transferencia",
-      card: "Tarjeta",
+      transferencia: "Transferencia",
+      pos: "POS",
     };
     return labels[method as keyof typeof labels] || method;
   };
@@ -741,6 +751,16 @@ export function Sales() {
                   </div>
                 )}
               </div>
+              <Pagination
+                currentPage={productPagination.currentPage}
+                totalPages={productPagination.totalPages}
+                totalItems={productPagination.totalItems}
+                pageSize={productPagination.pageSize}
+                onPageChange={productPagination.goToPage}
+                onPageSizeChange={productPagination.setPageSize}
+                showPageSizeSelector={true}
+                pageSizeOptions={[10, 15, 25, 50]}
+              />
             </div>
 
             {/* Right Panel - Cart */}
@@ -910,13 +930,12 @@ export function Sales() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="cash">Efectivo</SelectItem>
+                          <SelectItem value="efectivo">Efectivo</SelectItem>
                           <SelectItem value="yape">Yape</SelectItem>
-                          <SelectItem value="plin">Plin</SelectItem>
-                          <SelectItem value="transfer">
+                          <SelectItem value="transferencia">
                             Transferencia
                           </SelectItem>
-                          <SelectItem value="card">Tarjeta</SelectItem>
+                          <SelectItem value="pos">POS</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -980,11 +999,10 @@ export function Sales() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos los métodos</SelectItem>
-                      <SelectItem value="cash">Efectivo</SelectItem>
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
                       <SelectItem value="yape">Yape</SelectItem>
-                      <SelectItem value="plin">Plin</SelectItem>
-                      <SelectItem value="transfer">Transferencia</SelectItem>
-                      <SelectItem value="card">Tarjeta</SelectItem>
+                      <SelectItem value="transferencia">Transferencia</SelectItem>
+                      <SelectItem value="pos">POS</SelectItem>
                     </SelectContent>
                   </Select>
 
