@@ -60,6 +60,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/lib/auth";
+import { toast } from "@/components/ui/use-toast";
 
 const appointmentStatusConfig = {
   registered: {
@@ -96,9 +98,17 @@ const paymentMethodConfig = {
   card: { label: "Tarjeta", icon: CreditCard },
 };
 
+const balanceMethodConfig = {
+  efectivo: { label: "Efectivo", icon: Wallet },
+  yape: { label: "Yape", icon: CreditCard },
+  transferencia: { label: "Transferencia", icon: CreditCard },
+  pos: { label: "POS", icon: CreditCard },
+};
+
 export function PatientDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -109,6 +119,12 @@ export function PatientDetail() {
   const repository = useMemo(() => new PatientRepository(), []);
   const [activeTab, setActiveTab] = useState("appointments");
   const [formViewAddBalance, setFormViewAddBalance] = useState(false);
+  const [amount, setAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<keyof typeof balanceMethodConfig>(
+    "efectivo",
+  );
+  const [description, setDescription] = useState("");
+  const [isSavingBalance, setIsSavingBalance] = useState(false);
 
   useEffect(() => {
     loadPatientData();
@@ -169,6 +185,45 @@ export function PatientDetail() {
       age--;
     }
     return age;
+  };
+
+  const handleAddBalance = async () => {
+    if (!id) return;
+    if (!amount || amount <= 0) {
+      toast({
+        title: "Monto inválido",
+        description: "Ingresa un monto mayor a cero",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!user) return;
+
+    setIsSavingBalance(true);
+    try {
+      await repository.updateBalance(id, {
+        amount,
+        type: "credit",
+        description,
+        paymentMethod,
+        userId: user.id,
+      });
+      toast({ title: "Abono registrado" });
+      setFormViewAddBalance(false);
+      setAmount(0);
+      setDescription("");
+      setPaymentMethod("efectivo");
+      await loadPatientData();
+    } catch (err: any) {
+      toast({
+        title: "Error al registrar abono",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingBalance(false);
+    }
   };
 
   // Statistics calculations
@@ -1125,74 +1180,50 @@ export function PatientDetail() {
                   type="number"
                   step="0.01"
                   min="0"
-                  // value={formData.amount || ""}
+                  value={amount || ""}
                   onChange={(e) => {
                     const value = e.target.value
                       ? parseFloat(e.target.value)
                       : 0;
-                    // setFormData({ ...formData, amount: value });
-                    // if (errors.amount) {
-                    // setErrors({ ...errors, amount: "" });
-                    // }
+                    setAmount(value);
                   }}
                   placeholder="0.00"
-                  className={cn(
-                    "pl-10",
-                    // errors.amount && "border-destructive",
-                  )}
+                  className={cn("pl-10")}
                 />
               </div>
-              {/* {errors.amount && (
-                <p className="text-sm text-destructive">{errors.amount}</p>
-              )} */}
             </div>
 
             <div className="space-y-2">
               <Label>Método de Pago *</Label>
               <Select
-                // value={formData.method}
-                onValueChange={(value) => {
-                  // setFormData({
-                  //   ...formData,
-                  //   method: value as CreateAbonoRequest["method"],
-                  // });
-                  // if (errors.method) {
-                  //   setErrors({ ...errors, method: "" });
-                  // }
-                }}
+                value={paymentMethod}
+                onValueChange={(value) =>
+                  setPaymentMethod(value as keyof typeof balanceMethodConfig)
+                }
               >
                 <SelectTrigger
-                // className={cn(errors.method && "border-destructive")}
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(paymentMethodConfig).map(
-                    ([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <config.icon className="w-4 h-4" />
-                          {config.label}
-                        </div>
-                      </SelectItem>
-                    ),
-                  )}
+                  {Object.entries(balanceMethodConfig).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      <div className="flex items-center gap-2">
+                        <config.icon className="w-4 h-4" />
+                        {config.label}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {/* {errors.method && (
-                <p className="text-sm text-destructive">{errors.method}</p>
-              )} */}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notas (opcional)</Label>
               <Textarea
                 id="notes"
-                // value={formData.notes || ""}
-                onChange={(e) => {
-
-                  // setFormData({ ...formData, notes: e.target.value })
-                }}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Notas adicionales sobre el abono..."
                 rows={3}
               />
@@ -1204,26 +1235,23 @@ export function PatientDetail() {
               variant="outline"
               onClick={() => {
                 setFormViewAddBalance(false);
-                // resetForm();
+                setAmount(0);
+                setDescription("");
+                setPaymentMethod("efectivo");
               }}
-            // disabled={isSaving}
+              disabled={isSavingBalance}
             >
               Cancelar
             </Button>
-            <Button
-            // onClick={handleCreate} disabled={isSaving}
-            >
-              {
-                // isSaving 
-                false
-                  ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                      Guardando...
-                    </>
-                  ) : (
-                    "Crear Abono"
-                  )}
+            <Button onClick={handleAddBalance} disabled={isSavingBalance}>
+              {isSavingBalance ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                  Guardando...
+                </>
+              ) : (
+                "Crear Abono"
+              )}
             </Button>
           </div>
         </DialogContent>
