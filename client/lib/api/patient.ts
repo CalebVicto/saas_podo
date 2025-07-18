@@ -6,6 +6,7 @@ import type {
   PaginatedSearchParams,
   Patient,
   UpdatePatientDto,
+  UpdatePatientBalanceDto,
   ApiResponse,
   PatientDetailStatistics,
 } from "@shared/api";
@@ -69,5 +70,18 @@ export class PatientRepository {
       throw new Error(resp.error || "Failed to fetch patient detail");
     }
     return resp.data.data;
+  }
+
+  async updateBalance(
+    patientId: string,
+    data: UpdatePatientBalanceDto,
+  ): Promise<void> {
+    const resp = await apiPost<ApiResponse<any>>(
+      `/patient/updateBalance/${patientId}`,
+      data,
+    );
+    if (resp.error) {
+      throw new Error(resp.error);
+    }
   }
 }

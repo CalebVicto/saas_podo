@@ -65,6 +65,14 @@ export interface UpdatePatientDto {
   otherConditions?: string;
 }
 
+export interface UpdatePatientBalanceDto {
+  amount: number;
+  type: "credit" | "debit";
+  description?: string;
+  paymentMethod: "efectivo" | "yape" | "transferencia" | "pos";
+  userId: string;
+}
+
 // Worker Types
 export interface Worker {
   id: string;
