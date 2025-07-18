@@ -321,7 +321,7 @@ export function Sidebar({
                 onClick={() => handleNavigation("/appointments/new")}
                 className={cn(
                   "bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]",
-                  isCollapsed ? "w-12 h-12 p-0" : "w-full",
+                  isCollapsed ? "w-12 h-12 p-0 ml-2" : "w-full",
                 )}
                 size={isCollapsed ? "sm" : "lg"}
               >

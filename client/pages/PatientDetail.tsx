@@ -55,6 +55,11 @@ import {
 } from "@shared/api";
 import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 const appointmentStatusConfig = {
   registered: {
@@ -103,6 +108,7 @@ export function PatientDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const repository = useMemo(() => new PatientRepository(), []);
   const [activeTab, setActiveTab] = useState("appointments");
+  const [formViewAddBalance, setFormViewAddBalance] = useState(false);
 
   useEffect(() => {
     loadPatientData();
@@ -773,7 +779,7 @@ export function PatientDetail() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Abonos y Saldo</h3>
                   <Button
-                    onClick={() => navigate("/abonos")}
+                    onClick={() => setFormViewAddBalance(true)}
                     size="sm"
                     className="btn-primary"
                   >
@@ -1097,6 +1103,131 @@ export function PatientDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Abono Dialog */}
+      <Dialog open={formViewAddBalance} onOpenChange={setFormViewAddBalance}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Nuevo Abono
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">Monto *</Label>
+              <div className="relative">
+                <DollarSign className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  // value={formData.amount || ""}
+                  onChange={(e) => {
+                    const value = e.target.value
+                      ? parseFloat(e.target.value)
+                      : 0;
+                    // setFormData({ ...formData, amount: value });
+                    // if (errors.amount) {
+                    // setErrors({ ...errors, amount: "" });
+                    // }
+                  }}
+                  placeholder="0.00"
+                  className={cn(
+                    "pl-10",
+                    // errors.amount && "border-destructive",
+                  )}
+                />
+              </div>
+              {/* {errors.amount && (
+                <p className="text-sm text-destructive">{errors.amount}</p>
+              )} */}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Método de Pago *</Label>
+              <Select
+                // value={formData.method}
+                onValueChange={(value) => {
+                  // setFormData({
+                  //   ...formData,
+                  //   method: value as CreateAbonoRequest["method"],
+                  // });
+                  // if (errors.method) {
+                  //   setErrors({ ...errors, method: "" });
+                  // }
+                }}
+              >
+                <SelectTrigger
+                // className={cn(errors.method && "border-destructive")}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(paymentMethodConfig).map(
+                    ([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center gap-2">
+                          <config.icon className="w-4 h-4" />
+                          {config.label}
+                        </div>
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+              {/* {errors.method && (
+                <p className="text-sm text-destructive">{errors.method}</p>
+              )} */}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notas (opcional)</Label>
+              <Textarea
+                id="notes"
+                // value={formData.notes || ""}
+                onChange={(e) => {
+
+                  // setFormData({ ...formData, notes: e.target.value })
+                }}
+                placeholder="Notas adicionales sobre el abono..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFormViewAddBalance(false);
+                // resetForm();
+              }}
+            // disabled={isSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+            // onClick={handleCreate} disabled={isSaving}
+            >
+              {
+                // isSaving 
+                false
+                  ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                      Guardando...
+                    </>
+                  ) : (
+                    "Crear Abono"
+                  )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
