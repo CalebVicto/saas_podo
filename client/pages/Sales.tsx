@@ -297,13 +297,13 @@ export function Sales() {
         total: number;
         page: number;
         limit: number;
-      }>>("/product-category?page=1&limit=1");
+      }>>("/product-category?page=1&limit=100");
 
       if (categoryResp.error || !categoryResp.data) {
         throw new Error(categoryResp.error || "Failed to fetch categories");
       }
 
-      setCategories(categoryResp.data.data);
+      setCategories(categoryResp.data.data.data);
 
       // Patients are still loaded from mock data
       const mockPatients = getMockPatients();
@@ -374,10 +374,10 @@ export function Sales() {
           return prevCart.map((item) =>
             item.product.id === product.id
               ? {
-                  ...item,
-                  quantity: newQuantity,
-                  subtotal: newQuantity * product.price,
-                }
+                ...item,
+                quantity: newQuantity,
+                subtotal: newQuantity * product.price,
+              }
               : item,
           );
         } else {
@@ -1066,8 +1066,8 @@ export function Sales() {
                     </h3>
                     <p className="text-muted-foreground mb-6">
                       {salesSearchTerm ||
-                      dateFilter ||
-                      paymentMethodFilter !== "all"
+                        dateFilter ||
+                        paymentMethodFilter !== "all"
                         ? "No se encontraron ventas con los filtros aplicados"
                         : "No tienes ventas registradas"}
                     </p>
@@ -1228,13 +1228,13 @@ export function Sales() {
                   <span>
                     {saleForm.customerId && Array.isArray(patients)
                       ? (() => {
-                          const customer = patients.find(
-                            (p: any) => p && p.id === saleForm.customerId,
-                          );
-                          return customer
-                            ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim()
-                            : "Cliente no encontrado";
-                        })()
+                        const customer = patients.find(
+                          (p: any) => p && p.id === saleForm.customerId,
+                        );
+                        return customer
+                          ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim()
+                          : "Cliente no encontrado";
+                      })()
                       : "Venta general"}
                   </span>
                 </div>
