@@ -291,12 +291,13 @@ export function Sales() {
       });
 
       // Load categories from API
+      // Fetch all product categories for the filter dropdown
       const categoryResp = await apiGet<ApiResponse<{
         data: ProductCategory[];
         total: number;
         page: number;
         limit: number;
-      }>>("/product-category?page=1&limit=100");
+      }>>("/product-category?page=1&limit=1");
 
       if (categoryResp.error || !categoryResp.data) {
         throw new Error(categoryResp.error || "Failed to fetch categories");
