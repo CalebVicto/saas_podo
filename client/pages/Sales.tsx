@@ -52,29 +52,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   Product,
+  ProductCategory,
   Sale,
-  SaleItem,
   ApiResponse,
   PaginatedResponse,
   PaginatedSearchParams,
 } from "@shared/api";
 import { apiGet, apiPost } from "@/lib/auth";
 import {
-  getMockProductCategories,
   getMockPatients,
   getWorkerSales,
   getAllSalesWithDetails,
   getWorkerSalesStats,
-  getMockWorkers,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
-import {
-  useSaleRepository,
-  useProductRepository,
-  usePatientRepository,
-} from "@/lib/repositories";
 
 interface CartItem {
   product: Product;
@@ -113,7 +106,7 @@ export function Sales() {
 
   // POS-related state
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [patients, setPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -171,6 +164,11 @@ export function Sales() {
     productPagination.currentPage,
     productPagination.pageSize,
   ]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    productPagination.goToPage(1);
+  }, [searchTerm, selectedCategory]);
 
   // Update sale form when cart changes (POS mode)
   useEffect(() => {
@@ -286,9 +284,23 @@ export function Sales() {
       });
 
       setProducts(productPagination.data);
-      const mockCategories = getMockProductCategories();
+
+      // Load categories from API
+      const categoryResp = await apiGet<ApiResponse<{
+        data: ProductCategory[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>("/product-category?page=1&limit=100");
+
+      if (categoryResp.error || !categoryResp.data) {
+        throw new Error(categoryResp.error || "Failed to fetch categories");
+      }
+
+      setCategories(categoryResp.data.data);
+
+      // Patients are still loaded from mock data
       const mockPatients = getMockPatients();
-      setCategories(mockCategories || []);
       setPatients(mockPatients || []);
     } catch (error) {
       console.error("Error loading data:", error);
