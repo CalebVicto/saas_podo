@@ -218,24 +218,23 @@ export interface AbonoUsage {
 export interface Product {
   id: string;
   name: string;
+  slug: string;
   description?: string;
-  categoryId: string;
   price: number;
   stock: number;
+  imageUrl?: string;
+  status: "active" | "inactive";
   sku: string;
-  bonusAmount?: number;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  comission?: number; // Commission percentage for sales
   category?: ProductCategory;
 }
 
 export interface ProductCategory {
   id: string;
   name: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  slug: string;
 }
 
 export interface ProductMovement {

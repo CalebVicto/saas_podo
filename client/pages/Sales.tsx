@@ -242,7 +242,7 @@ export function Sales() {
 
     setFilteredSales(filtered);
     // Reset pagination when filters change
-    salesPagination.resetPagination();
+    // salesPagination.resetPagination();
   }, [
     sales,
     salesSearchTerm,
