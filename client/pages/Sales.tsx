@@ -105,7 +105,7 @@ export function Sales() {
   const [activeTab, setActiveTab] = useState<"pos" | "history">("pos");
 
   // POS-related state
-  const [products, setProducts] = useState<Product[]>([]);
+  // Products will be loaded via pagination hook
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [patients, setPatients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -115,6 +115,7 @@ export function Sales() {
     items: [],
     totalAmount: 0,
     paymentMethod: "efectivo",
+    notes: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
@@ -143,13 +144,19 @@ export function Sales() {
     initialPageSize: 15,
   });
 
-  // Load data on component mount
+  // Fetch products immediately on mount so the POS grid loads
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  // Redirect to login if no stored user and load sales history
   useEffect(() => {
     if (!user) {
       navigate("/login");
       return;
     }
-    loadData();
     loadSalesData();
   }, [user, navigate]);
 
@@ -283,8 +290,6 @@ export function Sales() {
         } as PaginatedResponse<Product>;
       });
 
-      setProducts(productPagination.data);
-
       // Load categories from API
       const categoryResp = await apiGet<ApiResponse<{
         data: ProductCategory[];
@@ -307,7 +312,6 @@ export function Sales() {
       setProductError(
         "Error al cargar los productos. Por favor, recarga la página.",
       );
-      setProducts([]);
       setCategories([]);
       setPatients([]);
     } finally {
@@ -337,7 +341,7 @@ export function Sales() {
     }
   };
 
-  const filteredProducts = products;
+  const filteredProducts = productPagination.data;
 
   // POS Functions
   const addToCart = (product: Product, event?: React.MouseEvent) => {
@@ -426,6 +430,8 @@ export function Sales() {
         items: [],
         totalAmount: 0,
         paymentMethod: "efectivo",
+        customerId: undefined,
+        notes: "",
       });
     } catch (error) {
       console.error("Error clearing cart:", error);
