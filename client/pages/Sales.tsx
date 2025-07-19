@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import {
   Product,
   ProductCategory,
+  Patient,
   Sale,
   ApiResponse,
   PaginatedResponse,
@@ -60,11 +61,11 @@ import {
 } from "@shared/api";
 import { apiGet, apiPost } from "@/lib/auth";
 import {
-  getMockPatients,
   getWorkerSales,
   getAllSalesWithDetails,
   getWorkerSalesStats,
 } from "@/lib/mockData";
+import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
@@ -107,7 +108,12 @@ export function Sales() {
   // POS-related state
   // Products will be loaded via pagination hook
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [patients, setPatients] = useState([]);
+  const patientRepository = useMemo(() => new PatientRepository(), []);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [patientSearchTerm, setPatientSearchTerm] = useState("");
+  const [patientResults, setPatientResults] = useState<Patient[]>([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -176,6 +182,30 @@ export function Sales() {
   useEffect(() => {
     productPagination.goToPage(1);
   }, [searchTerm, selectedCategory]);
+
+  // Load patients when the selector modal is open or the search term changes
+  useEffect(() => {
+    if (!isPatientModalOpen) return;
+
+    const fetchPatients = async () => {
+      setIsLoadingPatients(true);
+      try {
+        const result = await patientRepository.getAll({
+          limit: 10,
+          page: 1,
+          search: patientSearchTerm || undefined,
+        });
+        setPatientResults(result.items);
+      } catch (error) {
+        console.error("Error fetching patients:", error);
+        setPatientResults([]);
+      } finally {
+        setIsLoadingPatients(false);
+      }
+    };
+
+    fetchPatients();
+  }, [isPatientModalOpen, patientSearchTerm, patientRepository]);
 
   // Update sale form when cart changes (POS mode)
   useEffect(() => {
@@ -274,7 +304,7 @@ export function Sales() {
           total: number;
           page: number;
           limit: number;
-        }>>(`/product?${searchParams.toString()}`);
+        }>>(`/products?${searchParams.toString()}`);
 
         if (resp.error || !resp.data) {
           throw new Error(resp.error || "Failed to fetch products");
@@ -297,24 +327,19 @@ export function Sales() {
         total: number;
         page: number;
         limit: number;
-      }>>("/product-category?page=1&limit=100");
+      }>>("/product-categories?page=1&limit=100");
 
       if (categoryResp.error || !categoryResp.data) {
         throw new Error(categoryResp.error || "Failed to fetch categories");
       }
 
       setCategories(categoryResp.data.data.data);
-
-      // Patients are still loaded from mock data
-      const mockPatients = getMockPatients();
-      setPatients(mockPatients || []);
     } catch (error) {
       console.error("Error loading data:", error);
       setProductError(
         "Error al cargar los productos. Por favor, recarga la página.",
       );
       setCategories([]);
-      setPatients([]);
     } finally {
       setIsLoadingProducts(false);
     }
@@ -434,6 +459,7 @@ export function Sales() {
         customerId: undefined,
         notes: "",
       });
+      setSelectedPatient(null);
     } catch (error) {
       console.error("Error clearing cart:", error);
       window.location.reload();
@@ -901,39 +927,36 @@ export function Sales() {
                     {/* Customer Selection */}
                     <div className="space-y-2">
                       <Label htmlFor="customer">Cliente (Opcional)</Label>
-                      <Select
-                        value={saleForm.customerId || "no-customer"}
-                        onValueChange={(value) =>
-                          setSaleForm({
-                            ...saleForm,
-                            customerId:
-                              value === "no-customer" ? undefined : value,
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar cliente..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="no-customer">
-                            Sin cliente
-                          </SelectItem>
-                          {Array.isArray(patients) &&
-                            patients
-                              .filter(
-                                (patient: any) =>
-                                  patient && patient.id && patient.firstName,
-                              )
-                              .map((patient: any) => (
-                                <SelectItem
-                                  key={patient.id}
-                                  value={patient.id.toString()}
-                                >
-                                  {patient.firstName} {patient.lastName || ""}
-                                </SelectItem>
-                              ))}
-                        </SelectContent>
-                      </Select>
+                      {selectedPatient ? (
+                        <div className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">
+                              {selectedPatient.firstName} {selectedPatient.paternalSurname}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {selectedPatient.documentNumber}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedPatient(null);
+                              setSaleForm({ ...saleForm, customerId: undefined });
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsPatientModalOpen(true)}
+                          className="w-full justify-start"
+                        >
+                          <User className="w-4 h-4 mr-2" /> Seleccionar paciente
+                        </Button>
+                      )}
                     </div>
 
                     {/* Payment Method */}
@@ -1226,15 +1249,8 @@ export function Sales() {
                 <div className="flex justify-between">
                   <span>Cliente:</span>
                   <span>
-                    {saleForm.customerId && Array.isArray(patients)
-                      ? (() => {
-                        const customer = patients.find(
-                          (p: any) => p && p.id === saleForm.customerId,
-                        );
-                        return customer
-                          ? `${customer.firstName || ""} ${customer.lastName || ""}`.trim()
-                          : "Cliente no encontrado";
-                      })()
+                    {selectedPatient
+                      ? `${selectedPatient.firstName} ${selectedPatient.paternalSurname}`
                       : "Venta general"}
                   </span>
                 </div>
@@ -1275,6 +1291,71 @@ export function Sales() {
                     Confirmar Venta
                   </>
                 )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Patient Select Dialog */}
+        <Dialog open={isPatientModalOpen} onOpenChange={setIsPatientModalOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Seleccionar Paciente</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar paciente..."
+                  value={patientSearchTerm}
+                  onChange={(e) => setPatientSearchTerm(e.target.value)}
+                  className="pl-10"
+                  autoFocus
+                />
+              </div>
+
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {isLoadingPatients ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : patientResults.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No se encontraron pacientes
+                  </div>
+                ) : (
+                  patientResults.map((patient) => (
+                    <div
+                      key={patient.id}
+                      onClick={() => {
+                        setSelectedPatient(patient);
+                        setSaleForm({ ...saleForm, customerId: patient.id });
+                        setIsPatientModalOpen(false);
+                        setPatientSearchTerm("");
+                      }}
+                      className="p-3 rounded-lg border cursor-pointer hover:bg-muted/50 flex justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {patient.firstName} {patient.paternalSurname}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {patient.documentNumber}
+                        </p>
+                      </div>
+                      {selectedPatient?.id === patient.id && (
+                        <Check className="w-5 h-5 text-primary" />
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setIsPatientModalOpen(false)}>
+                Cerrar
               </Button>
             </div>
           </DialogContent>
