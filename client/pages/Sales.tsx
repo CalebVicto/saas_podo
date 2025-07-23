@@ -155,13 +155,6 @@ export function Sales() {
     initialPageSize: 15,
   });
 
-  // Fetch products immediately on mount so the POS grid loads
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
-
   // Redirect to login if no stored user and load sales history
   useEffect(() => {
     if (!user) {
@@ -252,6 +245,36 @@ export function Sales() {
   }, [cart]);
 
 
+  useEffect(() => {
+    if (!user) return;
+
+    if (categories.length === 0) {
+      loadCategories(); // solo una vez
+    }
+
+    loadData(); // cada vez que cambia searchTerm o paginación
+  }, [user, searchTerm, selectedCategory, productPagination.currentPage, productPagination.pageSize]);
+
+
+  const loadCategories = async () => {
+    try {
+      const categoryResp = await apiGet<ApiResponse<{
+        data: ProductCategory[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>("/product-category?page=1&limit=100");
+
+      if (categoryResp.error || !categoryResp.data) {
+        throw new Error(categoryResp.error || "Failed to fetch categories");
+      }
+
+      setCategories(categoryResp.data.data.data);
+    } catch (error) {
+      console.error("Error loading categories:", error);
+    }
+  };
+
   const loadData = async () => {
     setIsLoadingProducts(true);
     setProductError(null);
@@ -286,20 +309,6 @@ export function Sales() {
         } as PaginatedResponse<Product>;
       });
 
-      // Load categories from API
-      // Fetch all product categories for the filter dropdown
-      const categoryResp = await apiGet<ApiResponse<{
-        data: ProductCategory[];
-        total: number;
-        page: number;
-        limit: number;
-      }>>("/product-category?page=1&limit=100");
-
-      if (categoryResp.error || !categoryResp.data) {
-        throw new Error(categoryResp.error || "Failed to fetch categories");
-      }
-
-      setCategories(categoryResp.data.data.data);
     } catch (error) {
       console.error("Error loading data:", error);
       setProductError(
@@ -543,12 +552,6 @@ export function Sales() {
     return labels[method as keyof typeof labels] || method;
   };
 
-  // Load sales statistics from API
-  useEffect(() => {
-    if (user) {
-      loadSalesStats();
-    }
-  }, [user]);
 
   if (!user) {
     return null;
@@ -581,10 +584,6 @@ export function Sales() {
               <TabsTrigger
                 value="history"
                 className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
-                onClick={() => {
-                  loadSalesData();
-                  loadSalesStats();
-                }}
               >
                 <History className="w-4 h-4" />
                 Mis Ventas
@@ -1048,12 +1047,6 @@ export function Sales() {
                     />
                   </div> */}
 
-                  <Input
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    placeholder="Filtrar por fecha"
-                  />
 
                   <Select
                     value={paymentMethodFilter}
@@ -1071,6 +1064,14 @@ export function Sales() {
                     </SelectContent>
                   </Select>
 
+                  <Input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    placeholder="Filtrar por fecha"
+                    className="w-fit"
+                  />
+
                   <div className="flex items-center justify-end gap-2">
                     <Button
                       variant="outline"
@@ -1078,6 +1079,8 @@ export function Sales() {
                         setSalesSearchTerm("");
                         setDateFilter("");
                         setPaymentMethodFilter("all");
+                        const today = new Date();
+                        setDateFilter(today.toISOString().split("T")[0]); // Formato yyyy-MM-dd
                       }}
                     >
                       Limpiar Filtros
