@@ -60,11 +60,7 @@ import {
   PaginatedSearchParams,
 } from "@shared/api";
 import { apiGet, apiPost } from "@/lib/auth";
-import {
-  getWorkerSales,
-  getAllSalesWithDetails,
-  getWorkerSalesStats,
-} from "@/lib/mockData";
+import { getWorkerSalesStats } from "@/lib/mockData";
 import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
@@ -137,8 +133,6 @@ export function Sales() {
   });
 
   // Sales History state
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [salesSearchTerm, setSalesSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
@@ -165,7 +159,15 @@ export function Sales() {
       return;
     }
     loadSalesData();
-  }, [user, navigate]);
+  }, [
+    user,
+    navigate,
+    salesPagination.currentPage,
+    salesPagination.pageSize,
+    salesSearchTerm,
+    dateFilter,
+    paymentMethodFilter,
+  ]);
 
   // Reload products when filters or pagination change
   useEffect(() => {
@@ -238,54 +240,6 @@ export function Sales() {
     }
   }, [cart]);
 
-  // Filter sales based on search and filters
-  useEffect(() => {
-    let filtered = sales;
-
-    // Text search
-    if (salesSearchTerm) {
-      filtered = filtered.filter((sale) => {
-        const customer = sale.customer;
-        const customerName = customer
-          ? `${customer.firstName} ${customer.lastName}`
-          : "Venta general";
-        const products = sale.items
-          .map((item) => item.product?.name || "")
-          .join(" ");
-        const saleId = sale.id;
-
-        return (
-          customerName.toLowerCase().includes(salesSearchTerm.toLowerCase()) ||
-          products.toLowerCase().includes(salesSearchTerm.toLowerCase()) ||
-          saleId.toLowerCase().includes(salesSearchTerm.toLowerCase())
-        );
-      });
-    }
-
-    // Date filter
-    if (dateFilter) {
-      filtered = filtered.filter((sale) =>
-        sale.date.startsWith(dateFilter),
-      );
-    }
-
-    // Payment method filter
-    if (paymentMethodFilter !== "all") {
-      filtered = filtered.filter(
-        (sale) => sale.payment?.method === paymentMethodFilter,
-      );
-    }
-
-    setFilteredSales(filtered);
-    // Reset pagination when filters change
-    // salesPagination.resetPagination();
-  }, [
-    sales,
-    salesSearchTerm,
-    dateFilter,
-    paymentMethodFilter,
-    salesPagination,
-  ]);
 
   const loadData = async () => {
     setIsLoadingProducts(true);
@@ -349,18 +303,36 @@ export function Sales() {
   const loadSalesData = async () => {
     setIsLoadingSales(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await salesPagination.loadData(async (params: PaginatedSearchParams) => {
+        const searchParams = new URLSearchParams();
+        if (params.page) searchParams.append("page", String(params.page));
+        if (params.limit) searchParams.append("limit", String(params.limit));
+        if (salesSearchTerm) searchParams.append("search", salesSearchTerm);
+        if (dateFilter) searchParams.append("date", dateFilter);
+        if (paymentMethodFilter !== "all")
+          searchParams.append("paymentMethod", paymentMethodFilter);
+        if (user?.id) searchParams.append("userId", user.id);
 
-      // Load sales based on user role
-      let salesData: Sale[] = [];
-      if (user?.role === "admin") {
-        salesData = getAllSalesWithDetails();
-      } else {
-        // Worker only sees their own sales
-        salesData = getWorkerSales(user?.id || "");
-      }
+        const resp = await apiGet<ApiResponse<{
+          data: Sale[];
+          total: number;
+          page: number;
+          limit: number;
+        }>>(`/sale?${searchParams.toString()}`);
 
-      setSales(salesData);
+        if (resp.error || !resp.data) {
+          throw new Error(resp.error || "Failed to fetch sales");
+        }
+
+        const { data, total, page, limit } = resp.data.data;
+        return {
+          items: data,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        } as PaginatedResponse<Sale>;
+      });
     } catch (error) {
       console.error("Error loading sales:", error);
     } finally {
