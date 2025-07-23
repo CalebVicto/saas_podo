@@ -20,6 +20,7 @@ import {
   TrendingUp,
   BarChart3,
   Clock,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +134,9 @@ export function Sales() {
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
   const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   // Pagination for products
   const productPagination = useRepositoryPagination<Product>({
@@ -552,6 +556,44 @@ export function Sales() {
     return labels[method as keyof typeof labels] || method;
   };
 
+  const copySaleToPOS = (sale: Sale) => {
+    // Cambiar a la pestaña POS
+    setActiveTab("pos");
+
+    // Establecer cliente si existe
+    if (sale.patient) {
+      setSelectedPatient(sale.patient);
+      setSaleForm((prev) => ({
+        ...prev,
+        customerId: sale.patient.id,
+      }));
+    } else {
+      setSelectedPatient(null);
+      setSaleForm((prev) => ({
+        ...prev,
+        customerId: undefined,
+      }));
+    }
+
+    // Crear nuevo carrito
+    const newCart: CartItem[] = sale.saleItems.map((item) => ({
+      product: {
+        ...item.product,
+        stock: item.product.stock ?? 1000, // fallback si no hay stock
+      },
+      quantity: item.quantity,
+      subtotal: item.price * item.quantity,
+    }));
+
+    setCart(newCart);
+
+    // Método de pago
+    setSaleForm((prev: any) => ({
+      ...prev,
+      paymentMethod: sale.paymentMethod || "efectivo",
+    }));
+  };
+
 
   if (!user) {
     return null;
@@ -591,8 +633,6 @@ export function Sales() {
             </TabsList>
           </Tabs>
         </div>
-
-
 
         {/* Content based on active tab */}
         {activeTab === "pos" ? (
@@ -1149,6 +1189,7 @@ export function Sales() {
                         <TableHeader>
                           <TableRow>
                             <TableHead>Fecha</TableHead>
+                            <TableHead>Estado</TableHead>
                             <TableHead>Cliente</TableHead>
                             <TableHead>Productos</TableHead>
                             <TableHead>Vendedor</TableHead>
@@ -1177,6 +1218,21 @@ export function Sales() {
                                     </p>
                                   </div>
                                 </TableCell>
+                                <TableCell>
+                                  {sale.state === "anulada" ? (
+                                    <div className="flex flex-col">
+                                      <Badge variant="destructive" className="w-fit">Anulada</Badge>
+                                      {sale.cancelReason && (
+                                        <p className="text-xs text-muted-foreground mt-1 italic">
+                                          {sale.cancelReason}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <Badge variant="default" className="w-fit">Activa</Badge>
+                                  )}
+                                </TableCell>
+
                                 <TableCell>
                                   <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
@@ -1227,15 +1283,40 @@ export function Sales() {
                                     </Badge>
                                   </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="flex gap-2">
                                   <Button
                                     onClick={() => viewSaleDetails(sale)}
                                     variant="outline"
                                     size="sm"
+                                    title="Ver detalles"
                                   >
                                     <Eye className="w-4 h-4" />
                                   </Button>
+                                  <Button
+                                    onClick={() => copySaleToPOS(sale)}
+                                    variant="secondary"
+                                    size="sm"
+                                    title="Copiar venta"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                  {
+                                    sale.state !== "anulada" && (
+                                      <Button
+                                        onClick={() => {
+                                          setSaleToDelete(sale);
+                                          setIsDeleteDialogOpen(true);
+                                        }}
+                                        variant="destructive"
+                                        size="sm"
+                                        title="Borrar venta"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    )
+                                  }
                                 </TableCell>
+
                               </TableRow>
                             );
                           })}
@@ -1483,13 +1564,50 @@ export function Sales() {
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-primary" />
-                Detalles de la Venta
+                {/* Boton Copiar */}
+                <Button
+                  onClick={() => { copySaleToPOS(selectedSale); setIsViewSaleDialogOpen(false); }}
+                  variant="secondary"
+                  size="sm"
+                  className=""
+                  title="Copiar venta al POS"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copiar Venta
+                </Button>
               </DialogTitle>
             </DialogHeader>
 
             {selectedSale && (
               <div className="space-y-6 py-4">
+                {selectedSale.state === "anulada" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                    <Badge variant="destructive" className="w-fit">Venta Anulada</Badge>
+                    {selectedSale.cancelReason && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Motivo: {selectedSale.cancelReason}
+                      </p>
+                    )}
+                    {selectedSale.canceledAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Fecha de anulación:{" "}
+                        {new Date(selectedSale.canceledAt).toLocaleString("es-PE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                    {selectedSale.canceledBy && (
+                      <p className="text-sm text-muted-foreground">
+                        Anulado por: <span className="font-medium">{selectedSale.canceledBy.firstName} {selectedSale.canceledBy.lastName}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-semibold text-foreground mb-3">
@@ -1617,6 +1735,60 @@ export function Sales() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal Delete */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Eliminar Venta</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                ¿Estás seguro que deseas eliminar esta venta? Esta acción no se puede deshacer.
+              </p>
+
+              <Input
+                placeholder="Motivo de eliminación"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                Cancelar
+              </Button>
+
+              <Button
+                className="btn-primary"
+                disabled={!deleteReason.trim()}
+                onClick={async () => {
+                  try {
+                    if (!saleToDelete) return;
+                    const res = await apiPost(`/sale/${saleToDelete.id}/anular`, {
+                      reason: deleteReason,
+                    });
+                    if (res.status) {
+                      await loadSalesData();
+                      setIsDeleteDialogOpen(false);
+                      setDeleteReason("");
+                      setSaleToDelete(null);
+                    } else {
+                      alert("Error al eliminar la venta.");
+                    }
+                  } catch (err) {
+                    console.error(err);
+                    alert("Ocurrió un error al intentar eliminar la venta.");
+                  }
+                }}
+              >
+                Confirmar Eliminación
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </Layout>
   );

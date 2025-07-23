@@ -298,6 +298,10 @@ export interface Sale {
   paymentMethod?: string;
   patient?: Patient;
   user?: Worker;
+  state?: 'activa' | 'anulada';
+  canceledBy?: any;
+  canceledAt?: Date;
+  cancelReason?: string;
 }
 
 export interface SaleItem {
@@ -390,7 +394,7 @@ export interface SearchParams {
   [key: string]: any;
 }
 
-export interface PaginatedSearchParams extends PaginationParams, SearchParams {}
+export interface PaginatedSearchParams extends PaginationParams, SearchParams { }
 
 // Patient listing data returned by the real API
 
