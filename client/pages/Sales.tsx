@@ -60,7 +60,6 @@ import {
   PaginatedSearchParams,
 } from "@shared/api";
 import { apiGet, apiPost } from "@/lib/auth";
-import { getWorkerSalesStats } from "@/lib/mockData";
 import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
@@ -85,6 +84,13 @@ interface User {
   id: string;
   name: string;
   role: "admin" | "worker";
+}
+
+interface SalesStats {
+  today: number;
+  todayAmount: number;
+  thisMonth: number;
+  thisMonthAmount: number;
 }
 
 const useAuth = () => {
@@ -126,6 +132,7 @@ export function Sales() {
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productError, setProductError] = useState<string | null>(null);
+  const [salesStats, setSalesStats] = useState<SalesStats | null>(null);
 
   // Pagination for products
   const productPagination = useRepositoryPagination<Product>({
@@ -159,6 +166,7 @@ export function Sales() {
       return;
     }
     loadSalesData();
+    loadSalesStats();
   }, [
     user,
     navigate,
@@ -345,6 +353,17 @@ export function Sales() {
     }
   };
 
+  const loadSalesStats = async () => {
+    try {
+      const resp = await apiGet<ApiResponse<SalesStats>>("/sale/stats");
+      if (resp.data && !resp.error) {
+        setSalesStats(resp.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching sales stats:", error);
+    }
+  };
+
   const handleClearFiltersPOS = () => {
     setSearchTerm("");
     setSelectedCategory("all");
@@ -476,6 +495,7 @@ export function Sales() {
       // Refresh data
       await loadData();
       await loadSalesData();
+      await loadSalesStats();
 
       clearCart();
       setIsConfirmDialogOpen(false);
@@ -520,8 +540,12 @@ export function Sales() {
     return labels[method as keyof typeof labels] || method;
   };
 
-  // Get sales statistics for current user
-  const salesStats = user ? getWorkerSalesStats(user.id) : null;
+  // Load sales statistics from API
+  useEffect(() => {
+    if (user) {
+      loadSalesStats();
+    }
+  }, [user]);
 
   if (!user) {
     return null;
@@ -976,7 +1000,7 @@ export function Sales() {
                           Total Vendido
                         </p>
                         <p className="font-semibold">
-                          S/ {salesStats.totalAmount.toFixed(2)}
+                          S/ {salesStats.thisMonthAmount.toFixed(2)}
                         </p>
                       </div>
                     </div>
