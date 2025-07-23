@@ -308,10 +308,15 @@ export function Sales() {
         if (params.page) searchParams.append("page", String(params.page));
         if (params.limit) searchParams.append("limit", String(params.limit));
         if (salesSearchTerm) searchParams.append("search", salesSearchTerm);
-        if (dateFilter) searchParams.append("date", dateFilter);
+
+        if (dateFilter) {
+          searchParams.append("startDate", dateFilter);
+          searchParams.append("endDate", dateFilter);
+        }
+
         if (paymentMethodFilter !== "all")
           searchParams.append("paymentMethod", paymentMethodFilter);
-        if (user?.id) searchParams.append("userId", user.id);
+        // if (user?.id) searchParams.append("userId", user.id);
 
         const resp = await apiGet<ApiResponse<{
           data: Sale[];
@@ -467,7 +472,7 @@ export function Sales() {
 
       console.log("Sale processed successfully:", resp.data.data);
       setCompletedSale(resp.data.data);
-      
+
       // Refresh data
       await loadData();
       await loadSalesData();
@@ -541,14 +546,14 @@ export function Sales() {
             <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-lg">
               <TabsTrigger
                 value="pos"
-                className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
               >
                 <ShoppingCart className="w-4 h-4" />
                 Punto de Venta
               </TabsTrigger>
               <TabsTrigger
                 value="history"
-                className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
               >
                 <History className="w-4 h-4" />
                 Mis Ventas
@@ -944,18 +949,17 @@ export function Sales() {
 
             {/* Sales Statistics (shown in both modes) */}
             {salesStats && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
                 <Card className="card-modern">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <BarChart3 className="w-5 h-5 text-primary" />
+                      <div className="p-2 bg-accent/10 rounded-lg">
+                        <Clock className="w-5 h-5 text-accent" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">
-                          Ventas Totales
-                        </p>
-                        <p className="font-semibold">{salesStats.total}</p>
+                        <p className="text-sm text-muted-foreground">Ventas de Hoy</p>
+                        <p className="font-semibold">{salesStats.today} ventas</p>
                       </div>
                     </div>
                   </CardContent>
@@ -979,19 +983,6 @@ export function Sales() {
                   </CardContent>
                 </Card>
 
-                <Card className="card-modern">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-accent/10 rounded-lg">
-                        <Clock className="w-5 h-5 text-accent" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Hoy</p>
-                        <p className="font-semibold">{salesStats.today} ventas</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
 
                 <Card className="card-modern">
                   <CardContent className="p-4">
@@ -1000,9 +991,9 @@ export function Sales() {
                         <TrendingUp className="w-5 h-5 text-success" />
                       </div>
                       <div>
-                        <p className="text-sm text-muted-foreground">Este Mes</p>
+                        <p className="text-sm text-muted-foreground">Ticket Promedio</p>
                         <p className="font-semibold">
-                          S/ {salesStats.thisMonthAmount.toFixed(2)}
+                          S/ {(salesStats.todayAmount / salesStats.today || 0).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -1015,8 +1006,8 @@ export function Sales() {
             {/* Filters */}
             <Card className="card-modern">
               <CardContent className="p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="relative">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* <div className="relative">
                     <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Buscar cliente, producto..."
@@ -1024,7 +1015,7 @@ export function Sales() {
                       onChange={(e) => setSalesSearchTerm(e.target.value)}
                       className="pl-10"
                     />
-                  </div>
+                  </div> */}
 
                   <Input
                     type="date"
@@ -1049,16 +1040,18 @@ export function Sales() {
                     </SelectContent>
                   </Select>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSalesSearchTerm("");
-                      setDateFilter("");
-                      setPaymentMethodFilter("all");
-                    }}
-                  >
-                    Limpiar Filtros
-                  </Button>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSalesSearchTerm("");
+                        setDateFilter("");
+                        setPaymentMethodFilter("all");
+                      }}
+                    >
+                      Limpiar Filtros
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1105,6 +1098,18 @@ export function Sales() {
                   </div>
                 ) : (
                   <>
+                    {/* Pagination */}
+                    <Pagination
+                      currentPage={salesPagination.currentPage}
+                      totalPages={salesPagination.totalPages}
+                      totalItems={salesPagination.totalItems}
+                      pageSize={salesPagination.pageSize}
+                      onPageChange={salesPagination.goToPage}
+                      onPageSizeChange={salesPagination.setPageSize}
+                      showPageSizeSelector={true}
+                      pageSizeOptions={[10, 15, 25, 50]}
+                    />
+
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -1112,7 +1117,7 @@ export function Sales() {
                             <TableHead>Fecha</TableHead>
                             <TableHead>Cliente</TableHead>
                             <TableHead>Productos</TableHead>
-                            <TableHead>Método de Pago</TableHead>
+                            <TableHead>Vendedor</TableHead>
                             <TableHead>Total</TableHead>
                             <TableHead>Acciones</TableHead>
                           </TableRow>
@@ -1122,9 +1127,10 @@ export function Sales() {
                             const { date, time } = formatDateTime(
                               sale.date,
                             );
-                            const customer = sale.customer;
+
+                            const customer = sale.patient;
                             const customerName = customer
-                              ? `${customer.firstName} ${customer.lastName}`
+                              ? `${customer.firstName} ${customer.paternalSurname} ${customer.maternalSurname}`
                               : "Venta general";
 
                             return (
@@ -1148,7 +1154,10 @@ export function Sales() {
                                       </p>
                                       {customer && (
                                         <p className="text-sm text-muted-foreground">
-                                          {customer.documentId}
+                                          {customer.documentType == "dni"
+                                            ? "DNI"
+                                            : "Pasaporte"}{": "}
+                                          {customer.documentNumber}
                                         </p>
                                       )}
                                     </div>
@@ -1157,29 +1166,32 @@ export function Sales() {
                                 <TableCell>
                                   <div>
                                     <p className="font-medium">
-                                      {sale.items.length} producto
-                                      {sale.items.length !== 1 ? "s" : ""}
+                                      {sale.saleItems.length} producto
+                                      {sale.saleItems.length !== 1 ? "s" : ""}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                      {sale.items
+                                      {sale.saleItems
                                         .slice(0, 2)
                                         .map((item) => item.product?.name)
                                         .join(", ")}
-                                      {sale.items.length > 2 && "..."}
+                                      {sale.saleItems.length > 2 && "..."}
                                     </p>
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline">
-                                    {getPaymentMethodLabel(
-                                      sale.payment?.method || "",
-                                    )}
-                                  </Badge>
+                                  <span className="text-sm">
+                                    {sale.user?.firstName}{" "}{sale.user?.lastName}
+                                  </span>
                                 </TableCell>
                                 <TableCell>
-                                  <span className="font-bold text-lg text-primary">
-                                    S/ {sale.totalAmount.toFixed(2)}
-                                  </span>
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-lg text-primary">
+                                      S/ {sale.totalAmount.toFixed(2)}
+                                    </span>
+                                    <Badge variant="outline" className="w-fit">
+                                      {getPaymentMethodLabel(sale.paymentMethod || "",)}
+                                    </Badge>
+                                  </div>
                                 </TableCell>
                                 <TableCell>
                                   <Button
@@ -1197,17 +1209,7 @@ export function Sales() {
                       </Table>
                     </div>
 
-                    {/* Pagination */}
-                    <Pagination
-                      currentPage={salesPagination.currentPage}
-                      totalPages={salesPagination.totalPages}
-                      totalItems={salesPagination.totalItems}
-                      pageSize={salesPagination.pageSize}
-                      onPageChange={salesPagination.goToPage}
-                      onPageSizeChange={salesPagination.setPageSize}
-                      showPageSizeSelector={true}
-                      pageSizeOptions={[10, 15, 25, 50]}
-                    />
+
                   </>
                 )}
               </CardContent>
@@ -1444,7 +1446,7 @@ export function Sales() {
           open={isViewSaleDialogOpen}
           onOpenChange={setIsViewSaleDialogOpen}
         >
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-primary" />
@@ -1496,15 +1498,16 @@ export function Sales() {
                       Cliente
                     </h3>
                     <div className="space-y-3">
-                      {selectedSale.customer ? (
+                      {selectedSale.patient ? (
                         <>
                           <div>
                             <Label className="text-muted-foreground text-sm">
                               Nombre
                             </Label>
                             <p className="font-medium">
-                              {selectedSale.customer.firstName}{" "}
-                              {selectedSale.customer.lastName}
+                              {selectedSale.patient.firstName}{" "}
+                              {selectedSale.patient.paternalSurname}{" "}
+                              {selectedSale.patient.maternalSurname}
                             </p>
                           </div>
                           <div>
@@ -1512,7 +1515,8 @@ export function Sales() {
                               DNI
                             </Label>
                             <p className="font-medium">
-                              {selectedSale.customer.documentId}
+                              {selectedSale.patient.documentType === "dni" ? "DNI" : "Pasaporte"}:{" "}
+                              {selectedSale.patient.documentNumber}
                             </p>
                           </div>
                           <div>
@@ -1520,7 +1524,7 @@ export function Sales() {
                               Teléfono
                             </Label>
                             <p className="font-medium">
-                              {selectedSale.customer.phone}
+                              {selectedSale.patient.phone}
                             </p>
                           </div>
                         </>
@@ -1537,10 +1541,10 @@ export function Sales() {
                   <h3 className="font-semibold text-foreground mb-3">
                     Productos Vendidos
                   </h3>
-                  <div className="space-y-3">
-                    {selectedSale.items.map((item) => (
+                  <div className="space-y-3 overflow-y-auto max-h-[300px]">
+                    {selectedSale.saleItems.map((item) => (
                       <div
-                        key={item.id}
+                        key={`${item.product?.id}-${item.quantity}`}
                         className="flex items-center justify-between p-3 border border-border rounded-lg"
                       >
                         <div className="flex items-center gap-3">
@@ -1550,16 +1554,16 @@ export function Sales() {
                           <div>
                             <p className="font-medium">{item.product?.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              S/ {item.unitPrice.toFixed(2)} c/u
+                              S/ {item.price.toFixed(2)} c/u
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="font-medium">
-                            {item.quantity} x S/ {item.unitPrice.toFixed(2)}
+                            {item.quantity} x S/ {item.price.toFixed(2)}
                           </p>
                           <p className="font-bold text-primary">
-                            S/ {item.totalPrice.toFixed(2)}
+                            S/ {(item.price * item.quantity).toFixed(2)}
                           </p>
                         </div>
                       </div>

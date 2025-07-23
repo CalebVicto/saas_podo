@@ -454,7 +454,7 @@ export const mockPayments: Payment[] = [
 export const mockSales: Sale[] = [
   {
     id: "1",
-    items: [],
+    saleItems: [],
     totalAmount: 25.5,
     patientId: "1",
     sellerId: "1",
@@ -463,7 +463,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "2",
-    items: [],
+    saleItems: [],
     totalAmount: 53.5,
     patientId: "3",
     sellerId: "2",
@@ -472,7 +472,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "3",
-    items: [],
+    saleItems: [],
     totalAmount: 120.0,
     patientId: "2",
     sellerId: "1",
@@ -481,7 +481,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "4",
-    items: [],
+    saleItems: [],
     totalAmount: 45.0,
     patientId: undefined,
     sellerId: "2",
@@ -490,7 +490,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "5",
-    items: [],
+    saleItems: [],
     totalAmount: 78.5,
     patientId: "4",
     sellerId: "1",
@@ -499,7 +499,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "6",
-    items: [],
+    saleItems: [],
     totalAmount: 63.0,
     patientId: "5",
     sellerId: "3",
@@ -508,7 +508,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "7",
-    items: [],
+    saleItems: [],
     totalAmount: 35.0,
     patientId: undefined,
     sellerId: "2",
@@ -517,7 +517,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: "8",
-    items: [],
+    saleItems: [],
     totalAmount: 91.5,
     patientId: "1",
     sellerId: "1",
@@ -533,7 +533,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "1",
     productId: "1",
     quantity: 1,
-    unitPrice: 25.5,
+    price: 25.5,
     totalPrice: 25.5,
     product: mockProducts[0],
   },
@@ -542,7 +542,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "2",
     productId: "2",
     quantity: 1,
-    unitPrice: 35.0,
+    price: 35.0,
     totalPrice: 35.0,
     product: mockProducts[1],
   },
@@ -551,7 +551,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "2",
     productId: "7",
     quantity: 1,
-    unitPrice: 18.5,
+    price: 18.5,
     totalPrice: 18.5,
     product: mockProducts[6],
   },
@@ -561,7 +561,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "3",
     productId: "4",
     quantity: 1,
-    unitPrice: 120.0,
+    price: 120.0,
     totalPrice: 120.0,
     product: mockProducts[3],
   },
@@ -571,7 +571,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "4",
     productId: "5",
     quantity: 1,
-    unitPrice: 45.0,
+    price: 45.0,
     totalPrice: 45.0,
     product: mockProducts[4],
   },
@@ -581,7 +581,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "5",
     productId: "1",
     quantity: 1,
-    unitPrice: 25.5,
+    price: 25.5,
     totalPrice: 25.5,
     product: mockProducts[0],
   },
@@ -590,7 +590,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "5",
     productId: "2",
     quantity: 1,
-    unitPrice: 35.0,
+    price: 35.0,
     totalPrice: 35.0,
     product: mockProducts[1],
   },
@@ -599,7 +599,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "5",
     productId: "7",
     quantity: 1,
-    unitPrice: 18.0,
+    price: 18.0,
     totalPrice: 18.0,
     product: mockProducts[6],
   },
@@ -609,7 +609,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "6",
     productId: "6",
     quantity: 1,
-    unitPrice: 28.0,
+    price: 28.0,
     totalPrice: 28.0,
     product: mockProducts[5],
   },
@@ -618,7 +618,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "6",
     productId: "2",
     quantity: 1,
-    unitPrice: 35.0,
+    price: 35.0,
     totalPrice: 35.0,
     product: mockProducts[1],
   },
@@ -628,7 +628,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "7",
     productId: "2",
     quantity: 1,
-    unitPrice: 35.0,
+    price: 35.0,
     totalPrice: 35.0,
     product: mockProducts[1],
   },
@@ -638,7 +638,7 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "8",
     productId: "1",
     quantity: 2,
-    unitPrice: 25.5,
+    price: 25.5,
     totalPrice: 51.0,
     product: mockProducts[0],
   },
@@ -647,21 +647,21 @@ export const mockSaleItems: SaleItem[] = [
     saleId: "8",
     productId: "5",
     quantity: 1,
-    unitPrice: 45.0,
+    price: 45.0,
     totalPrice: 45.0,
     product: mockProducts[4],
   },
 ];
 
 // Update sales with items
-mockSales[0].items = [mockSaleItems[0]];
-mockSales[1].items = [mockSaleItems[1], mockSaleItems[2]];
-mockSales[2].items = [mockSaleItems[3]];
-mockSales[3].items = [mockSaleItems[4]];
-mockSales[4].items = [mockSaleItems[5], mockSaleItems[6], mockSaleItems[7]];
-mockSales[5].items = [mockSaleItems[8], mockSaleItems[9]];
-mockSales[6].items = [mockSaleItems[10]];
-mockSales[7].items = [mockSaleItems[11], mockSaleItems[12]];
+mockSales[0].saleItems = [mockSaleItems[0]];
+mockSales[1].saleItems = [mockSaleItems[1], mockSaleItems[2]];
+mockSales[2].saleItems = [mockSaleItems[3]];
+mockSales[3].saleItems = [mockSaleItems[4]];
+mockSales[4].saleItems = [mockSaleItems[5], mockSaleItems[6], mockSaleItems[7]];
+mockSales[5].saleItems = [mockSaleItems[8], mockSaleItems[9]];
+mockSales[6].saleItems = [mockSaleItems[10]];
+mockSales[7].saleItems = [mockSaleItems[11], mockSaleItems[12]];
 
 // Add payments to appointments
 mockAppointments[0].payment = mockPayments[0];
@@ -1069,7 +1069,7 @@ export const getWorkerSales = (workerId: string): Sale[] => {
     .map((sale) => ({
       ...sale,
       payment: mockPayments.find((p) => p.saleId === sale.id),
-      items: sale.items.map((item) => ({
+      items: sale.saleItems.map((item) => ({
         ...item,
         product: mockProducts.find((p) => p.id === item.productId),
       })),
@@ -1094,7 +1094,7 @@ export const getAllSalesWithDetails = (): Sale[] => {
         customer,
         seller,
         payment,
-        items: sale.items.map((item) => ({
+        items: sale.saleItems.map((item) => ({
           ...item,
           product: mockProducts.find((p) => p.id === item.productId),
         })),

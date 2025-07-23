@@ -245,7 +245,7 @@ export class LocalSaleRepository
 
     return {
       ...newSale,
-      items: newItems,
+      saleItems: newItems,
     };
   }
 

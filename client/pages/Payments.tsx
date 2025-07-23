@@ -284,7 +284,7 @@ export function Payments() {
         type: "sale" as const,
         data: sale,
         label: sale
-          ? `Venta de productos (${sale.items.length} items)`
+          ? `Venta de productos (${sale.saleItems.length} items)`
           : "Venta eliminada",
       };
     }

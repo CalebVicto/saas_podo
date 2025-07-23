@@ -288,13 +288,16 @@ export interface PackageSession {
 // Sales Types
 export interface Sale {
   id: string;
-  items: SaleItem[];
+  saleItems: SaleItem[];
   totalAmount: number;
   patientId?: string;
   appointmentId?: string;
   sellerId: string;
   date: string;
   payment?: Payment;
+  paymentMethod?: string;
+  patient?: Patient;
+  user?: Worker;
 }
 
 export interface SaleItem {
@@ -302,8 +305,7 @@ export interface SaleItem {
   saleId: string;
   productId: string;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  price: number;
   product?: Product;
 }
 

@@ -306,7 +306,7 @@ export function Workers() {
 
     let totalBonuses = 0;
     workerSales.forEach((sale) => {
-      sale.items.forEach((item: SaleItem) => {
+      sale.saleItems.forEach((item: SaleItem) => {
         const product = products.find((p) => p.id === item.productId);
         if (product?.bonusAmount) {
           // For simplicity, assume all sales qualify for bonus

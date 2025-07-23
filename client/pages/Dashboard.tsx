@@ -299,7 +299,7 @@ export function Dashboard() {
                   <span className="text-sm">Nuevo Paciente</span>
                 </Button>
                 <Button
-                  onClick={() => navigate("/products/sale")}
+                  onClick={() => navigate("/sales")}
                   variant="outline"
                   className="h-20 flex-col gap-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground"
                 >
