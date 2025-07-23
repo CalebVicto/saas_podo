@@ -142,7 +142,10 @@ export function Sales() {
   // Sales History state
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [salesSearchTerm, setSalesSearchTerm] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split("T")[0]; // Formato yyyy-MM-dd
+  });
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isViewSaleDialogOpen, setIsViewSaleDialogOpen] = useState(false);
@@ -578,6 +581,10 @@ export function Sales() {
               <TabsTrigger
                 value="history"
                 className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md"
+                onClick={() => {
+                  loadSalesData();
+                  loadSalesStats();
+                }}
               >
                 <History className="w-4 h-4" />
                 Mis Ventas
@@ -997,10 +1004,10 @@ export function Sales() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
-                          Total Vendido
+                          Total Vendido Hoy
                         </p>
                         <p className="font-semibold">
-                          S/ {salesStats.thisMonthAmount.toFixed(2)}
+                          S/ {salesStats.todayAmount.toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -1474,7 +1481,7 @@ export function Sales() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Eye className="w-5 h-5 text-primary" />
-                Detalles de la Venta #{selectedSale?.id}
+                Detalles de la Venta
               </DialogTitle>
             </DialogHeader>
 
@@ -1496,14 +1503,12 @@ export function Sales() {
                           )}
                         </p>
                       </div>
-                      <div>
+                      <div className="flex flex-col">
                         <Label className="text-muted-foreground text-sm">
                           Método de Pago
                         </Label>
-                        <Badge variant="outline" className="mt-1">
-                          {getPaymentMethodLabel(
-                            selectedSale.payment?.method || "",
-                          )}
+                        <Badge variant="outline" className="mt-1 w-fit">
+                          {getPaymentMethodLabel(selectedSale.paymentMethod || "",)}
                         </Badge>
                       </div>
                       <div>
@@ -1521,7 +1526,7 @@ export function Sales() {
                     <h3 className="font-semibold text-foreground mb-3">
                       Cliente
                     </h3>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {selectedSale.patient ? (
                         <>
                           <div>
@@ -1536,10 +1541,9 @@ export function Sales() {
                           </div>
                           <div>
                             <Label className="text-muted-foreground text-sm">
-                              DNI
+                              {selectedSale.patient.documentType === "dni" ? "DNI" : "Pasaporte"}
                             </Label>
                             <p className="font-medium">
-                              {selectedSale.patient.documentType === "dni" ? "DNI" : "Pasaporte"}:{" "}
                               {selectedSale.patient.documentNumber}
                             </p>
                           </div>
