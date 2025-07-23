@@ -48,7 +48,8 @@ const handleTokenExpired = () => {
   window.location.href = "/login";
 };
 
-initializeApi("http://localhost:3000/api", handleTokenExpired);
+// Inicializa la api con una variable de entorno
+initializeApi(import.meta.env.VITE_API_URL + `/api`, handleTokenExpired);
 
 const App = () => (
   <AuthProvider>
