@@ -69,6 +69,7 @@ import { PatientRepository } from "@/lib/api/patient";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
+import { se } from "date-fns/locale";
 
 interface CartItem {
   product: Product;
@@ -191,7 +192,7 @@ export function Sales() {
       setIsLoadingPatients(true);
       try {
         const result = await patientRepository.getAll({
-          limit: 10,
+          limit: 100,
           page: 1,
           search: patientSearchTerm || undefined,
         });
@@ -264,7 +265,7 @@ export function Sales() {
     // Date filter
     if (dateFilter) {
       filtered = filtered.filter((sale) =>
-        sale.createdAt.startsWith(dateFilter),
+        sale.date.startsWith(dateFilter),
       );
     }
 
@@ -304,7 +305,7 @@ export function Sales() {
           total: number;
           page: number;
           limit: number;
-        }>>(`/products?${searchParams.toString()}`);
+        }>>(`/product?${searchParams.toString()}`);
 
         if (resp.error || !resp.data) {
           throw new Error(resp.error || "Failed to fetch products");
@@ -327,7 +328,7 @@ export function Sales() {
         total: number;
         page: number;
         limit: number;
-      }>>("/product-categories?page=1&limit=100");
+      }>>("/product-category?page=1&limit=100");
 
       if (categoryResp.error || !categoryResp.data) {
         throw new Error(categoryResp.error || "Failed to fetch categories");
@@ -365,6 +366,12 @@ export function Sales() {
     } finally {
       setIsLoadingSales(false);
     }
+  };
+
+  const handleClearFiltersPOS = () => {
+    setSearchTerm("");
+    setSelectedCategory("all");
+    productPagination.goToPage(1);
   };
 
   const filteredProducts = productPagination.data;
@@ -486,14 +493,17 @@ export function Sales() {
         throw new Error(resp.error || "Error al procesar la venta");
       }
 
+      console.log("Sale processed successfully:", resp.data.data);
       setCompletedSale(resp.data.data);
+      
+      // Refresh data
+      await loadData();
+      await loadSalesData();
 
       clearCart();
       setIsConfirmDialogOpen(false);
       setIsCompleteDialogOpen(true);
 
-      // Refresh sales data
-      loadSalesData();
     } catch (error) {
       console.error("Error processing sale:", error);
       alert("Error al procesar la venta. Inténtalo de nuevo.");
@@ -575,83 +585,19 @@ export function Sales() {
           </Tabs>
         </div>
 
-        {/* Sales Statistics (shown in both modes) */}
-        {salesStats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card className="card-modern">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <BarChart3 className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Ventas Totales
-                    </p>
-                    <p className="font-semibold">{salesStats.total}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card className="card-modern">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-secondary/10 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-secondary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Total Vendido
-                    </p>
-                    <p className="font-semibold">
-                      S/ {salesStats.totalAmount.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-modern">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-accent/10 rounded-lg">
-                    <Clock className="w-5 h-5 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Hoy</p>
-                    <p className="font-semibold">{salesStats.today} ventas</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-modern">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-success/10 rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Este Mes</p>
-                    <p className="font-semibold">
-                      S/ {salesStats.thisMonthAmount.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Content based on active tab */}
         {activeTab === "pos" ? (
           // POS Mode
-          <div className="flex-1 flex gap-6">
+          <div className="flex-1 flex gap-6" style={{ overflowY: "hidden" }}>
             {/* Left Panel - Products */}
             <div className="flex-1 flex flex-col space-y-4">
+
+
+
               {/* Search and Filters */}
-              <Card className="card-modern">
+              <Card className="card-modern mb-2">
                 <CardContent className="p-4">
                   <div className="flex gap-4">
                     <div className="relative flex-1">
@@ -662,6 +608,15 @@ export function Sales() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
                       />
+                      {/* Limpiar Filtros */}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="absolute right-0 top-1/2 transform -translate-y-1/2"
+                        onClick={handleClearFiltersPOS}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
                     </div>
                     <Select
                       value={selectedCategory}
@@ -694,8 +649,20 @@ export function Sales() {
                 </CardContent>
               </Card>
 
+              {/* Pagination */}
+              <Pagination
+                currentPage={productPagination.currentPage}
+                totalPages={productPagination.totalPages}
+                totalItems={productPagination.totalItems}
+                pageSize={productPagination.pageSize}
+                onPageChange={productPagination.goToPage}
+                onPageSizeChange={productPagination.setPageSize}
+                showPageSizeSelector={true}
+                pageSizeOptions={[10, 15, 25, 50]}
+              />
+
               {/* Products Grid */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto pt-2">
                 {isLoadingProducts ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="text-center space-y-4">
@@ -796,23 +763,14 @@ export function Sales() {
                   </div>
                 )}
               </div>
-              <Pagination
-                currentPage={productPagination.currentPage}
-                totalPages={productPagination.totalPages}
-                totalItems={productPagination.totalItems}
-                pageSize={productPagination.pageSize}
-                onPageChange={productPagination.goToPage}
-                onPageSizeChange={productPagination.setPageSize}
-                showPageSizeSelector={true}
-                pageSizeOptions={[10, 15, 25, 50]}
-              />
+
             </div>
 
             {/* Right Panel - Cart */}
-            <div className="w-96 flex flex-col space-y-4">
+            <div className="w-50 flex flex-col space-y-4">
               {/* Cart Header */}
               <Card className="card-modern">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-5">
                   <CardTitle className="flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <ShoppingCart className="w-5 h-5 text-primary" />
@@ -835,7 +793,7 @@ export function Sales() {
               {/* Cart Items */}
               <div className="flex-1 overflow-y-auto">
                 <Card className="card-modern h-full">
-                  <CardContent className="p-4 space-y-4">
+                  <CardContent className="p-4 space-y-4 h-full overflow-y-auto">
                     {cart.length === 0 ? (
                       <div className="text-center py-12">
                         <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -1011,6 +969,77 @@ export function Sales() {
         ) : (
           // Sales History Mode
           <div className="flex-1 flex flex-col space-y-4">
+
+            {/* Sales Statistics (shown in both modes) */}
+            {salesStats && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <Card className="card-modern">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <BarChart3 className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Ventas Totales
+                        </p>
+                        <p className="font-semibold">{salesStats.total}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-modern">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-secondary/10 rounded-lg">
+                        <DollarSign className="w-5 h-5 text-secondary" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Total Vendido
+                        </p>
+                        <p className="font-semibold">
+                          S/ {salesStats.totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-modern">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-accent/10 rounded-lg">
+                        <Clock className="w-5 h-5 text-accent" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Hoy</p>
+                        <p className="font-semibold">{salesStats.today} ventas</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-modern">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-success/10 rounded-lg">
+                        <TrendingUp className="w-5 h-5 text-success" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Este Mes</p>
+                        <p className="font-semibold">
+                          S/ {salesStats.thisMonthAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+
             {/* Filters */}
             <Card className="card-modern">
               <CardContent className="p-4">
@@ -1119,7 +1148,7 @@ export function Sales() {
                         <TableBody>
                           {salesPagination.data.map((sale) => {
                             const { date, time } = formatDateTime(
-                              sale.createdAt,
+                              sale.date,
                             );
                             const customer = sale.customer;
                             const customerName = customer
@@ -1369,8 +1398,8 @@ export function Sales() {
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-success">
-                <Check className="w-5 h-5" />
-                Venta Completada
+                {/* <Check className="w-5 h-5" /> */}
+                {/* Venta Completada */}
               </DialogTitle>
             </DialogHeader>
 
@@ -1385,7 +1414,7 @@ export function Sales() {
                     S/ {completedSale.totalAmount.toFixed(2)}
                   </h3>
                   <p className="text-muted-foreground">
-                    Venta #{completedSale.id}
+                    Venta Completada
                   </p>
                 </div>
 
@@ -1393,16 +1422,20 @@ export function Sales() {
                   <div className="flex justify-between">
                     <span>Método de pago:</span>
                     <span>
-                      {getPaymentMethodLabel(
-                        completedSale.payment?.method || "",
-                      )}
+                      {getPaymentMethodLabel(completedSale.paymentMethod || "",)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Fecha:</span>
                     <span>
-                      {new Date(completedSale.createdAt).toLocaleString(
-                        "es-ES",
+                      {new Date(completedSale.date).toLocaleString("es-ES",
+                        {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        },
                       )}
                     </span>
                   </div>
@@ -1460,7 +1493,7 @@ export function Sales() {
                           Fecha y Hora
                         </Label>
                         <p className="font-medium">
-                          {new Date(selectedSale.createdAt).toLocaleString(
+                          {new Date(selectedSale.date).toLocaleString(
                             "es-ES",
                           )}
                         </p>

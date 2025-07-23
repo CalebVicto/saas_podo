@@ -165,7 +165,7 @@ export class ApiProductRepository
   implements IProductRepository
 {
   constructor(config: RepositoryConfig) {
-    super(config, "/products");
+    super(config, "/product");
   }
 
   async getByCategoryId(categoryId: string): Promise<Product[]> {

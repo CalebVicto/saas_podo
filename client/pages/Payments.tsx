@@ -816,7 +816,7 @@ export function Payments() {
                         {sales.map((sale) => (
                           <SelectItem key={sale.id} value={sale.id}>
                             Venta #{sale.id} - S/ {sale.totalAmount.toFixed(2)}{" "}
-                            - {new Date(sale.createdAt).toLocaleDateString()}
+                            - {new Date(sale.date).toLocaleDateString()}
                           </SelectItem>
                         ))}
                       </SelectContent>

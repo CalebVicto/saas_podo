@@ -456,72 +456,72 @@ export const mockSales: Sale[] = [
     id: "1",
     items: [],
     totalAmount: 25.5,
-    customerId: "1",
+    patientId: "1",
     sellerId: "1",
-    createdAt: "2024-01-24T15:30:00Z",
+    date: "2024-01-24T15:30:00Z",
     updatedAt: "2024-01-24T15:30:00Z",
   },
   {
     id: "2",
     items: [],
     totalAmount: 53.5,
-    customerId: "3",
+    patientId: "3",
     sellerId: "2",
-    createdAt: "2024-01-23T11:20:00Z",
+    date: "2024-01-23T11:20:00Z",
     updatedAt: "2024-01-23T11:20:00Z",
   },
   {
     id: "3",
     items: [],
     totalAmount: 120.0,
-    customerId: "2",
+    patientId: "2",
     sellerId: "1",
-    createdAt: "2024-01-25T10:15:00Z",
+    date: "2024-01-25T10:15:00Z",
     updatedAt: "2024-01-25T10:15:00Z",
   },
   {
     id: "4",
     items: [],
     totalAmount: 45.0,
-    customerId: undefined,
+    patientId: undefined,
     sellerId: "2",
-    createdAt: "2024-01-25T14:20:00Z",
+    date: "2024-01-25T14:20:00Z",
     updatedAt: "2024-01-25T14:20:00Z",
   },
   {
     id: "5",
     items: [],
     totalAmount: 78.5,
-    customerId: "4",
+    patientId: "4",
     sellerId: "1",
-    createdAt: "2024-01-22T09:45:00Z",
+    date: "2024-01-22T09:45:00Z",
     updatedAt: "2024-01-22T09:45:00Z",
   },
   {
     id: "6",
     items: [],
     totalAmount: 63.0,
-    customerId: "5",
+    patientId: "5",
     sellerId: "3",
-    createdAt: "2024-01-21T16:30:00Z",
+    date: "2024-01-21T16:30:00Z",
     updatedAt: "2024-01-21T16:30:00Z",
   },
   {
     id: "7",
     items: [],
     totalAmount: 35.0,
-    customerId: undefined,
+    patientId: undefined,
     sellerId: "2",
-    createdAt: "2024-01-20T11:10:00Z",
+    date: "2024-01-20T11:10:00Z",
     updatedAt: "2024-01-20T11:10:00Z",
   },
   {
     id: "8",
     items: [],
     totalAmount: 91.5,
-    customerId: "1",
+    patientId: "1",
     sellerId: "1",
-    createdAt: "2024-01-19T13:25:00Z",
+    date: "2024-01-19T13:25:00Z",
     updatedAt: "2024-01-19T13:25:00Z",
   },
 ];
@@ -1076,15 +1076,15 @@ export const getWorkerSales = (workerId: string): Sale[] => {
     }))
     .sort(
       (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
 };
 
 export const getAllSalesWithDetails = (): Sale[] => {
   return mockSales
     .map((sale) => {
-      const customer = sale.customerId
-        ? mockPatients.find((p) => p.id === sale.customerId)
+      const customer = sale.patientId
+        ? mockPatients.find((p) => p.id === sale.patientId)
         : undefined;
       const seller = mockWorkers.find((w) => w.id === sale.sellerId);
       const payment = mockPayments.find((p) => p.saleId === sale.id);
@@ -1102,7 +1102,7 @@ export const getAllSalesWithDetails = (): Sale[] => {
     })
     .sort(
       (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
 };
 
@@ -1113,11 +1113,11 @@ export const getWorkerSalesStats = (workerId: string) => {
   const thisYear = new Date().getFullYear();
 
   const todaySales = workerSales.filter(
-    (sale) => new Date(sale.createdAt).toDateString() === today,
+    (sale) => new Date(sale.date).toDateString() === today,
   );
 
   const thisMonthSales = workerSales.filter((sale) => {
-    const saleDate = new Date(sale.createdAt);
+    const saleDate = new Date(sale.date);
     return (
       saleDate.getMonth() === thisMonth && saleDate.getFullYear() === thisYear
     );

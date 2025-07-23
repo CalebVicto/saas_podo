@@ -264,9 +264,9 @@ export class LocalSaleRepository
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     return {
-      today: sales.filter((s) => new Date(s.createdAt) >= today).length,
-      thisWeek: sales.filter((s) => new Date(s.createdAt) >= thisWeek).length,
-      thisMonth: sales.filter((s) => new Date(s.createdAt) >= thisMonth).length,
+      today: sales.filter((s) => new Date(s.date) >= today).length,
+      thisWeek: sales.filter((s) => new Date(s.date) >= thisWeek).length,
+      thisMonth: sales.filter((s) => new Date(s.date) >= thisMonth).length,
       total: sales.length,
       totalAmount: sales.reduce((sum, s) => sum + s.totalAmount, 0),
     };

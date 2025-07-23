@@ -290,11 +290,10 @@ export interface Sale {
   id: string;
   items: SaleItem[];
   totalAmount: number;
-  customerId?: string;
+  patientId?: string;
   appointmentId?: string;
   sellerId: string;
-  createdAt: string;
-  updatedAt: string;
+  date: string;
   payment?: Payment;
 }
 
