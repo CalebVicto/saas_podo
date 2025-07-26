@@ -56,11 +56,8 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { Product, ProductCategory, ProductMovement } from "@shared/api";
-import {
-  getAllMockProducts,
-  getMockProductCategories,
-  mockProductMovements,
-} from "@/lib/mockData";
+import { mockProductMovements } from "@/lib/mockData";
+import { apiGet, apiPost, apiPut, apiDelete, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
 import {
   Pagination,
@@ -156,12 +153,17 @@ export function Products() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockProducts = getAllMockProducts();
-      const mockCategories = getMockProductCategories();
-      setProducts(mockProducts);
-      setCategories(mockCategories);
+      const [prodResp, catResp] = await Promise.all([
+        apiGet<ApiResponse<{ data: Product[]; total: number; page: number; limit: number }>>("/product?page=1&limit=1000"),
+        apiGet<ApiResponse<{ data: ProductCategory[]; total: number; page: number; limit: number }>>("/product-category?page=1&limit=100"),
+      ]);
+
+      if (prodResp.data && !prodResp.error) {
+        setProducts(prodResp.data.data.data);
+      }
+      if (catResp.data && !catResp.error) {
+        setCategories(catResp.data.data.data);
+      }
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -171,21 +173,13 @@ export function Products() {
 
   const handleAddProduct = async () => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const resp = await apiPost<ApiResponse<Product>>("/product", productFormData);
 
-      const category = categories.find(
-        (c) => c.id === productFormData.categoryId,
-      );
-      const newProduct: Product = {
-        id: Date.now().toString(),
-        ...productFormData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        category,
-      };
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Failed to create product");
+      }
 
-      setProducts([...products, newProduct]);
+      setProducts([...products, resp.data.data]);
       setIsAddProductDialogOpen(false);
       resetProductForm();
     } catch (error) {
@@ -197,18 +191,16 @@ export function Products() {
     if (!selectedProduct) return;
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const category = categories.find(
-        (c) => c.id === productFormData.categoryId,
+      const resp = await apiPut<ApiResponse<Product>>(
+        `/product/${selectedProduct.id}`,
+        productFormData,
       );
-      const updatedProduct: Product = {
-        ...selectedProduct,
-        ...productFormData,
-        updatedAt: new Date().toISOString(),
-        category,
-      };
+
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Failed to update product");
+      }
+
+      const updatedProduct = resp.data.data;
 
       setProducts(
         products.map((p) => (p.id === selectedProduct.id ? updatedProduct : p)),
@@ -226,6 +218,7 @@ export function Products() {
       return;
 
     try {
+      await apiDelete<ApiResponse<any>>(`/product/${productId}`);
       setProducts(products.filter((p) => p.id !== productId));
     } catch (error) {
       console.error("Error deleting product:", error);
