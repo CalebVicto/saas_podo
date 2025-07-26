@@ -55,16 +55,24 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Product, ProductCategory, ProductMovement } from "@shared/api";
+import {
+  Product,
+  ProductCategory,
+  ProductMovement,
+  PaginatedResponse,
+  PaginatedSearchParams,
+} from "@shared/api";
 import { mockProductMovements } from "@/lib/mockData";
-import { apiGet, apiPost, apiPut, apiDelete, type ApiResponse } from "@/lib/auth";
+import {
+  apiGet,
+  apiPost,
+  apiPut,
+  apiDelete,
+  type ApiResponse,
+} from "@/lib/auth";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
-import {
-  useProductRepository,
-  useProductCategoryRepository,
-} from "@/lib/repositories";
 
 interface CreateProductRequest {
   name: string;
@@ -79,8 +87,6 @@ interface CreateProductRequest {
 
 export function Products() {
   const navigate = useNavigate();
-  const productRepo = useProductRepository();
-  const categoryRepo = useProductCategoryRepository();
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -132,8 +138,18 @@ export function Products() {
 
   const loadCategories = async () => {
     try {
-      const resp = await categoryRepo.getAll({ page: 1, limit: 100 });
-      setCategories(resp.items);
+      const resp = await apiGet<ApiResponse<{
+        data: ProductCategory[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>("/product-category?page=1&limit=100");
+
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Failed to fetch categories");
+      }
+
+      setCategories(resp.data.data.data);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -141,24 +157,53 @@ export function Products() {
 
   const loadStats = async () => {
     try {
-      const resp = await productRepo.getAll({ page: 1, limit: 1000 });
-      setAllProducts(resp.items);
+      const resp = await apiGet<ApiResponse<{
+        data: Product[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>("/product?page=1&limit=1000");
+
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Failed to fetch product stats");
+      }
+
+      setAllProducts(resp.data.data.data);
     } catch (error) {
       console.error("Error loading stats:", error);
     }
   };
 
   const loadProducts = async () => {
-    await pagination.loadData((params) => {
-      const query: any = {
-        page: params.page,
-        limit: params.limit,
-        search: searchTerm || undefined,
-      };
-      if (categoryFilter !== "all") query.categoryId = categoryFilter;
-      if (stockFilter === "low") query.lowStock = 5;
-      if (stockFilter === "out") query.outOfStock = true;
-      return productRepo.getAll(query);
+    await pagination.loadData(async (params: PaginatedSearchParams) => {
+      const searchParams = new URLSearchParams();
+      if (params.page) searchParams.append("page", String(params.page));
+      if (params.limit) searchParams.append("limit", String(params.limit));
+      if (searchTerm) searchParams.append("search", searchTerm);
+      if (categoryFilter !== "all")
+        searchParams.append("categoryId", categoryFilter);
+      if (stockFilter === "low") searchParams.append("lowStock", "5");
+      if (stockFilter === "out") searchParams.append("outOfStock", "true");
+
+      const resp = await apiGet<ApiResponse<{
+        data: Product[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>(`/product?${searchParams.toString()}`);
+
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Failed to fetch products");
+      }
+
+      const { data, total, page, limit } = resp.data.data;
+      return {
+        items: data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      } as PaginatedResponse<Product>;
     });
   };
 
