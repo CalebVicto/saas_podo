@@ -59,11 +59,12 @@ import { Product, ProductCategory, ProductMovement } from "@shared/api";
 import { mockProductMovements } from "@/lib/mockData";
 import { apiGet, apiPost, apiPut, apiDelete, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
+import { Pagination } from "@/components/ui/pagination";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 import {
-  Pagination,
-  usePagination,
-  paginateArray,
-} from "@/components/ui/pagination";
+  useProductRepository,
+  useProductCategoryRepository,
+} from "@/lib/repositories";
 
 interface CreateProductRequest {
   name: string;
@@ -78,9 +79,11 @@ interface CreateProductRequest {
 
 export function Products() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>([]);
+  const productRepo = useProductRepository();
+  const categoryRepo = useProductCategoryRepository();
+
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [stockFilter, setStockFilter] = useState<string>("all");
@@ -88,11 +91,9 @@ export function Products() {
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [isViewProductDialogOpen, setIsViewProductDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Pagination
-  const pagination = usePagination({
-    totalItems: filteredProducts.length,
+  const pagination = useRepositoryPagination<Product>({
     initialPageSize: 15,
   });
 
@@ -110,65 +111,55 @@ export function Products() {
 
   // Load data on component mount
   useEffect(() => {
-    loadData();
+    loadCategories();
+    loadStats();
   }, []);
 
-  // Filter products based on search and filters
   useEffect(() => {
-    let filtered = products;
+    loadProducts();
+  }, [
+    pagination.currentPage,
+    pagination.pageSize,
+    searchTerm,
+    categoryFilter,
+    stockFilter,
+  ]);
 
-    // Text search
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.category?.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      );
-    }
+  // Reset to first page when filters change
+  useEffect(() => {
+    pagination.goToPage(1);
+  }, [searchTerm, categoryFilter, stockFilter]);
 
-    // Category filter
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter(
-        (product) => product.categoryId === categoryFilter,
-      );
-    }
-
-    // Stock filter
-    if (stockFilter !== "all") {
-      if (stockFilter === "low") {
-        filtered = filtered.filter((product) => product.stock <= 5);
-      } else if (stockFilter === "out") {
-        filtered = filtered.filter((product) => product.stock === 0);
-      }
-    }
-
-    setFilteredProducts(filtered);
-    // Reset pagination when filters change
-    pagination.resetPagination();
-  }, [products, searchTerm, categoryFilter, stockFilter, pagination]);
-
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadCategories = async () => {
     try {
-      const [prodResp, catResp] = await Promise.all([
-        apiGet<ApiResponse<{ data: Product[]; total: number; page: number; limit: number }>>("/product?page=1&limit=1000"),
-        apiGet<ApiResponse<{ data: ProductCategory[]; total: number; page: number; limit: number }>>("/product-category?page=1&limit=100"),
-      ]);
-
-      if (prodResp.data && !prodResp.error) {
-        setProducts(prodResp.data.data.data);
-      }
-      if (catResp.data && !catResp.error) {
-        setCategories(catResp.data.data.data);
-      }
+      const resp = await categoryRepo.getAll({ page: 1, limit: 100 });
+      setCategories(resp.items);
     } catch (error) {
-      console.error("Error loading data:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error loading categories:", error);
     }
+  };
+
+  const loadStats = async () => {
+    try {
+      const resp = await productRepo.getAll({ page: 1, limit: 1000 });
+      setAllProducts(resp.items);
+    } catch (error) {
+      console.error("Error loading stats:", error);
+    }
+  };
+
+  const loadProducts = async () => {
+    await pagination.loadData((params) => {
+      const query: any = {
+        page: params.page,
+        limit: params.limit,
+        search: searchTerm || undefined,
+      };
+      if (categoryFilter !== "all") query.categoryId = categoryFilter;
+      if (stockFilter === "low") query.lowStock = 5;
+      if (stockFilter === "out") query.outOfStock = true;
+      return productRepo.getAll(query);
+    });
   };
 
   const handleAddProduct = async () => {
@@ -178,10 +169,10 @@ export function Products() {
       if (resp.error || !resp.data) {
         throw new Error(resp.error || "Failed to create product");
       }
-
-      setProducts([...products, resp.data.data]);
       setIsAddProductDialogOpen(false);
       resetProductForm();
+      await loadStats();
+      await loadProducts();
     } catch (error) {
       console.error("Error adding product:", error);
     }
@@ -201,13 +192,11 @@ export function Products() {
       }
 
       const updatedProduct = resp.data.data;
-
-      setProducts(
-        products.map((p) => (p.id === selectedProduct.id ? updatedProduct : p)),
-      );
       setIsEditProductDialogOpen(false);
       setSelectedProduct(null);
       resetProductForm();
+      await loadStats();
+      await loadProducts();
     } catch (error) {
       console.error("Error updating product:", error);
     }
@@ -219,7 +208,8 @@ export function Products() {
 
     try {
       await apiDelete<ApiResponse<any>>(`/product/${productId}`);
-      setProducts(products.filter((p) => p.id !== productId));
+      await loadStats();
+      await loadProducts();
     } catch (error) {
       console.error("Error deleting product:", error);
     }
@@ -274,11 +264,11 @@ export function Products() {
   };
 
   // Calculate stats
-  const totalProducts = products.length;
-  const activeProducts = products.filter((p) => p.isActive).length;
-  const lowStockProducts = products.filter((p) => p.stock <= 5).length;
-  const outOfStockProducts = products.filter((p) => p.stock === 0).length;
-  const totalInventoryValue = products.reduce(
+  const totalProducts = allProducts.length;
+  const activeProducts = allProducts.filter((p) => p.isActive).length;
+  const lowStockProducts = allProducts.filter((p) => p.stock <= 5).length;
+  const outOfStockProducts = allProducts.filter((p) => p.stock === 0).length;
+  const totalInventoryValue = allProducts.reduce(
     (sum, p) => sum + p.price * p.stock,
     0,
   );
@@ -440,20 +430,19 @@ export function Products() {
         <Card className="card-modern">
           <CardHeader>
             <CardTitle>
-              Productos ({filteredProducts.length}
-              {filteredProducts.length !== products.length &&
-                ` de ${products.length}`}
+              Productos ({pagination.totalItems}
+              {pagination.totalItems !== totalProducts && ` de ${totalProducts}`}
               )
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {isLoading ? (
+            {pagination.isLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: pagination.pageSize }).map((_, i) => (
                   <div key={i} className="loading-shimmer h-16 rounded"></div>
                 ))}
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : pagination.data.length === 0 ? (
               <div className="text-center py-12">
                 <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -490,11 +479,7 @@ export function Products() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginateArray(
-                        filteredProducts,
-                        pagination.currentPage,
-                        pagination.pageSize,
-                      ).map((product) => {
+                      {pagination.data.map((product) => {
                         const stockStatus = getStockStatus(product.stock);
 
                         return (
@@ -587,7 +572,7 @@ export function Products() {
                 <Pagination
                   currentPage={pagination.currentPage}
                   totalPages={pagination.totalPages}
-                  totalItems={filteredProducts.length}
+                  totalItems={pagination.totalItems}
                   pageSize={pagination.pageSize}
                   onPageChange={pagination.goToPage}
                   onPageSizeChange={pagination.setPageSize}
