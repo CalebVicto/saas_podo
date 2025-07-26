@@ -240,6 +240,7 @@ export interface LoginSuccess {
     role: string;
     firstName: string;
     lastName: string;
+    tenantId: string;
   };
 }
 
@@ -251,6 +252,7 @@ export interface VerifyTokenSuccess {
     name: string;
     lastName: string;
     role: string;
+    tenantId: string;
     iat: number;
     exp: number;
   };

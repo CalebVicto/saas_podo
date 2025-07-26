@@ -224,8 +224,8 @@ export function Login() {
                   size="sm"
                   onClick={() => {
                     setFormData({
-                      username: "admin@demo.com",
-                      password: "demo123",
+                      username: "cizquierdo",
+                      password: "Test1234",
                     });
                     setError("");
                   }}
@@ -242,8 +242,8 @@ export function Login() {
                   size="sm"
                   onClick={() => {
                     setFormData({
-                      username: "worker@demo.com",
-                      password: "demo123",
+                      username: "vizquierdo",
+                      password: "Test1234",
                     });
                     setError("");
                   }}

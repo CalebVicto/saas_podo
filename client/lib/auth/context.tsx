@@ -12,6 +12,7 @@ export interface User {
   role: Role;
   name: string;
   email?: string;
+  tenantId: string;
 }
 
 export interface LoginResponse {
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: mapRole(d.role),
           name: `${d.name} ${d.lastName}`,
           email: d.username,
+          tenantId: d.tenantId,
         };
         setUser(mapped);
         tokenStorage.setUser(mapped);
@@ -104,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: mapRole(u.role),
       name: `${u.firstName} ${u.lastName}`,
       email: u.username,
+      tenantId:u.tenantId
     };
     tokenStorage.setToken(accessToken);
     tokenStorage.setUser(mapped);
@@ -125,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = () => user?.role === "admin";
   const isTrabajador = () =>
-    user?.role === "worker" || user?.role === "trabajador";
+    user?.role === "worker";
 
   const value: AuthContextType = {
     user,
