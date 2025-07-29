@@ -251,6 +251,17 @@ export interface ProductMovement {
   product?: Product;
 }
 
+// Simplified movement returned by the Kardex endpoint
+export interface KardexMovement {
+  id: string;
+  productId: string;
+  quantity: number;
+  type: "in" | "out";
+  date: string;
+  userId: string;
+  relatedDocument?: string;
+}
+
 // Package & Session Types
 export interface Package {
   id: string;
@@ -310,6 +321,22 @@ export interface SaleItem {
   productId: string;
   quantity: number;
   price: number;
+  product?: Product;
+}
+
+// Purchase Types
+export interface Purchase {
+  id: string;
+  supplierId: string;
+  userId: string;
+  date: string;
+  products: PurchaseItem[];
+}
+
+export interface PurchaseItem {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
   product?: Product;
 }
 
