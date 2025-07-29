@@ -495,8 +495,8 @@ export function Products() {
                 </h3>
                 <p className="text-muted-foreground mb-6">
                   {searchTerm ||
-                  categoryFilter !== "all" ||
-                  stockFilter !== "all"
+                    categoryFilter !== "all" ||
+                    stockFilter !== "all"
                     ? "No se encontraron productos con los filtros aplicados"
                     : "No hay productos registrados"}
                 </p>
@@ -541,7 +541,7 @@ export function Products() {
                             </TableCell>
                             <TableCell>
                               <code className="text-sm bg-muted px-2 py-1 rounded">
-                                {product.sku}
+                                {product.sku || '-'}
                               </code>
                             </TableCell>
                             <TableCell>
@@ -660,7 +660,7 @@ export function Products() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sku">SKU *</Label>
+                  <Label htmlFor="sku">SKU</Label>
                   <Input
                     id="sku"
                     value={productFormData.sku}
@@ -671,7 +671,6 @@ export function Products() {
                       })
                     }
                     placeholder="CHP001"
-                    required
                   />
                 </div>
               </div>
@@ -792,7 +791,6 @@ export function Products() {
                 className="btn-primary"
                 disabled={
                   !productFormData.name ||
-                  !productFormData.sku ||
                   !productFormData.categoryId ||
                   productFormData.price <= 0
                 }
@@ -834,7 +832,7 @@ export function Products() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="editSku">SKU *</Label>
+                  <Label htmlFor="editSku">SKU</Label>
                   <Input
                     id="editSku"
                     value={productFormData.sku}
@@ -844,7 +842,6 @@ export function Products() {
                         sku: e.target.value,
                       })
                     }
-                    required
                   />
                 </div>
               </div>
@@ -967,7 +964,6 @@ export function Products() {
                 className="btn-primary"
                 disabled={
                   !productFormData.name ||
-                  !productFormData.sku ||
                   !productFormData.categoryId ||
                   productFormData.price <= 0
                 }
