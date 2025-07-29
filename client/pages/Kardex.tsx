@@ -7,7 +7,6 @@ import {
   TrendingDown,
   Package,
   FileText,
-  Clock,
   Save,
   Filter,
   Check,
@@ -40,8 +39,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Product, ProductMovement } from "@shared/api";
-import { getAllMockProducts, mockProductMovements } from "@/lib/mockData";
+import { Product, ProductMovement, KardexMovement, Purchase } from "@shared/api";
+import { apiGet, apiPost, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
 
 interface SearchableProductSelectProps {
@@ -227,9 +226,44 @@ export default function Kardex() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const mockProducts = getAllMockProducts();
-      setProducts(mockProducts);
-      setMovements(mockProductMovements);
+      const resp = await apiGet<ApiResponse<{
+        data: Product[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>("/product?page=1&limit=1000");
+
+      if (!resp.data || resp.data.state !== "success") {
+        throw new Error(resp.error || resp.data?.message || "Failed to fetch products");
+      }
+
+      const productsData = resp.data.data.data;
+      setProducts(productsData);
+
+      const allMovements: ProductMovement[] = [];
+      for (const product of productsData) {
+        const movResp = await apiGet<ApiResponse<KardexMovement[]>>(
+          `/kardex/product/${product.id}`,
+        );
+        if (movResp.data && movResp.data.state === "success") {
+          const mapped = movResp.data.data.map<ProductMovement>((m) => ({
+            id: m.id,
+            productId: m.productId,
+            type: m.type === "in" ? "entry" : "exit",
+            quantity: m.quantity,
+            reason: "",
+            previousStock: 0,
+            newStock: 0,
+            reference: m.relatedDocument,
+            createdAt: m.date,
+            createdBy: m.userId,
+            product,
+          }));
+          allMovements.push(...mapped);
+        }
+      }
+
+      setMovements(allMovements);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -256,31 +290,46 @@ export default function Kardex() {
       );
       if (!selectedProduct) return;
 
-      const previousStock = selectedProduct.stock;
-      const newStock =
-        movementFormData.type === "entry"
-          ? previousStock + movementFormData.quantity
-          : Math.max(0, previousStock - movementFormData.quantity);
+      if (movementFormData.type === "entry") {
+        const resp = await apiPost<ApiResponse<Purchase>>("/purchase", {
+          supplierId: "default-supplier",
+          products: [
+            {
+              productId: selectedProduct.id,
+              quantity: movementFormData.quantity,
+              unitPrice: selectedProduct.price,
+            },
+          ],
+        });
 
-      const newMovement: ProductMovement = {
-        id: (movements.length + 1).toString(),
-        ...movementFormData,
-        previousStock,
-        newStock,
-        createdAt: new Date().toISOString(),
-        createdBy: "current-user@example.com", // In a real app, this would be the current user
-        product: selectedProduct,
-      };
+        if (!resp.data || resp.data.state !== "success") {
+          throw new Error(resp.error || resp.data?.message || "Failed to create purchase");
+        }
+      } else {
+        const previousStock = selectedProduct.stock;
+        const newStock = Math.max(0, previousStock - movementFormData.quantity);
 
-      // Update product stock
-      const updatedProducts = products.map((p) =>
-        p.id === movementFormData.productId ? { ...p, stock: newStock } : p,
-      );
+        const newMovement: ProductMovement = {
+          id: (movements.length + 1).toString(),
+          ...movementFormData,
+          previousStock,
+          newStock,
+          createdAt: new Date().toISOString(),
+          createdBy: "current-user@example.com",
+          product: selectedProduct,
+        };
 
-      setProducts(updatedProducts);
-      setMovements([newMovement, ...movements]);
+        const updatedProducts = products.map((p) =>
+          p.id === movementFormData.productId ? { ...p, stock: newStock } : p,
+        );
+
+        setProducts(updatedProducts);
+        setMovements([newMovement, ...movements]);
+      }
+
       setIsAddMovementDialogOpen(false);
       resetMovementForm();
+      await loadData();
     } catch (error) {
       console.error("Error adding movement:", error);
       alert("Error al registrar el movimiento");
