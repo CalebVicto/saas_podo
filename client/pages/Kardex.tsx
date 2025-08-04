@@ -10,6 +10,7 @@ import {
   Save,
   Filter,
   Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,15 +91,29 @@ function SearchableProductSelect({
       <Button
         variant="outline"
         onClick={() => setIsOpen(true)}
-        className="w-full justify-start font-normal py-6"
+        className="w-full justify-start font-normal py-6 relative"
       >
         {selectedProduct ? (
-          <div className="flex flex-col items-start">
-            <span className="truncate font-medium">{selectedProduct.name}</span>
-            <span className="text-xs text-muted-foreground">
-              Stock: {selectedProduct.stock} | SKU: {selectedProduct.sku}
+          <>
+            <div className="flex flex-col items-start">
+              <span className="truncate font-medium">{selectedProduct.name}</span>
+              <span className="text-xs text-muted-foreground">
+                Stock: {selectedProduct.stock} | SKU: {selectedProduct.sku}
+              </span>
+            </div>
+
+            <span
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onValueChange("all");
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
             </span>
-          </div>
+
+          </>
         ) : (
           <span className="text-muted-foreground">{placeholder}</span>
         )}
@@ -175,9 +190,6 @@ interface CreateMovementRequest {
 export default function Kardex() {
   const [products, setProducts] = useState<Product[]>([]);
   const [movements, setMovements] = useState<ProductMovement[]>([]);
-  const [filteredMovements, setFilteredMovements] = useState<ProductMovement[]>(
-    [],
-  );
   const [searchTerm, setSearchTerm] = useState("");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -202,31 +214,16 @@ export default function Kardex() {
     kardexPagination.goToPage(1);
   }, [searchTerm, productFilter, typeFilter]);
 
-
   useEffect(() => {
-    let filtered = movements;
+    loadData(); // tu wrapper que llama kardexPagination.loadData(...)
+  }, [
+    kardexPagination.currentPage,
+    kardexPagination.pageSize,
+    searchTerm,
+    productFilter,
+    typeFilter,
+  ]);
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (movement) =>
-          movement.product?.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-      );
-    }
-
-    if (productFilter !== "all") {
-      filtered = filtered.filter(
-        (movement) => movement.productId === productFilter,
-      );
-    }
-
-    if (typeFilter !== "all") {
-      filtered = filtered.filter((movement) => movement.type === typeFilter);
-    }
-
-    setFilteredMovements(filtered);
-  }, [movements, searchTerm, productFilter, typeFilter]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -474,31 +471,15 @@ export default function Kardex() {
         {/* Filters */}
         <Card className="card-modern">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar movimiento..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Select value={productFilter} onValueChange={setProductFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los productos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los productos</SelectItem>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableProductSelect
+                  products={products}
+                  value={productFilter}
+                  onValueChange={setProductFilter}
+                  placeholder="Filtrar producto..."
+                />
+
               </div>
 
               <div>
@@ -508,16 +489,20 @@ export default function Kardex() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los tipos</SelectItem>
-                    <SelectItem value="entry">Entradas</SelectItem>
-                    <SelectItem value="exit">Salidas</SelectItem>
+                    <SelectItem value="entrada">Entradas</SelectItem>
+                    <SelectItem value="salida">Salidas</SelectItem>
+
                   </SelectContent>
                 </Select>
               </div>
 
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                Exportar
-              </Button>
+              <div className="flex justify-end">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Filter className="w-4 h-4" />
+                  Exportar
+                </Button>
+              </div>
+
             </div>
           </CardContent>
         </Card>
@@ -526,7 +511,7 @@ export default function Kardex() {
         <Card className="card-modern">
           <CardHeader>
             <CardTitle>
-              Movimientos de Inventario ({filteredMovements.length})
+              Movimientos de Inventario ({kardexPagination.data.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
