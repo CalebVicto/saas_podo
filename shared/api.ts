@@ -240,16 +240,34 @@ export interface ProductCategory {
 export interface ProductMovement {
   id: string;
   productId: string;
-  type: "entry" | "exit";
+  date: string;
+  type: 'entrada' | 'salida';
   quantity: number;
-  reason: string;
-  previousStock: number;
-  newStock: number;
-  reference?: string; // Sale ID, Purchase ID, etc.
+  costUnit: number;
+  totalCost: number;
+  stockAfter: number;
+  relatedTable: string;
+  relatedId: string;
+  userId: string;
+  referenceKardexId: string;
   createdAt: string;
-  createdBy: string;
+  updatedAt: string;
   product?: Product;
 }
+
+// productId
+// date
+// type
+// quantity
+// costUnit
+// totalCost
+// stockAfter
+// relatedTable
+// relatedId
+// userId
+// referenceKardexId
+// createdAt
+// updatedAt
 
 // Simplified movement returned by the Kardex endpoint
 export interface KardexMovement {

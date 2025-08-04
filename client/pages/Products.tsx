@@ -511,6 +511,19 @@ export function Products() {
             ) : (
               <>
                 <div className="overflow-x-auto">
+                  {/* Pagination */}
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    pageSize={pagination.pageSize}
+                    onPageChange={pagination.goToPage}
+                    onPageSizeChange={pagination.setPageSize}
+                    showPageSizeSelector={true}
+                    pageSizeOptions={[10, 15, 25, 50]}
+                    className="mt-2 mb-4"
+                  />
+
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -612,18 +625,6 @@ export function Products() {
                     </TableBody>
                   </Table>
                 </div>
-
-                {/* Pagination */}
-                <Pagination
-                  currentPage={pagination.currentPage}
-                  totalPages={pagination.totalPages}
-                  totalItems={pagination.totalItems}
-                  pageSize={pagination.pageSize}
-                  onPageChange={pagination.goToPage}
-                  onPageSizeChange={pagination.setPageSize}
-                  showPageSizeSelector={true}
-                  pageSizeOptions={[10, 15, 25, 50]}
-                />
               </>
             )}
           </CardContent>

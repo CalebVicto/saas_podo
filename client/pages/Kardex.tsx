@@ -42,6 +42,9 @@ import { cn } from "@/lib/utils";
 import { Product, ProductMovement, KardexMovement, Purchase } from "@shared/api";
 import { apiGet, apiPost, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { PaginatedSearchParams, PaginatedResponse } from "@shared/api";
 
 interface SearchableProductSelectProps {
   products: Product[];
@@ -87,7 +90,7 @@ function SearchableProductSelect({
       <Button
         variant="outline"
         onClick={() => setIsOpen(true)}
-        className="w-full justify-start font-normal"
+        className="w-full justify-start font-normal py-6"
       >
         {selectedProduct ? (
           <div className="flex flex-col items-start">
@@ -165,10 +168,8 @@ function SearchableProductSelect({
 
 interface CreateMovementRequest {
   productId: string;
-  type: "entry" | "exit";
   quantity: number;
-  reason: string;
-  reference?: string;
+  price: number;
 }
 
 export default function Kardex() {
@@ -182,19 +183,25 @@ export default function Kardex() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [isAddMovementDialogOpen, setIsAddMovementDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const kardexPagination = useRepositoryPagination<ProductMovement>({
+    initialPageSize: 15,
+  });
 
   const [movementFormData, setMovementFormData] =
     useState<CreateMovementRequest>({
       productId: "",
-      type: "entry",
       quantity: 0,
-      reason: "",
-      reference: "",
+      price: 0,
     });
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    kardexPagination.goToPage(1);
+  }, [searchTerm, productFilter, typeFilter]);
+
 
   useEffect(() => {
     let filtered = movements;
@@ -204,9 +211,7 @@ export default function Kardex() {
         (movement) =>
           movement.product?.name
             .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          movement.reason.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          movement.reference?.toLowerCase().includes(searchTerm.toLowerCase()),
+            .includes(searchTerm.toLowerCase()),
       );
     }
 
@@ -226,44 +231,49 @@ export default function Kardex() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const resp = await apiGet<ApiResponse<{
+      const productResp = await apiGet<ApiResponse<{
         data: Product[];
         total: number;
         page: number;
         limit: number;
       }>>("/product?page=1&limit=1000");
 
-      if (!resp.data || resp.data.state !== "success") {
-        throw new Error(resp.error || resp.data?.message || "Failed to fetch products");
+      if (!productResp.data || productResp.data.state !== "success") {
+        throw new Error(productResp.error || "No se pudieron cargar productos");
       }
 
-      const productsData = resp.data.data.data;
-      setProducts(productsData);
+      setProducts(productResp.data.data.data);
 
-      const allMovements: ProductMovement[] = [];
-      for (const product of productsData) {
-        const movResp = await apiGet<ApiResponse<KardexMovement[]>>(
-          `/kardex/product/${product.id}`,
-        );
-        if (movResp.data && movResp.data.state === "success") {
-          const mapped = movResp.data.data.map<ProductMovement>((m) => ({
-            id: m.id,
-            productId: m.productId,
-            type: m.type === "in" ? "entry" : "exit",
-            quantity: m.quantity,
-            reason: "",
-            previousStock: 0,
-            newStock: 0,
-            reference: m.relatedDocument,
-            createdAt: m.date,
-            createdBy: m.userId,
-            product,
-          }));
-          allMovements.push(...mapped);
+      await kardexPagination.loadData(async (params: PaginatedSearchParams) => {
+        const query = new URLSearchParams();
+        query.set("page", String(params.page));
+        query.set("limit", String(params.limit));
+        if (searchTerm) query.set("search", searchTerm);
+        if (productFilter !== "all") query.set("productId", productFilter);
+        if (typeFilter !== "all") query.set("type", typeFilter);
+
+        const response = await apiGet<ApiResponse<{
+          data: ProductMovement[];
+          total: number;
+          page: number;
+          limit: number;
+        }>>(`/kardex?${query.toString()}`);
+
+        if (!response.data || response.data.state !== "success") {
+          throw new Error(response.error || "No se pudo cargar el kardex");
         }
-      }
 
-      setMovements(allMovements);
+        const { data, total, page, limit } = response.data.data;
+
+        return {
+          items: data,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        } as PaginatedResponse<ProductMovement>;
+      });
+
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -271,61 +281,55 @@ export default function Kardex() {
     }
   };
 
+  const getLinkRelativeTable = (relatedTable: "Purchase" | "PurchaseReturn" | "Sale", relatedId: string) => {
+    const baseRoutes: Record<typeof relatedTable, string> = {
+      Purchase: "/purchase",
+      PurchaseReturn: "/purchase-return",
+      Sale: "/sale"
+    };
+
+    const labelMap: Record<typeof relatedTable, string> = {
+      Purchase: "Compra",
+      PurchaseReturn: "Devolución",
+      Sale: "Venta"
+    };
+
+    return (
+      <a
+        href={`${baseRoutes[relatedTable]}/${relatedId}`}
+        className="text-primary hover:underline"
+        target="_blank"
+      >
+        Ver {labelMap[relatedTable]}
+      </a>
+    );
+  };
+
+
   const resetMovementForm = () => {
     setMovementFormData({
       productId: "",
-      type: "entry",
       quantity: 0,
-      reason: "",
-      reference: "",
+      price: 0,
     });
   };
 
   const handleAddMovement = async () => {
-    if (!movementFormData.productId || movementFormData.quantity <= 0) return;
+    if (!movementFormData.productId || movementFormData.quantity < 0 || movementFormData.price < 0) return;
 
     try {
-      const selectedProduct = products.find(
-        (p) => p.id === movementFormData.productId,
-      );
-      if (!selectedProduct) return;
 
-      if (movementFormData.type === "entry") {
-        const resp = await apiPost<ApiResponse<Purchase>>("/purchase", {
-          supplierId: "default-supplier",
-          products: [
-            {
-              productId: selectedProduct.id,
-              quantity: movementFormData.quantity,
-              unitPrice: selectedProduct.price,
-            },
-          ],
-        });
+      const resp = await apiPost<ApiResponse<Purchase>>("/purchase", {
+        "productId": movementFormData.productId,
+        "supplierId": null,
+        "quantity": movementFormData.quantity,
+        "price": movementFormData.price,
+      });
 
-        if (!resp.data || resp.data.state !== "success") {
-          throw new Error(resp.error || resp.data?.message || "Failed to create purchase");
-        }
-      } else {
-        const previousStock = selectedProduct.stock;
-        const newStock = Math.max(0, previousStock - movementFormData.quantity);
-
-        const newMovement: ProductMovement = {
-          id: (movements.length + 1).toString(),
-          ...movementFormData,
-          previousStock,
-          newStock,
-          createdAt: new Date().toISOString(),
-          createdBy: "current-user@example.com",
-          product: selectedProduct,
-        };
-
-        const updatedProducts = products.map((p) =>
-          p.id === movementFormData.productId ? { ...p, stock: newStock } : p,
-        );
-
-        setProducts(updatedProducts);
-        setMovements([newMovement, ...movements]);
+      if (!resp.data || resp.data.state !== "success") {
+        throw new Error(resp.error || resp.data?.message || "Failed to create purchase");
       }
+
 
       setIsAddMovementDialogOpen(false);
       resetMovementForm();
@@ -338,13 +342,13 @@ export default function Kardex() {
 
   const getTotalEntries = () => {
     return movements
-      .filter((m) => m.type === "entry")
+      .filter((m) => m.type === "entrada")
       .reduce((sum, m) => sum + m.quantity, 0);
   };
 
   const getTotalExits = () => {
     return movements
-      .filter((m) => m.type === "exit")
+      .filter((m) => m.type === "salida")
       .reduce((sum, m) => sum + m.quantity, 0);
   };
 
@@ -393,7 +397,10 @@ export default function Kardex() {
           </div>
 
           <Button
-            onClick={() => setIsAddMovementDialogOpen(true)}
+            onClick={() => {
+              resetMovementForm();
+              setIsAddMovementDialogOpen(true);
+            }}
             className="btn-primary flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
@@ -523,6 +530,18 @@ export default function Kardex() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <Pagination
+              currentPage={kardexPagination.currentPage}
+              totalPages={kardexPagination.totalPages}
+              totalItems={kardexPagination.totalItems}
+              pageSize={kardexPagination.pageSize}
+              onPageChange={kardexPagination.goToPage}
+              onPageSizeChange={kardexPagination.setPageSize}
+              showPageSizeSelector={true}
+              pageSizeOptions={[10, 15, 25, 50]}
+              className="my-2"
+            />
+
             <Table>
               <TableHeader>
                 <TableRow>
@@ -530,14 +549,14 @@ export default function Kardex() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Cantidad</TableHead>
-                  <TableHead>Stock Anterior</TableHead>
+                  <TableHead>Costo Unitario</TableHead>
+                  <TableHead>Costo Total</TableHead>
                   <TableHead>Stock Nuevo</TableHead>
-                  <TableHead>Motivo</TableHead>
                   <TableHead>Referencia</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMovements.length === 0 ? (
+                {kardexPagination.totalItems === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8">
                       <div className="text-muted-foreground">
@@ -547,89 +566,50 @@ export default function Kardex() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredMovements
-                    .sort(
-                      (a, b) =>
-                        new Date(b.createdAt).getTime() -
-                        new Date(a.createdAt).getTime(),
-                    )
-                    .map((movement) => (
-                      <TableRow key={movement.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {new Date(
-                                movement.createdAt,
-                              ).toLocaleDateString()}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(movement.createdAt).toLocaleTimeString(
-                                "es-ES",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                },
-                              )}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {movement.product?.name}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {movement.product?.sku}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "gap-1",
-                              movement.type === "entry"
-                                ? "text-green-600 border-green-600"
-                                : "text-red-600 border-red-600",
+                  kardexPagination.data.
+                    map((movement) => {
+                      const product = products.find((p) => p.id === movement.productId);
+
+                      return (
+                        <TableRow key={movement.id}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">
+                                {new Date(
+                                  movement.createdAt,
+                                ).toLocaleDateString()}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(movement.createdAt).toLocaleTimeString(
+                                  "es-ES",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
+                                )}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{product?.name || "Desconocido"}</TableCell>
+                          <TableCell>
+                            <Badge variant={movement.type === "entrada" ? "default" : "destructive"}>
+                              {movement.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">{movement.quantity}</TableCell>
+                          <TableCell className="text-center">{movement.costUnit}</TableCell>
+                          <TableCell className="text-center">{movement.totalCost}</TableCell>
+                          <TableCell className="text-center">{movement.stockAfter}</TableCell>
+                          <TableCell>
+                            {(movement.relatedTable && movement.relatedId) && (
+                              <span className="text-sm text-muted-foreground">
+                                {getLinkRelativeTable(movement.relatedTable as any, movement.relatedId)}
+                              </span>
                             )}
-                          >
-                            {movement.type === "entry" ? (
-                              <TrendingUp className="w-3 h-3" />
-                            ) : (
-                              <TrendingDown className="w-3 h-3" />
-                            )}
-                            {movement.type === "entry" ? "Entrada" : "Salida"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              "font-medium",
-                              movement.type === "entry"
-                                ? "text-green-600"
-                                : "text-red-600",
-                            )}
-                          >
-                            {movement.type === "entry" ? "+" : "-"}
-                            {movement.quantity}
-                          </span>
-                        </TableCell>
-                        <TableCell>{movement.previousStock}</TableCell>
-                        <TableCell className="font-medium">
-                          {movement.newStock}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">{movement.reason}</span>
-                        </TableCell>
-                        <TableCell>
-                          {movement.reference && (
-                            <span className="text-sm text-muted-foreground">
-                              {movement.reference}
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
                 )}
               </TableBody>
             </Table>
@@ -645,13 +625,13 @@ export default function Kardex() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Plus className="w-5 h-5 text-primary" />
-                Nuevo Movimiento de Inventario
+                Nuevo Entrada de Inventario
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2" style={{ gridColumnStart: 1, gridColumnEnd: 3 }}>
                   <Label htmlFor="productId">Producto *</Label>
                   <SearchableProductSelect
                     products={products}
@@ -665,37 +645,6 @@ export default function Kardex() {
                     placeholder="Buscar y seleccionar producto..."
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="type">Tipo de Movimiento *</Label>
-                  <Select
-                    value={movementFormData.type}
-                    onValueChange={(value: "entry" | "exit") =>
-                      setMovementFormData({
-                        ...movementFormData,
-                        type: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="entry">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                          Entrada
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="exit">
-                        <div className="flex items-center gap-2">
-                          <TrendingDown className="w-4 h-4 text-red-600" />
-                          Salida
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -704,7 +653,6 @@ export default function Kardex() {
                   <Input
                     id="quantity"
                     type="number"
-                    min="1"
                     value={movementFormData.quantity}
                     onChange={(e) =>
                       setMovementFormData({
@@ -718,40 +666,27 @@ export default function Kardex() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="reference">Referencia</Label>
+                  <Label htmlFor="quantity">Precio *</Label>
                   <Input
-                    id="reference"
-                    value={movementFormData.reference}
-                    onChange={(e) =>
+                    id="price"
+                    type="number"
+                    value={movementFormData.price}
+                    onChange={(e) => {
+                      console.log('parseFloat(e.target.value)', parseFloat(e.target.value))
                       setMovementFormData({
                         ...movementFormData,
-                        reference: e.target.value,
+                        price: parseFloat(e.target.value) || 0,
                       })
-                    }
-                    placeholder="Factura #123, Venta #456..."
+                    }}
+                    placeholder="0.00"
+                    step={0.01}
+                    required
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="reason">Motivo *</Label>
-                <Textarea
-                  id="reason"
-                  value={movementFormData.reason}
-                  onChange={(e) =>
-                    setMovementFormData({
-                      ...movementFormData,
-                      reason: e.target.value,
-                    })
-                  }
-                  placeholder="Compra de inventario, venta, ajuste de inventario, pérdida..."
-                  rows={3}
-                  required
-                />
-              </div>
-
               {movementFormData.productId && (
-                <div className="p-3 bg-muted/30 rounded-lg">
+                <div className="p-3 bg-muted/50 rounded-lg">
                   <p className="text-sm font-medium">Previsualización:</p>
                   <p className="text-sm text-muted-foreground">
                     Stock actual:{" "}
@@ -759,20 +694,22 @@ export default function Kardex() {
                       ?.stock || 0}{" "}
                     →{" "}
                     <span className="font-medium">
-                      {movementFormData.type === "entry"
-                        ? (products.find(
-                            (p) => p.id === movementFormData.productId,
-                          )?.stock || 0) + movementFormData.quantity
-                        : Math.max(
-                            0,
-                            (products.find(
-                              (p) => p.id === movementFormData.productId,
-                            )?.stock || 0) - movementFormData.quantity,
-                          )}
+                      {(products.find(
+                        (p) => p.id === movementFormData.productId,
+                      )?.stock || 0) + movementFormData.quantity
+                      }
                     </span>
                   </p>
                 </div>
               )}
+
+              {(movementFormData.price > 0 && movementFormData.quantity) ? (
+                <div className="p-3 pr-4 bg-emerald-100 rounded-lg flex justify-between">
+                  <span className="text-lg">TOTAL</span>
+                  <span className="text-lg">S/ {(movementFormData.price * movementFormData.quantity).toFixed(2)} </span>
+                </div>
+              ) : null}
+
             </div>
 
             <div className="flex justify-end gap-3">
@@ -790,8 +727,8 @@ export default function Kardex() {
                 className="btn-primary"
                 disabled={
                   !movementFormData.productId ||
-                  movementFormData.quantity <= 0 ||
-                  !movementFormData.reason.trim()
+                  movementFormData.quantity < 0 ||
+                  movementFormData.price < 0
                 }
               >
                 <Save className="w-4 h-4 mr-2" />
