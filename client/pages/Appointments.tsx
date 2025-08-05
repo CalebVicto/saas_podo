@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -46,11 +46,9 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Appointment, CreateAppointmentRequest, Payment } from "@shared/api";
-import {
-  useAppointmentRepository,
-  usePatientRepository,
-  useWorkerRepository,
-} from "@/lib/repositories";
+import { AppointmentRepository } from "@/lib/api/appointment";
+import { PatientRepository } from "@/lib/api/patient";
+import { WorkerRepository } from "@/lib/api/worker";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
@@ -94,9 +92,9 @@ const statusConfig = {
 export function Appointments() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const appointmentRepository = useAppointmentRepository();
-  const patientRepository = usePatientRepository();
-  const workerRepository = useWorkerRepository();
+  const appointmentRepository = useMemo(() => new AppointmentRepository(), []);
+  const patientRepository = useMemo(() => new PatientRepository(), []);
+  const workerRepository = useMemo(() => new WorkerRepository(), []);
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
@@ -322,6 +320,7 @@ export function Appointments() {
 
   // Get today's date for filtering
   const today = new Date().toISOString().split("T")[0];
+  const appointments = pagination.data;
 
   if (!user) return null;
 
