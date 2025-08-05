@@ -59,12 +59,6 @@ import { apiGet } from "@/lib/auth";
 import { AppointmentRepository } from "@/lib/api/appointment";
 import { PatientRepository } from "@/lib/api/patient";
 import { WorkerRepository } from "@/lib/api/worker";
-import {
-  mockProductCategories,
-  mockPatientPackages,
-  getPatientAbonos,
-  getPatientAbonoBalance,
-} from "@/lib/mockData";
 import Layout from "@/components/Layout";
 
 // Predefined diagnosis options
@@ -360,6 +354,7 @@ export function CreateAppointment() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [patientPackages, setPatientPackages] = useState<PatientPackage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -401,30 +396,59 @@ export function CreateAppointment() {
   }, []);
 
   useEffect(() => {
-    // Load available abonos when patient changes
-    if (formData.patientId) {
-      const patientAbonos = getPatientAbonos(formData.patientId);
-      setAvailableAbonos(patientAbonos);
-    } else {
-      setAvailableAbonos([]);
-      setSelectedAbonos([]);
-    }
-  }, [formData.patientId]);
+    const loadPatientData = async () => {
+      if (!formData.patientId) {
+        setAvailableAbonos([]);
+        setSelectedAbonos([]);
+        setPatientPackages([]);
+        return;
+      }
+      try {
+        const detail = await patientRepository.getDetailStatistics(
+          formData.patientId,
+        );
+        const activeAbonos = (detail.abonos || []).filter(
+          (a) => a.isActive && a.remainingAmount > 0,
+        );
+        setAvailableAbonos(activeAbonos);
+        setPatientPackages(detail.patientPackages || []);
+      } catch (error) {
+        console.error("Error loading patient data:", error);
+        setAvailableAbonos([]);
+        setPatientPackages([]);
+      }
+    };
+    loadPatientData();
+  }, [formData.patientId, patientRepository]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [patientsResp, workersResp, productsResp] = await Promise.all([
-        patientRepository.getAll({ limit: 1000 }),
-        workerRepository.getAll({ limit: 1000 }),
-        apiGet<ApiResponse<{ data: Product[]; total: number; page: number; limit: number }>>(
-          "/product?page=1&limit=1000",
-        ),
-      ]);
+      const [patientsResp, workersResp, productsResp, categoriesResp] =
+        await Promise.all([
+          patientRepository.getAll({ limit: 1000 }),
+          workerRepository.getAll({ limit: 1000 }),
+          apiGet<
+            ApiResponse<{
+              data: Product[];
+              total: number;
+              page: number;
+              limit: number;
+            }>
+          >("/product?page=1&limit=1000"),
+          apiGet<
+            ApiResponse<{
+              data: ProductCategory[];
+              total: number;
+              page: number;
+              limit: number;
+            }>
+          >("/product-category?page=1&limit=1000"),
+        ]);
       setPatients(patientsResp.items);
       setWorkers(workersResp.items);
       setProducts(productsResp.data?.data.data || []);
-      setPatientPackages(mockPatientPackages);
+      setCategories(categoriesResp.data?.data.data || []);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -616,7 +640,9 @@ export function CreateAppointment() {
           .toLowerCase()
           .includes(productSearch.toLowerCase()));
     const matchesCategory =
-      selectedCategory === "all" || product.categoryId === selectedCategory;
+      selectedCategory === "all" ||
+      product.categoryId === selectedCategory ||
+      product.category?.id === selectedCategory;
     return matchesSearch && matchesCategory && product.isActive;
   });
 
@@ -969,7 +995,7 @@ export function CreateAppointment() {
                               <SelectItem value="all">
                                 Todas las categorías
                               </SelectItem>
-                              {mockProductCategories.map((category) => (
+                              {categories.map((category) => (
                                 <SelectItem
                                   key={category.id}
                                   value={category.id}
