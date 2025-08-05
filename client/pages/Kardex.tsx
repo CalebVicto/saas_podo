@@ -46,6 +46,8 @@ import Layout from "@/components/Layout";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 import { Pagination } from "@/components/ui/pagination";
 import { PaginatedSearchParams, PaginatedResponse } from "@shared/api";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 interface SearchableProductSelectProps {
   products: Product[];
@@ -195,6 +197,8 @@ export default function Kardex() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [isAddMovementDialogOpen, setIsAddMovementDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+
   const kardexPagination = useRepositoryPagination<ProductMovement>({
     initialPageSize: 15,
   });
@@ -310,6 +314,76 @@ export default function Kardex() {
       price: 0,
     });
   };
+
+  const exportToExcel = (data: ProductMovement[], fileNamePrefix: string) => {
+    const exportData = data.map((movement) => {
+      const product = products.find((p) => p.id === movement.productId);
+      return {
+        Fecha: new Date(movement.createdAt).toLocaleString("es-PE"),
+        Producto: product?.name || "Desconocido",
+        Tipo: movement.type,
+        Cantidad: movement.quantity,
+        "Costo Unitario": movement.costUnit,
+        "Costo Total": movement.totalCost,
+        "Stock Nuevo": movement.stockAfter,
+        Referencia: movement.relatedTable
+          ? `${movement.relatedTable} #${movement.relatedId}`
+          : "",
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Kardex");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const blob = new Blob([excelBuffer], {
+      type: "application/octet-stream",
+    });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `${fileNamePrefix}_${timestamp}.xlsx`;
+
+    saveAs(blob, filename);
+  };
+
+  const handleExportAll = async () => {
+    try {
+      const query = new URLSearchParams();
+      query.set("page", "1");
+      query.set("limit", "100000");
+      if (searchTerm) query.set("search", searchTerm);
+      if (productFilter !== "all") query.set("productId", productFilter);
+      if (typeFilter !== "all") query.set("type", typeFilter);
+
+      const response = await apiGet<ApiResponse<{
+        data: ProductMovement[];
+        total: number;
+        page: number;
+        limit: number;
+      }>>(`/kardex?${query.toString()}`);
+
+      if (!response.data || response.data.state !== "success") {
+        throw new Error(response.error || "No se pudo exportar el kardex");
+      }
+
+      exportToExcel(response.data.data.data, "kardex_completo");
+      setIsExportDialogOpen(false);
+    } catch (error) {
+      console.error("Error al exportar:", error);
+      alert("Error al exportar todos los movimientos");
+    }
+  };
+
+  const handleExportCurrentPage = () => {
+    exportToExcel(kardexPagination.data, "kardex_pagina_actual");
+    setIsExportDialogOpen(false);
+  };
+
 
   const handleAddMovement = async () => {
     if (!movementFormData.productId || movementFormData.quantity < 0 || movementFormData.price < 0) return;
@@ -497,7 +571,7 @@ export default function Kardex() {
               </div>
 
               <div className="flex justify-end">
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button variant="outline" className="flex items-center gap-2" onClick={() => setIsExportDialogOpen(true)}>
                   <Filter className="w-4 h-4" />
                   Exportar
                 </Button>
@@ -722,6 +796,32 @@ export default function Kardex() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <DialogTitle>¿Qué desea exportar?</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleExportCurrentPage}
+              >
+                Exportar página actual
+              </Button>
+
+              <Button
+                className="w-full btn-primary"
+                onClick={handleExportAll}
+              >
+                Exportar todos los movimientos
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </Layout>
   );
