@@ -362,7 +362,7 @@ export function CreateAppointment() {
   const [formData, setFormData] = useState<CreateAppointmentRequest>({
     patientId: "",
     workerId: "",
-    dateTime: "",
+    dateTime: getPeruDateTimeLocalNow(),
     duration: 60,
     treatmentNotes: "",
     diagnosis: "",
@@ -371,6 +371,13 @@ export function CreateAppointment() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function getPeruDateTimeLocalNow(): string {
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000; // minutos a milisegundos
+    const localISOTime = new Date(now.getTime() - tzOffset).toISOString().slice(0, 16);
+    return localISOTime;
+  }
 
   // Products state
   const [selectedProducts, setSelectedProducts] = useState<
@@ -1433,7 +1440,7 @@ export function CreateAppointment() {
                     onClick={handleSave}
                     disabled={isSaving}
                     size="lg"
-                    className="btn-primary flex items-center gap-3 w-full shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="btn-primary flex items-center gap-3 w-full shadow-lg hover:shadow-xl transition-all duration-300 mb-2"
                   >
                     {isSaving ? (
                       <>
@@ -1447,7 +1454,7 @@ export function CreateAppointment() {
                       </>
                     )}
                   </Button>
-
+{/* 
                   <Button
                     variant="secondary"
                     onClick={() => {
@@ -1460,7 +1467,7 @@ export function CreateAppointment() {
                   >
                     <Save className="w-5 h-5" />
                     Guardar Borrador
-                  </Button>
+                  </Button> */}
                 </div>
 
                 {/* Tabbed Summary Panel */}
