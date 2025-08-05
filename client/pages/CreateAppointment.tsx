@@ -53,11 +53,13 @@ import {
   PatientPackage,
   PackageSession,
   Abono,
+  ApiResponse,
 } from "@shared/api";
+import { apiGet } from "@/lib/auth";
+import { AppointmentRepository } from "@/lib/api/appointment";
+import { PatientRepository } from "@/lib/api/patient";
+import { WorkerRepository } from "@/lib/api/worker";
 import {
-  getMockPatients,
-  getMockWorkers,
-  getAllMockProducts,
   mockProductCategories,
   mockPatientPackages,
   getPatientAbonos,
@@ -352,6 +354,9 @@ function SearchableTextInput({
 
 export function CreateAppointment() {
   const navigate = useNavigate();
+  const appointmentRepository = useMemo(() => new AppointmentRepository(), []);
+  const patientRepository = useMemo(() => new PatientRepository(), []);
+  const workerRepository = useMemo(() => new WorkerRepository(), []);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -409,13 +414,16 @@ export function CreateAppointment() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockPatients = getMockPatients();
-      const mockWorkers = getMockWorkers();
-      const mockProducts = getAllMockProducts();
-      setPatients(mockPatients);
-      setWorkers(mockWorkers);
-      setProducts(mockProducts);
+      const [patientsResp, workersResp, productsResp] = await Promise.all([
+        patientRepository.getAll({ limit: 1000 }),
+        workerRepository.getAll({ limit: 1000 }),
+        apiGet<ApiResponse<{ data: Product[]; total: number; page: number; limit: number }>>(
+          "/product?page=1&limit=1000",
+        ),
+      ]);
+      setPatients(patientsResp.items);
+      setWorkers(workersResp.items);
+      setProducts(productsResp.data?.data.data || []);
       setPatientPackages(mockPatientPackages);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -458,13 +466,19 @@ export function CreateAppointment() {
 
     setIsSaving(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // In a real app, this would save to the backend
-      console.log("Appointment created:", formData);
-
-      // Navigate back to appointments list
+      const payload = {
+        userId: formData.workerId,
+        date: formData.dateTime.split("T")[0],
+        diagnosis: formData.diagnosis,
+        treatment: formData.treatmentNotes,
+        treatmentPrice: formData.treatmentPrice || 0,
+        patientId: formData.patientId,
+        products: selectedProducts.map((sp) => ({
+          productId: sp.product.id,
+          quantity: sp.quantity,
+        })),
+      };
+      await appointmentRepository.create(payload);
       navigate("/appointments");
     } catch (error) {
       console.error("Error creating appointment:", error);
