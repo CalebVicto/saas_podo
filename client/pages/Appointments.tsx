@@ -359,7 +359,7 @@ export function Appointments() {
                   <p className="text-sm text-muted-foreground">Hoy</p>
                   <p className="font-semibold">
                     {
-                      appointments.filter((a) => a.dateTime.startsWith(today))
+                      appointments.filter((a) => a.dateTime?.startsWith(today))
                         .length
                     }{" "}
                     citas
@@ -543,7 +543,7 @@ export function Appointments() {
                           appointment.dateTime,
                         );
                         const statusInfo = statusConfig[appointment.status];
-                        const StatusIcon = statusInfo.icon;
+                        const StatusIcon = statusInfo?.icon || Clock;
 
                         return (
                           <TableRow key={appointment.id}>
@@ -585,10 +585,10 @@ export function Appointments() {
                             <TableCell>
                               <Badge
                                 variant="outline"
-                                className={cn("gap-1", statusInfo.className)}
+                                className={cn("gap-1", statusInfo?.className || "")}
                               >
                                 <StatusIcon className="w-3 h-3" />
-                                {statusInfo.label}
+                                {statusInfo?.label || "Desconocido"}
                               </Badge>
                             </TableCell>
                             <TableCell>

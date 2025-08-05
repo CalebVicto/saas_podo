@@ -195,9 +195,9 @@ function SearchableSelect({
                             {item.email}
                           </p>
                         )}
-                        {"documentId" in item && (
+                        {"documentType" in item && (
                           <p className="text-sm text-muted-foreground">
-                            DNI: {item.documentId}
+                            {item.documentType.toUpperCase()}: {item.documentNumber}
                           </p>
                         )}
                         {"specialization" in item && item.specialization && (
@@ -601,12 +601,12 @@ export function CreateAppointment() {
       selectedAbonos.map((sa) =>
         sa.abono.id === abonoId
           ? {
-              ...sa,
-              amountToUse: Math.min(
-                Math.max(0, amount),
-                sa.abono.remainingAmount,
-              ),
-            }
+            ...sa,
+            amountToUse: Math.min(
+              Math.max(0, amount),
+              sa.abono.remainingAmount,
+            ),
+          }
           : sa,
       ),
     );
@@ -641,9 +641,8 @@ export function CreateAppointment() {
           .includes(productSearch.toLowerCase()));
     const matchesCategory =
       selectedCategory === "all" ||
-      product.categoryId === selectedCategory ||
       product.category?.id === selectedCategory;
-    return matchesSearch && matchesCategory && product.isActive;
+    return matchesSearch && matchesCategory && product.status === "active";
   });
 
   if (isLoading) {
@@ -1039,12 +1038,6 @@ export function CreateAppointment() {
                                       <p className="text-sm font-medium text-primary">
                                         S/ {product.price.toFixed(2)}
                                       </p>
-                                      {product.bonusAmount && (
-                                        <p className="text-xs text-green-600">
-                                          Bono: S/{" "}
-                                          {product.bonusAmount.toFixed(2)}
-                                        </p>
-                                      )}
                                     </div>
                                     <p className="text-xs text-muted-foreground mt-1">
                                       Stock: {product.stock}
@@ -1144,10 +1137,10 @@ export function CreateAppointment() {
                                     </div>
                                     {selectedPackage?.id ===
                                       patientPackage.id && (
-                                      <Badge variant="default">
-                                        Seleccionado
-                                      </Badge>
-                                    )}
+                                        <Badge variant="default">
+                                          Seleccionado
+                                        </Badge>
+                                      )}
                                   </div>
                                 </div>
                               ))}
@@ -1385,7 +1378,7 @@ export function CreateAppointment() {
                                                 Math.min(
                                                   abono.remainingAmount,
                                                   getRemainingBalance() +
-                                                    selectedAbono.amountToUse,
+                                                  selectedAbono.amountToUse,
                                                 ),
                                               )
                                             }
@@ -1948,67 +1941,67 @@ export function CreateAppointment() {
                       (selectedPackage && usePackageSession) ||
                       (formData.treatmentPrice &&
                         formData.treatmentPrice > 0)) && (
-                      <div className="p-4 border-t bg-gradient-to-r from-green-50 to-emerald-50">
-                        <div className="flex items-center gap-2 mb-3">
-                          <DollarSign className="w-5 h-5 text-green-600" />
-                          <h3 className="font-bold text-green-800">
-                            Resumen de Costos
-                          </h3>
-                        </div>
-                        <div className="space-y-2">
-                          {formData.treatmentPrice &&
-                            formData.treatmentPrice > 0 && (
+                        <div className="p-4 border-t bg-gradient-to-r from-green-50 to-emerald-50">
+                          <div className="flex items-center gap-2 mb-3">
+                            <DollarSign className="w-5 h-5 text-green-600" />
+                            <h3 className="font-bold text-green-800">
+                              Resumen de Costos
+                            </h3>
+                          </div>
+                          <div className="space-y-2">
+                            {formData.treatmentPrice &&
+                              formData.treatmentPrice > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-sm">
+                                    Precio del tratamiento:
+                                  </span>
+                                  <span className="text-sm font-medium">
+                                    S/ {formData.treatmentPrice.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                            {selectedProducts.length > 0 && (
                               <div className="flex justify-between">
-                                <span className="text-sm">
-                                  Precio del tratamiento:
-                                </span>
+                                <span className="text-sm">Total productos:</span>
                                 <span className="text-sm font-medium">
-                                  S/ {formData.treatmentPrice.toFixed(2)}
+                                  S/{" "}
+                                  {selectedProducts
+                                    .reduce(
+                                      (sum, sp) =>
+                                        sum + sp.product.price * sp.quantity,
+                                      0,
+                                    )
+                                    .toFixed(2)}
                                 </span>
                               </div>
                             )}
-                          {selectedProducts.length > 0 && (
-                            <div className="flex justify-between">
-                              <span className="text-sm">Total productos:</span>
-                              <span className="text-sm font-medium">
+                            {selectedPackage && usePackageSession && (
+                              <div className="flex justify-between">
+                                <span className="text-sm">Total paquete:</span>
+                                <span className="text-sm font-medium text-green-600">
+                                  S/ 0.00 (Incluido)
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between pt-2 border-t border-green-300">
+                              <span className="font-bold text-green-800">
+                                Total estimado:
+                              </span>
+                              <span className="font-bold text-xl text-green-800">
                                 S/{" "}
-                                {selectedProducts
-                                  .reduce(
+                                {(
+                                  (formData.treatmentPrice || 0) +
+                                  selectedProducts.reduce(
                                     (sum, sp) =>
                                       sum + sp.product.price * sp.quantity,
                                     0,
                                   )
-                                  .toFixed(2)}
+                                ).toFixed(2)}
                               </span>
                             </div>
-                          )}
-                          {selectedPackage && usePackageSession && (
-                            <div className="flex justify-between">
-                              <span className="text-sm">Total paquete:</span>
-                              <span className="text-sm font-medium text-green-600">
-                                S/ 0.00 (Incluido)
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex justify-between pt-2 border-t border-green-300">
-                            <span className="font-bold text-green-800">
-                              Total estimado:
-                            </span>
-                            <span className="font-bold text-xl text-green-800">
-                              S/{" "}
-                              {(
-                                (formData.treatmentPrice || 0) +
-                                selectedProducts.reduce(
-                                  (sum, sp) =>
-                                    sum + sp.product.price * sp.quantity,
-                                  0,
-                                )
-                              ).toFixed(2)}
-                            </span>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </CardContent>
                 </Card>
               </div>
