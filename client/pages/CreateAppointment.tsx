@@ -723,14 +723,15 @@ export function CreateAppointment() {
                             placeholder="Seleccionar paciente"
                             displayField={(item) => {
                               const patient = item as Patient;
-                              return `${patient.firstName} ${patient.lastName}`;
+                              return `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname} - ${patient.documentType.toLocaleUpperCase()}: ${patient.documentNumber}`;
                             }}
                             searchFields={(item) => {
                               const patient = item as Patient;
                               return [
                                 patient.firstName,
-                                patient.lastName,
-                                patient.documentId,
+                                patient.paternalSurname,
+                                patient.maternalSurname,
+                                patient.documentNumber,
                                 patient.phone,
                               ];
                             }}
@@ -1530,7 +1531,7 @@ export function CreateAppointment() {
                                     (p) => p.id === formData.patientId,
                                   );
                                   return patient
-                                    ? `${patient.firstName} ${patient.lastName}`
+                                    ? `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`
                                     : "";
                                 })()}
                               </p>

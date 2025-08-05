@@ -45,7 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Appointment, CreateAppointmentRequest, Payment } from "@shared/api";
+import { Appointment, CreateAppointmentRequest, PatientListItem, Payment } from "@shared/api";
 import { AppointmentRepository } from "@/lib/api/appointment";
 import { PatientRepository } from "@/lib/api/patient";
 import { WorkerRepository } from "@/lib/api/worker";
@@ -105,7 +105,7 @@ export function Appointments() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [patients, setPatients] = useState<any[]>([]);
+  const [patients, setPatients] = useState<PatientListItem[]>([]);
   const [workers, setWorkers] = useState<any[]>([]);
 
   // Repository-based pagination
@@ -701,8 +701,8 @@ export function Appointments() {
                     <SelectContent>
                       {patients.map((patient) => (
                         <SelectItem key={patient.id} value={patient.id}>
-                          {patient.firstName} {patient.lastName} -{" "}
-                          {patient.documentId}
+                          {patient.firstName} {patient.paternalSurname} {patient.maternalSurname} -{" "}
+                          {patient.documentType}: {patient.documentNumber}
                         </SelectItem>
                       ))}
                     </SelectContent>
