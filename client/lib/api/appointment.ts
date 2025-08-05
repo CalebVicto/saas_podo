@@ -10,7 +10,7 @@ interface AppointmentListResponse {
   state: string;
   message: string;
   data: {
-    data: Appointment[];
+    data: any[];
     total: number;
     page: number;
     limit: number;
@@ -38,7 +38,15 @@ export class AppointmentRepository {
     if (resp.error || !resp.data) {
       throw new Error(resp.error || "Failed to fetch appointments");
     }
-    const { data: items, total, page, limit } = resp.data.data;
+    const { data: rawItems, total, page, limit } = resp.data.data;
+    const items: Appointment[] = rawItems.map((item: any) => ({
+      ...item,
+      patientId: item.patientId?.id,
+      patient: item.patientId,
+      workerId: item.userId?.id,
+      worker: item.userId,
+      dateTime: item.createdAt,
+    }));
     return {
       items,
       total,
