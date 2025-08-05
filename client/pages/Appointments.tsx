@@ -9,12 +9,9 @@ import {
   Eye,
   Clock,
   User,
-  Users,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Save,
-  Trash2,
   DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,13 +64,13 @@ const useAuth = () => {
 };
 
 const statusConfig = {
-  scheduled: {
-    label: "Programada",
+  registered: {
+    label: "Registrada",
     icon: Clock,
     className: "status-info",
   },
-  completed: {
-    label: "Completada",
+  paid: {
+    label: "Pagada",
     icon: CheckCircle,
     className: "status-success",
   },
@@ -81,11 +78,6 @@ const statusConfig = {
     label: "Cancelada",
     icon: XCircle,
     className: "status-error",
-  },
-  no_show: {
-    label: "No Asistió",
-    icon: AlertCircle,
-    className: "status-warning",
   },
 };
 
@@ -178,10 +170,10 @@ export function Appointments() {
       filters.date = dateFilter;
     }
     if (workerFilter !== "all") {
-      filters.workerId = workerFilter;
+      filters.userId = workerFilter;
     } else if (user?.role === "worker") {
       // Workers only see their own appointments
-      filters.workerId = user.id;
+      filters.userId = user.id;
     }
 
     pagination.setFilters(filters);
@@ -376,10 +368,10 @@ export function Appointments() {
                   <CheckCircle className="w-5 h-5 text-secondary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Completadas</p>
+                  <p className="text-sm text-muted-foreground">Pagadas</p>
                   <p className="font-semibold">
                     {
-                      appointments.filter((a) => a.status === "completed")
+                      appointments.filter((a) => a.status === "paid")
                         .length
                     }
                   </p>
@@ -395,10 +387,10 @@ export function Appointments() {
                   <Clock className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Programadas</p>
+                  <p className="text-sm text-muted-foreground">Registradas</p>
                   <p className="font-semibold">
                     {
-                      appointments.filter((a) => a.status === "scheduled")
+                      appointments.filter((a) => a.status === "registered")
                         .length
                     }
                   </p>
@@ -447,10 +439,9 @@ export function Appointments() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="scheduled">Programadas</SelectItem>
-                  <SelectItem value="completed">Completadas</SelectItem>
+                  <SelectItem value="registered">Registradas</SelectItem>
+                  <SelectItem value="paid">Pagadas</SelectItem>
                   <SelectItem value="cancelled">Canceladas</SelectItem>
-                  <SelectItem value="no_show">No Asistió</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -532,8 +523,9 @@ export function Appointments() {
                         <TableHead>Fecha & Hora</TableHead>
                         <TableHead>Paciente</TableHead>
                         <TableHead>Trabajador</TableHead>
+                        <TableHead>Diagnóstico</TableHead>
+                        <TableHead>Total</TableHead>
                         <TableHead>Estado</TableHead>
-                        <TableHead>Duración</TableHead>
                         <TableHead>Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -562,8 +554,7 @@ export function Appointments() {
                                 </div>
                                 <div>
                                   <p className="font-medium">
-                                    {appointment.patient?.firstName}{" "}
-                                    {appointment.patient?.lastName}
+                                    {appointment.patient?.firstName} {appointment.patient?.paternalSurname} {appointment.patient?.maternalSurname}
                                   </p>
                                   <p className="text-sm text-muted-foreground">
                                     {appointment.patient?.phone}
@@ -574,13 +565,16 @@ export function Appointments() {
                             <TableCell>
                               <div>
                                 <p className="font-medium">
-                                  {appointment.worker?.firstName}{" "}
-                                  {appointment.worker?.lastName}
+                                  {appointment.worker?.firstName} {appointment.worker?.lastName}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  {appointment.worker?.specialization}
+                                  {appointment.worker?.username}
                                 </p>
                               </div>
+                            </TableCell>
+                            <TableCell>{appointment.diagnosis}</TableCell>
+                            <TableCell>
+                              <span className="text-sm">S/ {appointment.appointmentPrice}</span>
                             </TableCell>
                             <TableCell>
                               <Badge
@@ -590,11 +584,6 @@ export function Appointments() {
                                 <StatusIcon className="w-3 h-3" />
                                 {statusInfo?.label || "Desconocido"}
                               </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm">
-                                {appointment.duration} min
-                              </span>
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
@@ -620,13 +609,13 @@ export function Appointments() {
                                 >
                                   <DollarSign className="w-4 h-4" />
                                 </Button>
-                                {appointment.status === "scheduled" && (
+                                {appointment.status === "registered" && (
                                   <>
                                     <Button
                                       onClick={() =>
                                         handleUpdateStatus(
                                           appointment.id,
-                                          "completed",
+                                          "paid",
                                         )
                                       }
                                       variant="outline"

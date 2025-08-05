@@ -106,16 +106,21 @@ export interface Appointment {
   id: string;
   patientId: string;
   workerId: string;
-  dateTime: string;
-  duration: number; // in minutes
+  dateTime?: string;
+  duration?: number; // in minutes
   treatmentNotes?: string;
   diagnosis?: string;
-  status: "registered" | "paid";
+  treatment?: string;
+  treatmentPrice?: number;
+  appointmentPrice?: number;
+  status: "registered" | "paid" | "cancelled" | "completed" | "scheduled";
   createdAt: string;
   updatedAt: string;
   patient?: Patient;
   worker?: Worker;
   payment?: Payment;
+  saleId?: string;
+  products?: { id: string; name: string; price: number }[];
 }
 
 export interface CreateAppointmentRequest {
