@@ -210,8 +210,17 @@ export default function Kardex() {
       price: 0,
     });
 
+  const [summary, setSummary] = useState<{
+    totalEntries: number;
+    totalExits: number;
+    totalInventoryValue: number;
+    lowStock: any[];
+  } | null>(null);
+
+
   useEffect(() => {
     loadData();
+    loadSummary();
   }, []);
 
   useEffect(() => {
@@ -281,6 +290,26 @@ export default function Kardex() {
       setIsLoading(false);
     }
   };
+
+  const loadSummary = async () => {
+    try {
+      const resp = await apiGet<ApiResponse<{
+        totalEntries: number;
+        totalExits: number;
+        totalInventoryValue: number;
+        lowStock: any[];
+      }>>("/kardex/summary");
+
+      if (!resp.data || resp.data.state !== "success") {
+        throw new Error(resp.error || "No se pudo obtener el resumen");
+      }
+
+      setSummary(resp.data.data);
+    } catch (error) {
+      console.error("Error al obtener resumen:", error);
+    }
+  };
+
 
   const getLinkRelativeTable = (relatedTable: "Purchase" | "PurchaseReturn" | "Sale", relatedId: string) => {
     const baseRoutes: Record<typeof relatedTable, string> = {
@@ -405,30 +434,11 @@ export default function Kardex() {
       setIsAddMovementDialogOpen(false);
       resetMovementForm();
       await loadData();
+      await loadSummary();
     } catch (error) {
       console.error("Error adding movement:", error);
       alert("Error al registrar el movimiento");
     }
-  };
-
-  const getTotalEntries = () => {
-    return movements
-      .filter((m) => m.type === "entrada")
-      .reduce((sum, m) => sum + m.quantity, 0);
-  };
-
-  const getTotalExits = () => {
-    return movements
-      .filter((m) => m.type === "salida")
-      .reduce((sum, m) => sum + m.quantity, 0);
-  };
-
-  const getTotalValue = () => {
-    return products.reduce((sum, p) => sum + p.price * p.stock, 0);
-  };
-
-  const getProductWithLowStock = () => {
-    return products.filter((p) => p.stock <= 5 && p.stock > 0).length;
   };
 
   if (isLoading) {
@@ -489,9 +499,11 @@ export default function Kardex() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Total Entradas
+                    Total Entradas (Productos)
                   </p>
-                  <p className="font-semibold">{getTotalEntries()}</p>
+                  <p className="font-semibold">
+                    {summary?.totalEntries ?? "—"}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -504,8 +516,10 @@ export default function Kardex() {
                   <TrendingDown className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Salidas</p>
-                  <p className="font-semibold">{getTotalExits()}</p>
+                  <p className="text-sm text-muted-foreground">Total Salidas (Productos)</p>
+                  <p className="font-semibold">
+                    {summary?.totalExits ?? "—"}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -520,7 +534,7 @@ export default function Kardex() {
                 <div>
                   <p className="text-sm text-muted-foreground">Valor Total</p>
                   <p className="font-semibold">
-                    S/ {getTotalValue().toFixed(0)}
+                    S/ {summary?.totalInventoryValue.toFixed(2) ?? "-"}
                   </p>
                 </div>
               </div>
@@ -534,8 +548,8 @@ export default function Kardex() {
                   <FileText className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Stock Bajo</p>
-                  <p className="font-semibold">{getProductWithLowStock()}</p>
+                  <p className="text-sm text-muted-foreground">Stock Bajo ({`< 6`})</p>
+                  <p className="font-semibold">{summary?.lowStock.length ?? '-'}</p>
                 </div>
               </div>
             </CardContent>
@@ -607,11 +621,11 @@ export default function Kardex() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Cantidad</TableHead>
-                  <TableHead>Costo Unitario</TableHead>
-                  <TableHead>Costo Total</TableHead>
-                  <TableHead>Stock Nuevo</TableHead>
-                  <TableHead>Referencia</TableHead>
+                  <TableHead className="text-center">Cantidad</TableHead>
+                  <TableHead className="text-center">Costo Unitario</TableHead>
+                  <TableHead className="text-center">Costo Total</TableHead>
+                  <TableHead className="text-center">Stock Nuevo</TableHead>
+                  <TableHead className="">Referencia</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -656,8 +670,8 @@ export default function Kardex() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center">{movement.quantity}</TableCell>
-                          <TableCell className="text-center">{movement.costUnit}</TableCell>
-                          <TableCell className="text-center">{movement.totalCost}</TableCell>
+                          <TableCell className="text-center">S/ {movement.costUnit}</TableCell>
+                          <TableCell className="text-center">S/ {movement.totalCost}</TableCell>
                           <TableCell className="text-center">{movement.stockAfter}</TableCell>
                           <TableCell>
                             {(movement.relatedTable && movement.relatedId) && (

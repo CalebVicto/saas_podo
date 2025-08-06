@@ -280,7 +280,7 @@ export function Products() {
       description: product.description || "",
       categoryId: product.categoryId,
       price: product.price,
-      bonusAmount: product.bonusAmount || 0,
+      commission: product.commission || 0,
       stock: product.stock, // Keep original stock, not editable
       sku: product.sku,
       isActive: product.isActive,
@@ -341,81 +341,6 @@ export function Products() {
               Nuevo Producto
             </Button>
           </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Package className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="font-semibold">{totalProducts}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-success/10 rounded-lg">
-                  <BarChart className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Activos</p>
-                  <p className="font-semibold">{activeProducts}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning/10 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Stock Bajo</p>
-                  <p className="font-semibold">{lowStockProducts}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-destructive/10 rounded-lg">
-                  <X className="w-5 h-5 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Sin Stock</p>
-                  <p className="font-semibold">{outOfStockProducts}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Valor Total</p>
-                  <p className="font-semibold">
-                    S/ {totalInventoryValue.toFixed(0)}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Filters */}
