@@ -75,12 +75,14 @@ interface ProductStats {
 
 interface EditProductRequest {
   name: string;
+  slug: string;
   description?: string;
   categoryId: string;
   price: number;
-  bonusAmount?: number;
-  sku: string;
-  isActive: boolean;
+  sku?: string;
+  imageUrl?: string;
+  status: "active" | "inactive";
+  commission?: number;
 }
 
 // Mock sales data for demonstration
@@ -104,12 +106,14 @@ export function ProductDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<EditProductRequest>({
     name: "",
+    slug: "",
     description: "",
     categoryId: "",
     price: 0,
-    bonusAmount: 0,
     sku: "",
-    isActive: true,
+    imageUrl: "",
+    status: "active",
+    commission: 0,
   });
 
   useEffect(() => {
@@ -177,12 +181,14 @@ export function ProductDetail() {
     // Populate edit form with current product data
     setEditFormData({
       name: product.name,
+      slug: product.slug,
       description: product.description || "",
       categoryId: product.categoryId,
       price: product.price,
-      bonusAmount: product.bonusAmount || 0,
       sku: product.sku,
-      isActive: product.isActive,
+      imageUrl: product.imageUrl,
+      status: product.status,
+      commission: product.commission || 0,
     });
     setIsEditDialogOpen(true);
   };
@@ -216,12 +222,14 @@ export function ProductDetail() {
   const resetEditForm = () => {
     setEditFormData({
       name: "",
+      slug: "",
       description: "",
       categoryId: "",
       price: 0,
-      bonusAmount: 0,
       sku: "",
-      isActive: true,
+      imageUrl: "",
+      status: "active",
+      commission: 0,
     });
   };
 
@@ -399,13 +407,13 @@ export function ProductDetail() {
                       </Badge>
                     </div>
                   </div>
-                  {product.bonusAmount && (
+                  {product.commission && (
                     <div>
                       <Label className="text-sm text-muted-foreground">
                         Comisión por Venta
                       </Label>
                       <p className="font-medium text-green-600">
-                        S/ {product.bonusAmount.toFixed(2)}
+                        S/ {product.commission.toFixed(2)}
                       </p>
                     </div>
                   )}
@@ -413,8 +421,8 @@ export function ProductDetail() {
                     <Label className="text-sm text-muted-foreground">
                       Estado
                     </Label>
-                    <Badge variant={product.isActive ? "default" : "secondary"}>
-                      {product.isActive ? "Activo" : "Inactivo"}
+                    <Badge variant={product.status === "active" ? "default" : "secondary"}>
+                      {product.status === "active" ? "Activo" : "Inactivo"}
                     </Badge>
                   </div>
                 </div>
@@ -821,6 +829,12 @@ export function ProductDetail() {
                       setEditFormData({
                         ...editFormData,
                         name: e.target.value,
+                        slug: e.target.value
+                          .toLowerCase()
+                          .normalize("NFD")
+                          .replace(/[\u0300-\u036f]/g, "")
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/(^-|-$)+/g, ""),
                       })
                     }
                     required
@@ -918,15 +932,15 @@ export function ProductDetail() {
                   </TooltipProvider>
                 </div>
                 <Input
-                  id="editBonusAmount"
+                  id="editCommission"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={editFormData.bonusAmount}
+                  value={editFormData.commission}
                   onChange={(e) =>
                     setEditFormData({
                       ...editFormData,
-                      bonusAmount: parseFloat(e.target.value) || 0,
+                      commission: parseFloat(e.target.value) || 0,
                     })
                   }
                   placeholder="5.00"

@@ -76,13 +76,15 @@ import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 
 interface CreateProductRequest {
   name: string;
+  slug: string;
   description?: string;
   categoryId: string;
   price: number;
-  bonusAmount?: number;
   stock: number;
-  sku: string;
-  isActive: boolean;
+  sku?: string;
+  imageUrl?: string;
+  status: "active" | "inactive";
+  commission?: number;
 }
 
 export function Products() {
@@ -106,13 +108,15 @@ export function Products() {
   // Form state for new/edit product
   const [productFormData, setProductFormData] = useState<CreateProductRequest>({
     name: "",
+    slug: "",
     description: "",
     categoryId: "",
     price: 0,
-    bonusAmount: 0,
     stock: 0,
     sku: "",
-    isActive: true,
+    imageUrl: "",
+    status: "active",
+    commission: 0,
   });
 
   // Load data on component mount
@@ -263,13 +267,15 @@ export function Products() {
   const resetProductForm = () => {
     setProductFormData({
       name: "",
+      slug: "",
       description: "",
       categoryId: "",
       price: 0,
-      bonusAmount: 0,
       stock: 0, // Stock will always start at 0, managed through Kardex
       sku: "",
-      isActive: true,
+      imageUrl: "",
+      status: "active",
+      commission: 0,
     });
   };
 
@@ -277,13 +283,15 @@ export function Products() {
     setSelectedProduct(product);
     setProductFormData({
       name: product.name,
+      slug: product.slug,
       description: product.description || "",
       categoryId: product.categoryId,
       price: product.price,
-      commission: product.commission || 0,
       stock: product.stock, // Keep original stock, not editable
       sku: product.sku,
-      isActive: product.isActive,
+      imageUrl: product.imageUrl,
+      status: product.status,
+      commission: product.commission || 0,
     });
     setIsEditProductDialogOpen(true);
   };
@@ -310,7 +318,7 @@ export function Products() {
 
   // Calculate stats
   const totalProducts = allProducts.length;
-  const activeProducts = allProducts.filter((p) => p.isActive).length;
+  const activeProducts = allProducts.filter((p) => p.status === "active").length;
   const lowStockProducts = allProducts.filter((p) => p.stock <= 5).length;
   const outOfStockProducts = allProducts.filter((p) => p.stock === 0).length;
   const totalInventoryValue = allProducts.reduce(
@@ -579,6 +587,12 @@ export function Products() {
                       setProductFormData({
                         ...productFormData,
                         name: e.target.value,
+                        slug: e.target.value
+                          .toLowerCase()
+                          .normalize("NFD")
+                          .replace(/[\u0300-\u036f]/g, "")
+                          .replace(/[^a-z0-9]+/g, "-")
+                          .replace(/(^-|-$)+/g, ""),
                       })
                     }
                     placeholder="Crema Hidratante"
@@ -663,7 +677,7 @@ export function Products() {
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="bonusAmount">Bono por Medicamento</Label>
+                  <Label htmlFor="commission">Comisión</Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
@@ -679,15 +693,15 @@ export function Products() {
                   </TooltipProvider>
                 </div>
                 <Input
-                  id="bonusAmount"
+                  id="commission"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={productFormData.bonusAmount}
+                  value={productFormData.commission}
                   onChange={(e) =>
                     setProductFormData({
                       ...productFormData,
-                      bonusAmount: parseFloat(e.target.value) || 0,
+                      commission: parseFloat(e.target.value) || 0,
                     })
                   }
                   placeholder="5.00"
@@ -832,7 +846,7 @@ export function Products() {
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="editBonusAmount">Bono por Medicamento</Label>
+                  <Label htmlFor="editCommission">Comisión</Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
@@ -848,15 +862,15 @@ export function Products() {
                   </TooltipProvider>
                 </div>
                 <Input
-                  id="editBonusAmount"
+                  id="editCommission"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={productFormData.bonusAmount}
+                  value={productFormData.commission}
                   onChange={(e) =>
                     setProductFormData({
                       ...productFormData,
-                      bonusAmount: parseFloat(e.target.value) || 0,
+                      commission: parseFloat(e.target.value) || 0,
                     })
                   }
                   placeholder="5.00"
@@ -953,14 +967,14 @@ export function Products() {
                           S/ {selectedProduct.price.toFixed(2)}
                         </p>
                       </div>
-                      {selectedProduct.bonusAmount &&
-                        selectedProduct.bonusAmount > 0 && (
+                      {selectedProduct.commission &&
+                        selectedProduct.commission > 0 && (
                           <div>
                             <Label className="text-muted-foreground text-sm">
-                              Bono por Primera Compra
+                              Comisión
                             </Label>
                             <p className="font-medium text-lg text-green-600">
-                              S/ {selectedProduct.bonusAmount.toFixed(2)}
+                              S/ {selectedProduct.commission.toFixed(2)}
                             </p>
                           </div>
                         )}

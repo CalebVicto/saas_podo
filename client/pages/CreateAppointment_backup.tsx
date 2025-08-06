@@ -818,9 +818,9 @@ export function CreateAppointment() {
                                   <p className="text-sm font-medium text-primary mt-2">
                                     S/ {product.price.toFixed(2)}
                                   </p>
-                                  {product.bonusAmount && (
+                                  {product.commission && (
                                     <p className="text-xs text-green-600">
-                                      Bono: S/ {product.bonusAmount.toFixed(2)}
+                                      Comisión: S/ {product.commission.toFixed(2)}
                                     </p>
                                   )}
                                 </div>
