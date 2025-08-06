@@ -370,8 +370,8 @@ export function Products() {
         <Card className="card-modern">
           <CardHeader>
             <CardTitle>
-              Productos ({pagination.totalItems}
-              {pagination.totalItems !== totalProducts && ` de ${totalProducts}`}
+              Productos ({pagination.pageSize}
+              {` de ${pagination.totalItems}`}
               )
             </CardTitle>
           </CardHeader>
