@@ -304,13 +304,13 @@ export function Workers() {
     const workerSales = mockSales.filter((sale) => sale.sellerId === workerId);
     const products = getAllMockProducts();
 
-    let totalBonuses = 0;
+    let totalCommissions = 0;
     workerSales.forEach((sale) => {
       sale.saleItems.forEach((item: SaleItem) => {
         const product = products.find((p) => p.id === item.productId);
-        if (product?.bonusAmount) {
-          // For simplicity, assume all sales qualify for bonus
-          totalBonuses += product.bonusAmount * item.quantity;
+        if (product?.commission) {
+          // For simplicity, assume all sales qualify for commission
+          totalCommissions += product.commission * item.quantity;
         }
       });
     });
@@ -323,7 +323,7 @@ export function Workers() {
       totalAppointments: appointments.length,
       completedAppointments: completedAppointments.length,
       totalEarnings,
-      totalBonuses,
+      totalCommissions,
       totalRevenue,
       thisMonthAppointments: appointments.filter(
         (apt) =>
@@ -676,7 +676,7 @@ export function Workers() {
                         </div>
                         <div className="text-center">
                           <p className="text-lg font-bold text-green-600">
-                            S/ {stats.totalBonuses.toFixed(0)}
+                            S/ {stats.totalCommissions.toFixed(0)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Bonos ganados
@@ -1240,7 +1240,7 @@ export function Workers() {
                                 Bonos por Medicamentos
                               </Label>
                               <p className="font-medium text-green-600">
-                                S/ {stats.totalBonuses.toFixed(2)}
+                                S/ {stats.totalCommissions.toFixed(2)}
                               </p>
                             </div>
                             <div>

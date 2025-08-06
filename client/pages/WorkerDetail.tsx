@@ -53,7 +53,7 @@ import Layout from "@/components/Layout";
 interface WorkerStats {
   totalAppointments: number;
   revenueGenerated: number;
-  bonusFromMedications: number;
+  commissionFromMedications: number;
   packagesAttended: number;
   averageRating: number;
   completionRate: number;
@@ -128,13 +128,13 @@ export function WorkerDetail() {
         .reduce((sum, p) => sum + p.amount, 0);
 
       // Calculate bonus from medication sales
-      let bonusFromMedications = 0;
+      let commissionFromMedications = 0;
       salesData.forEach((sale) => {
         const saleItems = mockSaleItems.filter((si) => si.saleId === sale.id);
         saleItems.forEach((item) => {
           const product = products.find((p) => p.id === item.productId);
-          if (product?.bonusAmount) {
-            bonusFromMedications += product.bonusAmount * item.quantity;
+          if (product?.commission) {
+            commissionFromMedications += product.commission * item.quantity;
           }
         });
       });
@@ -172,7 +172,7 @@ export function WorkerDetail() {
       const workerStats: WorkerStats = {
         totalAppointments,
         revenueGenerated,
-        bonusFromMedications,
+        commissionFromMedications,
         packagesAttended: Math.floor(totalAppointments * 0.3), // Mock: 30% are package sessions
         averageRating: 4.7, // Mock rating
         completionRate: (completedAppointments / totalAppointments) * 100 || 0,
@@ -550,7 +550,7 @@ export function WorkerDetail() {
                       Comisiones por Medicamentos
                     </p>
                     <p className="text-2xl font-bold">
-                      S/ {stats.bonusFromMedications.toFixed(2)}
+                      S/ {stats.commissionFromMedications.toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -882,7 +882,7 @@ export function WorkerDetail() {
                       Comisión Total
                     </span>
                     <span className="font-semibold">
-                      S/ {stats.bonusFromMedications.toFixed(2)}
+                      S/ {stats.commissionFromMedications.toFixed(2)}
                     </span>
                   </div>
                 </CardContent>

@@ -227,12 +227,13 @@ export interface Product {
   description?: string;
   price: number;
   stock: number;
+  categoryId: string;
   imageUrl?: string;
+  sku?: string;
   status: "active" | "inactive";
-  sku: string;
+  commission?: number; // Commission percentage for sales
   createdAt: string;
   updatedAt: string;
-  comission?: number; // Commission percentage for sales
   category?: ProductCategory;
 }
 

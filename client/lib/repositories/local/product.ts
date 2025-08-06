@@ -23,13 +23,13 @@ export class LocalProductRepository
   async getActiveProducts(): Promise<Product[]> {
     await this.simulateNetworkDelay();
     const products = this.loadFromStorage();
-    return products.filter((p) => p.isActive);
+    return products.filter((p) => p.status === "active");
   }
 
   async getLowStockProducts(threshold: number = 5): Promise<Product[]> {
     await this.simulateNetworkDelay();
     const products = this.loadFromStorage();
-    return products.filter((p) => p.stock <= threshold && p.isActive);
+    return products.filter((p) => p.stock <= threshold && p.status === "active");
   }
 
   async updateStock(
