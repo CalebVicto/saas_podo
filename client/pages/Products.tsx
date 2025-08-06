@@ -213,7 +213,14 @@ export function Products() {
 
   const handleAddProduct = async () => {
     try {
-      const resp = await apiPost<ApiResponse<Product>>("/product", productFormData);
+      const resp = await apiPost<ApiResponse<Product>>("/product", {
+        name: productFormData.name,
+        description: productFormData.description,
+        categoryId: productFormData.categoryId,
+        price: productFormData.price,
+        commission: productFormData.commission,
+        sku: productFormData.sku,
+      });
 
       if (resp.error || !resp.data) {
         throw new Error(resp.error || "Failed to create product");
@@ -656,7 +663,7 @@ export function Products() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="price">Precio *</Label>
+                  <Label htmlFor="price">Precio Venta *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -1079,7 +1086,7 @@ export function Products() {
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  {movement.type === "entry" ? (
+                                  {movement.type === "entrada" ? (
                                     <TrendingUp className="w-4 h-4 text-green-600" />
                                   ) : (
                                     <TrendingDown className="w-4 h-4 text-red-600" />
@@ -1087,12 +1094,12 @@ export function Products() {
                                   <span
                                     className={cn(
                                       "font-medium text-sm",
-                                      movement.type === "entry"
+                                      movement.type === "entrada"
                                         ? "text-green-600"
                                         : "text-red-600",
                                     )}
                                   >
-                                    {movement.type === "entry"
+                                    {movement.type === "entrada"
                                       ? "ENTRADA"
                                       : "SALIDA"}
                                   </span>
