@@ -14,10 +14,6 @@ import {
   BarChart,
   Save,
   X,
-  Clock,
-  TrendingUp,
-  TrendingDown,
-  FileText,
   HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +43,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -58,11 +53,9 @@ import { cn } from "@/lib/utils";
 import {
   Product,
   ProductCategory,
-  ProductMovement,
   PaginatedResponse,
   PaginatedSearchParams,
 } from "@shared/api";
-import { mockProductMovements } from "@/lib/mockData";
 import {
   apiGet,
   apiPost,
@@ -98,7 +91,6 @@ export function Products() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
-  const [isViewProductDialogOpen, setIsViewProductDialogOpen] = useState(false);
 
   // Pagination
   const pagination = useRepositoryPagination<Product>({
@@ -122,7 +114,6 @@ export function Products() {
   // Load data on component mount
   useEffect(() => {
     loadCategories();
-    loadStats();
   }, []);
 
   useEffect(() => {
@@ -159,25 +150,6 @@ export function Products() {
     }
   };
 
-  const loadStats = async () => {
-    try {
-      const resp = await apiGet<ApiResponse<{
-        data: Product[];
-        total: number;
-        page: number;
-        limit: number;
-      }>>("/product?page=1&limit=1000");
-
-      if (resp.error || !resp.data) {
-        throw new Error(resp.error || "Failed to fetch product stats");
-      }
-
-      setAllProducts(resp.data.data.data);
-    } catch (error) {
-      console.error("Error loading stats:", error);
-    }
-  };
-
   const loadProducts = async () => {
     await pagination.loadData(async (params: PaginatedSearchParams) => {
       const searchParams = new URLSearchParams();
@@ -187,7 +159,7 @@ export function Products() {
       if (categoryFilter !== "all")
         searchParams.append("categoryId", categoryFilter);
       if (stockFilter === "low") searchParams.append("lowStock", "5");
-      if (stockFilter === "out") searchParams.append("outOfStock", "true");
+      if (stockFilter === "out") searchParams.append("lowStock", "0");
 
       const resp = await apiGet<ApiResponse<{
         data: Product[];
@@ -227,7 +199,6 @@ export function Products() {
       }
       setIsAddProductDialogOpen(false);
       resetProductForm();
-      await loadStats();
       await loadProducts();
     } catch (error) {
       console.error("Error adding product:", error);
@@ -251,7 +222,6 @@ export function Products() {
       setIsEditProductDialogOpen(false);
       setSelectedProduct(null);
       resetProductForm();
-      await loadStats();
       await loadProducts();
     } catch (error) {
       console.error("Error updating product:", error);
@@ -264,7 +234,6 @@ export function Products() {
 
     try {
       await apiDelete<ApiResponse<any>>(`/product/${productId}`);
-      await loadStats();
       await loadProducts();
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -301,20 +270,6 @@ export function Products() {
       commission: product.commission || 0,
     });
     setIsEditProductDialogOpen(true);
-  };
-
-  const openViewProductDialog = (product: Product) => {
-    setSelectedProduct(product);
-    setIsViewProductDialogOpen(true);
-  };
-
-  const getProductMovements = (productId: string): ProductMovement[] => {
-    return mockProductMovements
-      .filter((movement) => movement.productId === productId)
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
   };
 
   const getStockStatus = (stock: number) => {
@@ -392,7 +347,7 @@ export function Products() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="low">Stock bajo</SelectItem>
+                  <SelectItem value="low">Stock bajo {`(< 6)`}</SelectItem>
                   <SelectItem value="out">Sin stock</SelectItem>
                 </SelectContent>
               </Select>
@@ -471,7 +426,8 @@ export function Products() {
                         <TableHead>SKU</TableHead>
                         <TableHead>Categoría</TableHead>
                         <TableHead>Precio</TableHead>
-                        <TableHead>Stock</TableHead>
+                        <TableHead className="text-center">Stock</TableHead>
+                        <TableHead className="text-center">Comisión</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead>Acciones</TableHead>
                       </TableRow>
@@ -507,7 +463,7 @@ export function Products() {
                                 S/ {product.price.toFixed(2)}
                               </span>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                               <span
                                 className={cn(
                                   "font-medium",
@@ -519,6 +475,18 @@ export function Products() {
                                 )}
                               >
                                 {product.stock}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+
+                              <span
+                                className={cn("font-medium")}
+                              >
+                                {
+                                  product.commission ?
+                                    `S/ ${product.commission}`
+                                    : '-'
+                                }
                               </span>
                             </TableCell>
                             <TableCell>
@@ -922,266 +890,6 @@ export function Products() {
           </DialogContent>
         </Dialog>
 
-        {/* View Product Dialog */}
-        <Dialog
-          open={isViewProductDialogOpen}
-          onOpenChange={setIsViewProductDialogOpen}
-        >
-          <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-primary" />
-                Detalles del Producto
-              </DialogTitle>
-            </DialogHeader>
-
-            {selectedProduct && (
-              <div className="py-4">
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-foreground">
-                    {selectedProduct.name}
-                  </h3>
-                  <p className="text-muted-foreground">
-                    SKU: {selectedProduct.sku}
-                  </p>
-                </div>
-
-                <Tabs defaultValue="details" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="details">
-                      Información General
-                    </TabsTrigger>
-                    <TabsTrigger value="movements">
-                      Movimientos (Kardex)
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="details" className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Categoría
-                        </Label>
-                        <p className="font-medium">
-                          {selectedProduct.category?.name || "Sin categoría"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Precio
-                        </Label>
-                        <p className="font-medium text-lg">
-                          S/ {selectedProduct.price.toFixed(2)}
-                        </p>
-                      </div>
-                      {selectedProduct.commission &&
-                        selectedProduct.commission > 0 && (
-                          <div>
-                            <Label className="text-muted-foreground text-sm">
-                              Comisión
-                            </Label>
-                            <p className="font-medium text-lg text-green-600">
-                              S/ {selectedProduct.commission.toFixed(2)}
-                            </p>
-                          </div>
-                        )}
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Stock Actual
-                        </Label>
-                        <p
-                          className={cn(
-                            "font-medium text-lg",
-                            selectedProduct.stock <= 5 &&
-                              selectedProduct.stock > 0
-                              ? "text-warning"
-                              : selectedProduct.stock === 0
-                                ? "text-destructive"
-                                : "text-foreground",
-                          )}
-                        >
-                          {selectedProduct.stock}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Estado
-                        </Label>
-                        <Badge
-                          variant="outline"
-                          className={
-                            getStockStatus(selectedProduct.stock).className
-                          }
-                        >
-                          {getStockStatus(selectedProduct.stock).label}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {selectedProduct.description && (
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Descripción
-                        </Label>
-                        <div className="bg-muted/30 p-4 rounded-lg mt-2">
-                          <p className="text-sm">
-                            {selectedProduct.description}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Creado
-                        </Label>
-                        <p>
-                          {new Date(
-                            selectedProduct.createdAt,
-                          ).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Actualizado
-                        </Label>
-                        <p>
-                          {new Date(
-                            selectedProduct.updatedAt,
-                          ).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="movements" className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-lg font-semibold flex items-center gap-2">
-                        <BarChart className="w-5 h-5 text-primary" />
-                        Historial de Movimientos
-                      </h4>
-                    </div>
-
-                    {(() => {
-                      const movements = getProductMovements(selectedProduct.id);
-
-                      if (movements.length === 0) {
-                        return (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>
-                              No hay movimientos registrados para este producto
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {movements.map((movement) => (
-                            <div
-                              key={movement.id}
-                              className="border rounded-lg p-4 bg-card"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  {movement.type === "entrada" ? (
-                                    <TrendingUp className="w-4 h-4 text-green-600" />
-                                  ) : (
-                                    <TrendingDown className="w-4 h-4 text-red-600" />
-                                  )}
-                                  <span
-                                    className={cn(
-                                      "font-medium text-sm",
-                                      movement.type === "entrada"
-                                        ? "text-green-600"
-                                        : "text-red-600",
-                                    )}
-                                  >
-                                    {movement.type === "entrada"
-                                      ? "ENTRADA"
-                                      : "SALIDA"}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {movement.quantity} unidades
-                                  </Badge>
-                                </div>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="w-3 h-3" />
-                                  {new Date(
-                                    movement.createdAt,
-                                  ).toLocaleDateString()}
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div>
-                                  <span className="text-muted-foreground">
-                                    Stock Anterior:
-                                  </span>
-                                  <span className="ml-1 font-medium">
-                                    {movement.previousStock}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">
-                                    Stock Nuevo:
-                                  </span>
-                                  <span className="ml-1 font-medium">
-                                    {movement.newStock}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-muted-foreground">
-                                    Motivo:
-                                  </span>
-                                  <span className="ml-1 font-medium">
-                                    {movement.reason}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {movement.reference && (
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                  Referencia: {movement.reference}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </TabsContent>
-                </Tabs>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (selectedProduct) {
-                    openEditProductDialog(selectedProduct);
-                    setIsViewProductDialogOpen(false);
-                  }
-                }}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Editar
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsViewProductDialogOpen(false);
-                  setSelectedProduct(null);
-                }}
-                className="btn-primary"
-              >
-                Cerrar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </Layout>
   );

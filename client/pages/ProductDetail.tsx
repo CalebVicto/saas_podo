@@ -564,7 +564,7 @@ export function ProductDetail() {
               </CardContent>
             </Card>
 
-            <Card className="card-modern">
+            {/* <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-purple/10 rounded-lg">
@@ -580,7 +580,7 @@ export function ProductDetail() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
         </div>
 
@@ -1038,14 +1038,14 @@ export function ProductDetail() {
   );
 }
 
-function Label({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn("text-sm font-medium", className)}>{children}</div>;
-}
+// function Label({
+//   children,
+//   className,
+// }: {
+//   children: React.ReactNode;
+//   className?: string;
+// }) {
+//   return <div className={cn("text-sm font-medium", className)}>{children}</div>;
+// }
 
 export default ProductDetail;
