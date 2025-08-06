@@ -119,16 +119,6 @@ interface ProductDetailData extends ProductStats {
   movements: ProductMovement[];
 }
 
-// Mock sales data for demonstration
-const mockMonthlySales = [
-  { month: "Ene", sales: 25, revenue: 1250 },
-  { month: "Feb", sales: 32, revenue: 1600 },
-  { month: "Mar", sales: 18, revenue: 900 },
-  { month: "Abr", sales: 45, revenue: 2250 },
-  { month: "May", sales: 38, revenue: 1900 },
-  { month: "Jun", sales: 42, revenue: 2100 },
-];
-
 export function ProductDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -136,6 +126,9 @@ export function ProductDetail() {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [movements, setMovements] = useState<ProductMovement[]>([]);
   const [stats, setStats] = useState<ProductStats | null>(null);
+  const [monthlySales, setMonthlySales] = useState<
+    { month: string; sales: number; revenue: number }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<EditProductRequest>({
@@ -162,6 +155,14 @@ export function ProductDetail() {
           "/product-category?page=1&limit=100",
         ),
       ]);
+      const salesResp = await apiGet<
+        ApiResponse<{ month: string; sales: number; revenue: number }[]>
+      >(`/product/${productId}/monthly-sales`);
+
+      if (!salesResp.error && salesResp.data) {
+        setMonthlySales(salesResp.data.data);
+      }
+
       if (productResp.error || !productResp.data) {
         throw new Error(productResp.error || "Error fetching product");
       }
@@ -337,6 +338,14 @@ export function ProductDetail() {
     }
   };
 
+  const formatMonth = (isoMonth: string) => {
+    const [year, month] = isoMonth.split("-");
+    return new Date(parseInt(year), parseInt(month) - 1).toLocaleString("es-PE", {
+      month: "short",
+    });
+  };
+
+
   if (isLoading) {
     return (
       <Layout
@@ -429,7 +438,7 @@ export function ProductDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm text-muted-foreground">SKU</Label>
-                    <p className="font-medium">{product.sku}</p>
+                    <p className="font-medium">{product.sku == "" ? '-' : product.sku}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">
@@ -473,11 +482,11 @@ export function ProductDetail() {
                       </p>
                     </div>
                   )}
-                  <div>
+                  <div className="flex flex-col">
                     <Label className="text-sm text-muted-foreground">
                       Estado
                     </Label>
-                    <Badge variant={product.status === "active" ? "default" : "secondary"}>
+                    <Badge className="w-fit" variant={product.status === "active" ? "default" : "secondary"}>
                       {product.status === "active" ? "Activo" : "Inactivo"}
                     </Badge>
                   </div>
@@ -557,7 +566,7 @@ export function ProductDetail() {
                       Promedio Mensual
                     </p>
                     <p className="text-2xl font-bold">
-                      {stats.averageMonthlySales}
+                      {stats.averageMonthlySales.toFixed(1)} <span className="text-xs">UNI</span>
                     </p>
                   </div>
                 </div>
@@ -697,7 +706,7 @@ export function ProductDetail() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockMonthlySales.map((month, index) => (
+                  {monthlySales.map((month, index) => (
                     <div
                       key={month.month}
                       className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
@@ -705,7 +714,7 @@ export function ProductDetail() {
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                           <span className="font-semibold text-primary">
-                            {month.month}
+                            {formatMonth(month.month)}
                           </span>
                         </div>
                         <div>
@@ -720,7 +729,7 @@ export function ProductDetail() {
                       <div className="text-right">
                         {index > 0 && (
                           <div className="flex items-center gap-1">
-                            {month.sales > mockMonthlySales[index - 1].sales ? (
+                            {month.sales > monthlySales[index - 1].sales ? (
                               <TrendingUp className="w-4 h-4 text-green-600" />
                             ) : (
                               <TrendingDown className="w-4 h-4 text-red-600" />
@@ -728,15 +737,15 @@ export function ProductDetail() {
                             <span
                               className={cn(
                                 "text-xs font-medium",
-                                month.sales > mockMonthlySales[index - 1].sales
+                                month.sales > monthlySales[index - 1].sales
                                   ? "text-green-600"
                                   : "text-red-600",
                               )}
                             >
                               {(
                                 ((month.sales -
-                                  mockMonthlySales[index - 1].sales) /
-                                  mockMonthlySales[index - 1].sales) *
+                                  monthlySales[index - 1].sales) /
+                                  monthlySales[index - 1].sales) *
                                 100
                               ).toFixed(1)}
                               %
@@ -774,14 +783,6 @@ export function ProductDetail() {
                     </span>
                     <span className="font-semibold">
                       {new Date(stats.lastMovementDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Días en Inventario
-                    </span>
-                    <span className="font-semibold">
-                      {Math.round(365 / (stats.stockTurnover || 1))} días
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
