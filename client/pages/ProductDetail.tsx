@@ -9,16 +9,12 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Clock,
-  Tag,
-  FileText,
   AlertTriangle,
   Activity,
   ShoppingCart,
   Plus,
   Minus,
   Save,
-  X,
   HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,13 +52,39 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Product, ProductMovement, ProductCategory } from "@shared/api";
-import {
-  getAllMockProducts,
-  getMockProductCategories,
-  mockProductMovements,
-} from "@/lib/mockData";
+import { apiGet, apiPut, apiDelete, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
+
+interface ProductCategory {
+  id: string;
+  name: string;
+}
+
+interface ProductMovement {
+  id: string;
+  type: "entry" | "exit";
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  reason: string;
+  createdAt: string;
+  reference: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  price: number;
+  stock: number;
+  categoryId: string;
+  category?: ProductCategory;
+  status: "active" | "inactive";
+  commission?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface ProductStats {
   totalSold: number;
@@ -75,14 +97,26 @@ interface ProductStats {
 
 interface EditProductRequest {
   name: string;
-  slug: string;
-  description?: string;
+  sku: string;
+  description: string;
   categoryId: string;
   price: number;
-  sku?: string;
-  imageUrl?: string;
-  status: "active" | "inactive";
-  commission?: number;
+  commission?: number | null;
+}
+
+interface ProductDetailData extends ProductStats {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  price: number;
+  bonusAmount: number | null;
+  stock: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category: ProductCategory | null;
+  movements: ProductMovement[];
 }
 
 // Mock sales data for demonstration
@@ -106,13 +140,10 @@ export function ProductDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<EditProductRequest>({
     name: "",
-    slug: "",
+    sku: "",
     description: "",
     categoryId: "",
     price: 0,
-    sku: "",
-    imageUrl: "",
-    status: "active",
     commission: 0,
   });
 
@@ -125,48 +156,44 @@ export function ProductDetail() {
   const loadProductData = async (productId: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Load product data
-      const products = getAllMockProducts();
-      const foundProduct = products.find((p) => p.id === productId);
-
-      if (!foundProduct) {
-        navigate("/products");
-        return;
+      const [productResp, categoriesResp] = await Promise.all([
+        apiGet<ApiResponse<ProductDetailData>>(`/product/${productId}`),
+        apiGet<ApiResponse<{ data: ProductCategory[]; total: number; page: number; limit: number }>>(
+          "/product-category?page=1&limit=100",
+        ),
+      ]);
+      if (productResp.error || !productResp.data) {
+        throw new Error(productResp.error || "Error fetching product");
       }
-
-      // Load related data
-      const categoriesData = getMockProductCategories();
-      const movementsData = mockProductMovements.filter(
-        (m) => m.productId === productId,
-      );
-
-      // Calculate statistics
-      const totalSold = movementsData
-        .filter((m) => m.type === "exit")
-        .reduce((sum, m) => sum + m.quantity, 0);
-
-      const revenueGenerated = totalSold * foundProduct.price;
-
-      const lastMovement = movementsData.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )[0];
-
-      const productStats: ProductStats = {
-        totalSold,
-        revenueGenerated,
-        lastMovementDate: lastMovement?.createdAt || foundProduct.createdAt,
-        averageMonthlySales: Math.round(totalSold / 6), // Assuming 6 months of data
-        stockTurnover: totalSold / foundProduct.stock || 0,
-        profitMargin: 25, // Mock profit margin
+      const data = productResp.data.data;
+      const mappedProduct: Product = {
+        id: data.id,
+        name: data.name,
+        sku: data.sku,
+        description: data.description || "",
+        price: data.price,
+        stock: data.stock,
+        categoryId: data.category?.id || "",
+        category: data.category || undefined,
+        status: data.isActive ? "active" : "inactive",
+        commission: data.bonusAmount,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
       };
-
-      setProduct(foundProduct);
-      setCategories(categoriesData);
-      setMovements(movementsData);
+      const productStats: ProductStats = {
+        totalSold: data.totalSold,
+        revenueGenerated: data.revenueGenerated,
+        lastMovementDate: data.lastMovementDate,
+        averageMonthlySales: data.averageMonthlySales,
+        stockTurnover: data.stockTurnover,
+        profitMargin: data.profitMargin,
+      };
+      setProduct(mappedProduct);
+      setMovements(data.movements);
       setStats(productStats);
+      if (!categoriesResp.error && categoriesResp.data) {
+        setCategories(categoriesResp.data.data.data);
+      }
     } catch (error) {
       console.error("Error loading product data:", error);
       navigate("/products");
@@ -181,37 +208,61 @@ export function ProductDetail() {
     // Populate edit form with current product data
     setEditFormData({
       name: product.name,
-      slug: product.slug,
+      sku: product.sku,
       description: product.description || "",
       categoryId: product.categoryId,
       price: product.price,
-      sku: product.sku,
-      imageUrl: product.imageUrl,
-      status: product.status,
       commission: product.commission || 0,
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdateProduct = async () => {
-    if (!product) return;
+    if (!product || !id) return;
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const category = categories.find((c) => c.id === editFormData.categoryId);
+      const resp = await apiPut<ApiResponse<ProductDetailData>>(
+        `/product/${id}`,
+        {
+          name: editFormData.name,
+          sku: editFormData.sku,
+          description: editFormData.description,
+          price: editFormData.price,
+          categoryId: editFormData.categoryId,
+          bonusAmount: editFormData.commission ?? 0,
+          isActive: product.status === "active",
+        },
+      );
+      if (resp.error || !resp.data) {
+        throw new Error(resp.error || "Error updating product");
+      }
+      const data = resp.data.data;
       const updatedProduct: Product = {
-        ...product,
-        ...editFormData,
-        updatedAt: new Date().toISOString(),
-        category,
+        id: data.id,
+        name: data.name,
+        sku: data.sku,
+        description: data.description || "",
+        price: data.price,
+        stock: data.stock,
+        categoryId: data.category?.id || "",
+        category: data.category || undefined,
+        status: data.isActive ? "active" : "inactive",
+        commission: data.bonusAmount,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
       };
-
+      const productStats: ProductStats = {
+        totalSold: data.totalSold,
+        revenueGenerated: data.revenueGenerated,
+        lastMovementDate: data.lastMovementDate,
+        averageMonthlySales: data.averageMonthlySales,
+        stockTurnover: data.stockTurnover,
+        profitMargin: data.profitMargin,
+      };
       setProduct(updatedProduct);
+      setMovements(data.movements);
+      setStats(productStats);
       setIsEditDialogOpen(false);
-
-      // Show success message
       alert("Producto actualizado exitosamente");
     } catch (error) {
       console.error("Error updating product:", error);
@@ -222,27 +273,32 @@ export function ProductDetail() {
   const resetEditForm = () => {
     setEditFormData({
       name: "",
-      slug: "",
+      sku: "",
       description: "",
       categoryId: "",
       price: 0,
-      sku: "",
-      imageUrl: "",
-      status: "active",
       commission: 0,
     });
   };
 
-  const handleDelete = () => {
-    if (!product) return;
+  const handleDelete = async () => {
+    if (!product || !id) return;
 
     if (
       confirm(
         `¿Estás seguro de que quieres eliminar el producto "${product.name}"?`,
       )
     ) {
-      console.log("Delete product:", product.id);
-      navigate("/products");
+      try {
+        const resp = await apiDelete<ApiResponse<{}>>(`/product/${id}`);
+        if (resp.error) {
+          throw new Error(resp.error);
+        }
+        navigate("/products");
+      } catch (error) {
+        console.error("Error deleting product:", error);
+        alert("Error al eliminar el producto");
+      }
     }
   };
 
@@ -829,12 +885,6 @@ export function ProductDetail() {
                       setEditFormData({
                         ...editFormData,
                         name: e.target.value,
-                        slug: e.target.value
-                          .toLowerCase()
-                          .normalize("NFD")
-                          .replace(/[\u0300-\u036f]/g, "")
-                          .replace(/[^a-z0-9]+/g, "-")
-                          .replace(/(^-|-$)+/g, ""),
                       })
                     }
                     required
