@@ -739,10 +739,13 @@ export default function Kardex() {
                               </button>
                             ) : movement.relatedTable && movement.relatedId ? (
                               <span className="text-sm text-muted-foreground">
-                                {getLinkRelativeTable(
-                                  movement.relatedTable as "Purchase" | "PurchaseReturn" | "Sale",
-                                  movement.relatedId,
-                                )}
+                                {
+                                  movement.relatedTable == "Sale" ?
+                                    getLinkRelativeTable(
+                                      movement.relatedTable as "Purchase" | "PurchaseReturn" | "Sale",
+                                      movement.relatedId,
+                                    ) : 'N/A'
+                                }
                               </span>
                             ) : null}
                           </TableCell>

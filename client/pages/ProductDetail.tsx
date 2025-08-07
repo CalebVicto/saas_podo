@@ -55,6 +55,7 @@ import {
 import { cn } from "@/lib/utils";
 import { apiGet, apiPut, apiDelete, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
+import { Sale } from "@shared/api";
 
 interface ProductCategory {
   id: string;
@@ -63,19 +64,21 @@ interface ProductCategory {
 
 interface ProductMovement {
   id: string;
-  type: "entry" | "exit";
+  type: "entrada" | "salida";
   quantity: number;
   previousStock: number;
   newStock: number;
   reason: string;
   createdAt: string;
   reference: string;
+  referenceType: string;
+  referenceId?: string; // Optional, used for sales or purchases
 }
 
 // Map movement reasons from English to Spanish for display
 const reasonTranslations: Record<string, string> = {
-  purchase: "Compra",
-  sale: "Venta",
+  Purchase: "Compra",
+  Sale: "Venta",
   adjustment: "Ajuste",
   return: "Devolución",
   donation: "Donación",
@@ -146,6 +149,8 @@ export function ProductDetail() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any | null>(null);
+  const [isViewSaleDialogOpen, setIsViewSaleDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<EditProductRequest>({
     name: "",
     sku: "",
@@ -320,9 +325,9 @@ export function ProductDetail() {
 
   const getMovementIcon = (type: string) => {
     switch (type) {
-      case "entry":
+      case "entrada":
         return <Plus className="w-4 h-4 text-green-600" />;
-      case "exit":
+      case "salida":
         return <Minus className="w-4 h-4 text-red-600" />;
       default:
         return <Activity className="w-4 h-4 text-blue-600" />;
@@ -331,9 +336,9 @@ export function ProductDetail() {
 
   const getMovementColor = (type: string) => {
     switch (type) {
-      case "entry":
+      case "entrada":
         return "text-green-600";
-      case "exit":
+      case "salida":
         return "text-red-600";
       default:
         return "text-blue-600";
@@ -346,7 +351,7 @@ export function ProductDetail() {
 
     if (product.stock === 0) {
       return { status: "out", color: "text-red-600", text: "Agotado" };
-    } else if (product.stock <= 10) {
+    } else if (product.stock <= 5) {
       return { status: "low", color: "text-yellow-600", text: "Stock Bajo" };
     } else {
       return { status: "normal", color: "text-green-600", text: "Normal" };
@@ -358,6 +363,31 @@ export function ProductDetail() {
     return new Date(parseInt(year), parseInt(month) - 1).toLocaleString("es-PE", {
       month: "short",
     });
+  };
+
+  const viewSaleDetails = async (saleId: string) => {
+    try {
+      const resp = await apiGet<ApiResponse<Sale>>(`/sale/${saleId}`);
+      if (resp.data && resp.data.state === "success") {
+        setSelectedSale(resp.data.data);
+        setIsViewSaleDialogOpen(true);
+      } else {
+        toast({ title: "No se pudo cargar la venta", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error loading sale:", error);
+      toast({ title: "Error al cargar la venta", variant: "destructive" });
+    }
+  };
+
+  const getPaymentMethodLabel = (method: string) => {
+    const labels = {
+      efectivo: "Efectivo",
+      yape: "Yape",
+      transferencia: "Transferencia",
+      pos: "POS",
+    } as const;
+    return labels[method as keyof typeof labels] || method;
   };
 
 
@@ -670,7 +700,7 @@ export function ProductDetail() {
                                       getMovementColor(movement.type),
                                     )}
                                   >
-                                    {movement.type === "entry"
+                                    {movement.type === "entrada"
                                       ? "Entrada"
                                       : "Salida"}
                                   </span>
@@ -680,12 +710,12 @@ export function ProductDetail() {
                                 <span
                                   className={cn(
                                     "font-medium",
-                                    movement.type === "entry"
+                                    movement.type === "entrada"
                                       ? "text-green-600"
                                       : "text-red-600",
                                   )}
                                 >
-                                  {movement.type === "entry" ? "+" : "-"}
+                                  {movement.type === "entrada" ? "+" : "-"}
                                   {movement.quantity}
                                 </span>
                               </TableCell>
@@ -698,10 +728,20 @@ export function ProductDetail() {
                                 ).toLocaleDateString()}
                               </TableCell>
                               <TableCell>
-                                <span className="text-xs text-muted-foreground">
-                                  {movement.reference || "N/A"}
-                                </span>
+                                {movement.referenceType === "Sale" && movement.referenceId ? (
+                                  <button
+                                    onClick={() => viewSaleDetails(movement.referenceId)}
+                                    className="text-primary hover:underline"
+                                  >
+                                    Ver Venta
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    {"N/A"}
+                                  </span>
+                                )}
                               </TableCell>
+
                             </TableRow>
                           ))}
                       </TableBody>
@@ -1061,6 +1101,116 @@ export function ProductDetail() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog
+          open={isViewSaleDialogOpen}
+          onOpenChange={setIsViewSaleDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detalle de Venta</DialogTitle>
+            </DialogHeader>
+
+            {selectedSale && (
+              <div className="space-y-6 py-4">
+                {selectedSale.state === "anulada" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                    <Badge variant="destructive" className="w-fit">Venta Anulada</Badge>
+                    {selectedSale.cancelReason && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Motivo: {selectedSale.cancelReason}
+                      </p>
+                    )}
+                    {selectedSale.canceledAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Fecha de anulación:{" "}
+                        {new Date(selectedSale.canceledAt).toLocaleString("es-PE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                    {selectedSale.canceledBy && (
+                      <p className="text-sm text-muted-foreground">
+                        Anulado por: <span className="font-medium">{selectedSale.canceledBy.firstName} {selectedSale.canceledBy.lastName}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">Información de la Venta</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Fecha y Hora</Label>
+                        <p className="font-medium">
+                          {new Date(selectedSale.date).toLocaleString("es-ES")}
+                        </p>
+                      </div>
+                      <div className="flex flex-col">
+                        <Label className="text-muted-foreground text-sm">Método de Pago</Label>
+                        <Badge variant="outline" className="mt-1 w-fit">
+                          {getPaymentMethodLabel(selectedSale.paymentMethod || "")}
+                        </Badge>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Total</Label>
+                        <p className="font-bold text-xl text-primary">
+                          S/ {selectedSale.totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">Cliente</h3>
+                    <div className="space-y-4">
+                      {selectedSale.patient ? (
+                        <>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Nombre</Label>
+                            <p className="font-medium">
+                              {selectedSale.patient}{" "}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground">Venta general (sin cliente)</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-foreground mb-3">Productos Vendidos</h3>
+                  <div className="space-y-3 overflow-y-auto max-h-[300px]">
+                    {selectedSale.saleItems.map((item) => (
+                      <div
+                        key={`${item.product?.id}-${item.quantity}`}
+                        className="flex items-center justify-between p-3 border border-border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium">{item.product?.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Cantidad: {item.quantity}
+                          </p>
+                        </div>
+                        <p className="font-medium">
+                          S/ {(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
       </div>
     </Layout>
   );
