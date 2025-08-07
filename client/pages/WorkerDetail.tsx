@@ -19,10 +19,16 @@ import {
   Activity,
   BarChart,
   Stethoscope,
+  Wallet,
+  Smartphone,
+  CreditCard,
+  ArrowUpDown,
+  PlusCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -40,16 +46,33 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { Worker, Appointment, Payment, Sale, SaleItem } from "@shared/api";
-import {
-  getAllMockWorkers,
-  getMockAppointments,
-  getMockPayments,
-  mockSales,
-  mockSaleItems,
-  getAllMockProducts,
-} from "@/lib/mockData";
+import { Appointment, Payment } from "@shared/api";
+import { apiGet } from "@/lib/auth";
 import Layout from "@/components/Layout";
+
+interface Worker {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  role: "admin" | "trabajador";
+  tenantId: string;
+  active: boolean;
+  newPassword: boolean;
+  createdAt: string;
+  updatedAt: string;
+  email?: string;
+  phone?: string;
+  specialization?: string;
+  workerType?: string;
+  hasSystemAccess?: boolean;
+}
+
+interface ApiResponse<T> {
+  state: string;
+  message: string;
+  data: T;
+}
 
 interface WorkerStats {
   totalAppointments: number;
@@ -83,7 +106,6 @@ export function WorkerDetail() {
   const [worker, setWorker] = useState<Worker | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
   const [stats, setStats] = useState<WorkerStats | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("6"); // months
   const [isLoading, setIsLoading] = useState(true);
@@ -97,95 +119,46 @@ export function WorkerDetail() {
   const loadWorkerData = async (workerId: string) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const [workerResp, appointmentsResp, paymentsResp, statsResp] =
+        await Promise.all([
+          apiGet<ApiResponse<Worker>>(`/worker/${workerId}`),
+          apiGet<ApiResponse<Appointment[]>>(
+            `/worker/${workerId}/appointments`,
+          ),
+          apiGet<ApiResponse<Payment[]>>(`/worker/${workerId}/payments`),
+          apiGet<ApiResponse<WorkerStats>>(`/worker/${workerId}/stats`),
+        ]);
 
-      // Load worker data
-      const workers = getAllMockWorkers();
-      const foundWorker = workers.find((w) => w.id === workerId);
-
-      if (!foundWorker) {
+      if (workerResp.error || !workerResp.data) {
         navigate("/workers");
         return;
       }
 
-      // Load related data
-      const appointmentsData = getMockAppointments().filter(
-        (a) => a.workerId === workerId,
-      );
-      const paymentsData = getMockPayments().filter((p) =>
-        appointmentsData.some((a) => a.id === p.appointmentId),
-      );
-      const salesData = mockSales.filter((s) => s.sellerId === workerId);
-      const products = getAllMockProducts();
+      setWorker(workerResp.data.data);
 
-      // Calculate statistics
-      const totalAppointments = appointmentsData.length;
-      const completedAppointments = appointmentsData.filter(
-        (a) => a.status === "completed",
-      ).length;
+      if (!appointmentsResp.error && appointmentsResp.data) {
+        setAppointments(appointmentsResp.data.data);
+      }
 
-      const revenueGenerated = paymentsData
-        .filter((p) => p.status === "completed")
-        .reduce((sum, p) => sum + p.amount, 0);
+      if (!paymentsResp.error && paymentsResp.data) {
+        setPayments(paymentsResp.data.data);
+      }
 
-      // Calculate bonus from medication sales
-      let commissionFromMedications = 0;
-      salesData.forEach((sale) => {
-        const saleItems = mockSaleItems.filter((si) => si.saleId === sale.id);
-        saleItems.forEach((item) => {
-          const product = products.find((p) => p.id === item.productId);
-          if (product?.commission) {
-            commissionFromMedications += product.commission * item.quantity;
-          }
-        });
-      });
-
-      // Calculate payment method breakdown
-      const paymentMethodCounts: Record<
-        string,
-        { count: number; amount: number }
-      > = {};
-      paymentsData
-        .filter((p) => p.status === "completed")
-        .forEach((payment) => {
-          if (!paymentMethodCounts[payment.method]) {
-            paymentMethodCounts[payment.method] = { count: 0, amount: 0 };
-          }
-          paymentMethodCounts[payment.method].count++;
-          paymentMethodCounts[payment.method].amount += payment.amount;
-        });
-
-      const totalMethodAmount = Object.values(paymentMethodCounts).reduce(
-        (sum, data) => sum + data.amount,
-        0,
-      );
-
-      const paymentMethodBreakdown = Object.entries(paymentMethodCounts).map(
-        ([method, data]) => ({
-          method,
-          count: data.count,
-          amount: data.amount,
-          percentage:
-            totalMethodAmount > 0 ? (data.amount / totalMethodAmount) * 100 : 0,
-        }),
-      );
-
-      const workerStats: WorkerStats = {
-        totalAppointments,
-        revenueGenerated,
-        commissionFromMedications,
-        packagesAttended: Math.floor(totalAppointments * 0.3), // Mock: 30% are package sessions
-        averageRating: 4.7, // Mock rating
-        completionRate: (completedAppointments / totalAppointments) * 100 || 0,
-        monthlyAppointments: mockMonthlyPerformance,
-        paymentMethodBreakdown,
-      };
-
-      setWorker(foundWorker);
-      setAppointments(appointmentsData);
-      setPayments(paymentsData);
-      setSales(salesData);
-      setStats(workerStats);
+      if (!statsResp.error && statsResp.data) {
+        const statsData = statsResp.data.data;
+        const totalMethodAmount = statsData.paymentMethodBreakdown.reduce(
+          (sum, m) => sum + m.amount,
+          0,
+        );
+        const paymentMethodBreakdown = statsData.paymentMethodBreakdown.map(
+          (m) => ({
+            ...m,
+            percentage:
+              totalMethodAmount > 0 ? (m.amount / totalMethodAmount) * 100 : 0,
+          }),
+        );
+        setStats({ ...statsData, paymentMethodBreakdown });
+      }
     } catch (error) {
       console.error("Error loading worker data:", error);
       navigate("/workers");
@@ -217,7 +190,7 @@ export function WorkerDetail() {
 
   const toggleStatus = () => {
     if (!worker) return;
-    setWorker({ ...worker, isActive: !worker.isActive });
+    setWorker({ ...worker, active: !worker.active });
   };
 
   const getRecentAppointments = () => {
@@ -370,17 +343,17 @@ export function WorkerDetail() {
               onClick={toggleStatus}
               className={cn(
                 "flex items-center gap-2",
-                worker.isActive
+                worker.active
                   ? "text-red-600 hover:text-red-700"
                   : "text-green-600 hover:text-green-700",
               )}
             >
-              {worker.isActive ? (
+              {worker.active ? (
                 <UserX className="w-4 h-4" />
               ) : (
                 <UserCheck className="w-4 h-4" />
               )}
-              {worker.isActive ? "Desactivar" : "Activar"}
+              {worker.active ? "Desactivar" : "Activar"}
             </Button>
             <Button
               variant="outline"
@@ -432,7 +405,9 @@ export function WorkerDetail() {
                     </Label>
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <p className="font-medium">{worker.email}</p>
+                      <p className="font-medium">
+                        {worker.email || "No especificado"}
+                      </p>
                     </div>
                   </div>
                   <div>
@@ -441,7 +416,9 @@ export function WorkerDetail() {
                     </Label>
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      <p className="font-medium">{worker.phone}</p>
+                      <p className="font-medium">
+                        {worker.phone || "No especificado"}
+                      </p>
                     </div>
                   </div>
                   <div>
@@ -460,10 +437,10 @@ export function WorkerDetail() {
                       Estado
                     </Label>
                     <Badge
-                      variant={worker.isActive ? "default" : "secondary"}
+                      variant={worker.active ? "default" : "secondary"}
                       className="text-xs"
                     >
-                      {worker.isActive ? "Activo" : "Inactivo"}
+                      {worker.active ? "Activo" : "Inactivo"}
                     </Badge>
                   </div>
                   <div>
@@ -777,10 +754,10 @@ export function WorkerDetail() {
                                 <div>
                                   <p className="font-medium">
                                     {appointment.patient?.firstName}{" "}
-                                    {appointment.patient?.lastName}
+                                    {appointment.patient?.paternalSurname}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    DNI: {appointment.patient?.documentId}
+                                    DNI: {appointment.patient?.documentNumber}
                                   </p>
                                 </div>
                               </TableCell>
@@ -936,16 +913,6 @@ export function WorkerDetail() {
       </div>
     </Layout>
   );
-}
-
-function Label({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn("text-sm font-medium", className)}>{children}</div>;
 }
 
 export default WorkerDetail;
