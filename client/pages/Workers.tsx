@@ -113,12 +113,22 @@ export function Workers() {
   const isAdmin = user.role === "admin";
 
   useEffect(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    setStartDate(firstDay.toISOString().split("T")[0]);
+    setEndDate(lastDay.toISOString().split("T")[0]);
+  }, []);
+
+
+  useEffect(() => {
     if (!isAdmin) {
       navigate("/dashboard");
       return;
     }
     loadWorkers();
-  }, [isAdmin, navigate, startDate, endDate]);
+  }, [isAdmin, navigate, startDate, endDate, pagination.currentPage, pagination.pageSize]);
 
   useEffect(() => {
     let filtered = workers;
@@ -142,7 +152,10 @@ export function Workers() {
   const loadWorkers = async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({ page: "1", limit: "1000" });
+      const params = new URLSearchParams({
+        page: pagination.currentPage.toString(),
+        limit: pagination.pageSize.toString(),
+      });
       if (startDate) params.append("statsStart", startDate);
       if (endDate) params.append("statsEnd", endDate);
       const resp = await apiGet<WorkersResponse>(`/user?${params.toString()}`);
@@ -268,49 +281,44 @@ export function Workers() {
         {/* Date Range Filter */}
         <Card className="card-modern">
           <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                <Label className="font-semibold">
-                  Filtrar Estadísticas por Fecha:
+            <div className="flex flex-row gap-4 items-center">
+              <div className="space-y-1">
+                <Label htmlFor="startDate" className="text-xs">
+                  Desde
                 </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-40"
+                  autoComplete="off"
+                />
               </div>
-              <div className="flex gap-4 items-center">
-                <div className="space-y-1">
-                  <Label htmlFor="startDate" className="text-xs">
-                    Desde
-                  </Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-40"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="endDate" className="text-xs">
-                    Hasta
-                  </Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-40"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setStartDate("");
-                    setEndDate("");
-                  }}
-                  size="sm"
-                >
-                  Limpiar
-                </Button>
+              <div className="space-y-1">
+                <Label htmlFor="endDate" className="text-xs">
+                  Hasta
+                </Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-40"
+                  autoComplete="off"
+                />
               </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className="mt-6"
+                size="sm"
+              >
+                Limpiar
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -404,6 +412,8 @@ export function Workers() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
+                  autoComplete="off"
+                  name="search-field"
                 />
               </div>
 
@@ -592,6 +602,7 @@ export function Workers() {
                     }
                     placeholder="Carlos"
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div className="space-y-2">
@@ -604,6 +615,7 @@ export function Workers() {
                     }
                     placeholder="Rodríguez"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -618,6 +630,7 @@ export function Workers() {
                   }
                   placeholder="carlos"
                   required
+                  autoComplete="off"
                 />
               </div>
 
@@ -632,6 +645,7 @@ export function Workers() {
                   }
                   placeholder="******"
                   required
+                  autoComplete="off" name="fake-field"
                 />
               </div>
 
@@ -702,6 +716,7 @@ export function Workers() {
                     }
                     placeholder="Carlos"
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div className="space-y-2">
@@ -714,6 +729,7 @@ export function Workers() {
                     }
                     placeholder="Rodríguez"
                     required
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -728,6 +744,7 @@ export function Workers() {
                   }
                   placeholder="carlos"
                   required
+                  autoComplete="off"
                 />
               </div>
 
@@ -741,6 +758,7 @@ export function Workers() {
                     setFormData({ ...formData, password: e.target.value })
                   }
                   placeholder="******"
+                  autoComplete="off"
                 />
               </div>
 
