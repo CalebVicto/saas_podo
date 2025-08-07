@@ -251,6 +251,7 @@ export interface ProductMovement {
   quantity: number;
   costUnit: number;
   totalCost: number;
+  salePrice?: number;
   stockAfter: number;
   relatedTable: string;
   relatedId: string;

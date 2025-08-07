@@ -208,13 +208,14 @@ export function ProductDetail() {
 
     // Populate edit form with current product data
     setEditFormData({
-      name: product.name,
-      sku: product.sku,
+      name: product.name || "",
+      sku: product.sku || "",
       description: product.description || "",
-      categoryId: product.categoryId,
-      price: product.price,
-      commission: product.commission || 0,
+      categoryId: product.categoryId || "",
+      price: product.price || 0,
+      commission: product.commission ?? 0,
     });
+
     setIsEditDialogOpen(true);
   };
 
@@ -260,10 +261,9 @@ export function ProductDetail() {
         stockTurnover: data.stockTurnover,
         profitMargin: data.profitMargin,
       };
-      setProduct(updatedProduct);
-      setMovements(data.movements);
-      setStats(productStats);
+
       setIsEditDialogOpen(false);
+      loadProductData(id);
       alert("Producto actualizado exitosamente");
     } catch (error) {
       console.error("Error updating product:", error);
@@ -472,7 +472,7 @@ export function ProductDetail() {
                       </Badge>
                     </div>
                   </div>
-                  {product.commission && (
+                  {product.commission != null && (
                     <div>
                       <Label className="text-sm text-muted-foreground">
                         Comisión por Venta
@@ -520,60 +520,61 @@ export function ProductDetail() {
           </div>
 
           {/* Quick Stats */}
-          <div className="space-y-4">
-            <Card className="card-modern">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <ShoppingCart className="w-6 h-6 text-primary" />
+          {stats && (
+            <div className="space-y-4">
+              <Card className="card-modern">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-primary/10 rounded-lg">
+                      <ShoppingCart className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Total Vendido
+                      </p>
+                      <p className="text-2xl font-bold">{stats.totalSold}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Total Vendido
-                    </p>
-                    <p className="text-2xl font-bold">{stats.totalSold}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card className="card-modern">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green/10 rounded-lg">
-                    <DollarSign className="w-6 h-6 text-green-600" />
+              <Card className="card-modern">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-green/10 rounded-lg">
+                      <DollarSign className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Ingresos Generados
+                      </p>
+                      <p className="text-2xl font-bold">
+                        S/ {stats.revenueGenerated ? stats.revenueGenerated.toFixed(2) : "0.00"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Ingresos Generados
-                    </p>
-                    <p className="text-2xl font-bold">
-                      S/ {stats.revenueGenerated.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card className="card-modern">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue/10 rounded-lg">
-                    <BarChart className="w-6 h-6 text-blue-600" />
+              <Card className="card-modern">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue/10 rounded-lg">
+                      <BarChart className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        Promedio Mensual
+                      </p>
+                      <p className="text-2xl font-bold">
+                        {stats.averageMonthlySales ? stats.averageMonthlySales.toFixed(1) : "0.0"} <span className="text-xs">UNI</span>
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Promedio Mensual
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {stats.averageMonthlySales.toFixed(1)} <span className="text-xs">UNI</span>
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            {/* <Card className="card-modern">
+              {/* <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-3 bg-purple/10 rounded-lg">
@@ -590,7 +591,8 @@ export function ProductDetail() {
                 </div>
               </CardContent>
             </Card> */}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Detailed Analytics */}
@@ -611,7 +613,7 @@ export function ProductDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {movements.length === 0 ? (
+                {movements && movements.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium">
@@ -879,7 +881,7 @@ export function ProductDetail() {
 
         {/* Edit Product Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px]" aria-describedby="edit-product-description">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Edit className="w-5 h-5 text-primary" />
@@ -914,7 +916,6 @@ export function ProductDetail() {
                         sku: e.target.value,
                       })
                     }
-                    required
                   />
                 </div>
               </div>
@@ -999,7 +1000,7 @@ export function ProductDetail() {
                   type="number"
                   step="0.01"
                   min="0"
-                  value={editFormData.commission}
+                  value={editFormData.commission ?? 0}
                   onChange={(e) =>
                     setEditFormData({
                       ...editFormData,
@@ -1035,7 +1036,6 @@ export function ProductDetail() {
                 className="btn-primary"
                 disabled={
                   !editFormData.name ||
-                  !editFormData.sku ||
                   !editFormData.categoryId ||
                   editFormData.price <= 0
                 }

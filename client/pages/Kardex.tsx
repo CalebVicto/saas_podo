@@ -48,6 +48,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { PaginatedSearchParams, PaginatedResponse } from "@shared/api";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SearchableProductSelectProps {
   products: Product[];
@@ -355,8 +356,8 @@ export default function Kardex() {
         "Costo Unitario": movement.costUnit,
         "Costo Total": movement.totalCost,
         "Stock Nuevo": movement.stockAfter,
-        Referencia: movement.relatedTable
-          ? `${movement.relatedTable} #${movement.relatedId}`
+        CostoVenta: movement.type === "salida" && movement.salePrice !== null
+          ? movement.salePrice
           : "",
       };
     });
@@ -549,7 +550,7 @@ export default function Kardex() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Stock Bajo ({`< 6`})</p>
-                  <p className="font-semibold">{summary?.lowStock.length ?? '-'}</p>
+                  <p className="font-semibold">{summary?.lowStock.length ?? '-'} <span className="text-xs text-muted-foreground">UNI</span></p>
                 </div>
               </div>
             </CardContent>
@@ -622,8 +623,30 @@ export default function Kardex() {
                   <TableHead>Producto</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-center">Cantidad</TableHead>
-                  <TableHead className="text-center">Costo Unitario</TableHead>
-                  <TableHead className="text-center">Costo Total</TableHead>
+                  <TableHead className="text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-default">Costo Compra (c/u)</TooltipTrigger>
+                        <TooltipContent>Precio unitario de compra</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-default">Costo Venta (c/u)</TooltipTrigger>
+                        <TooltipContent>Precio unitario de venta aplicado a esta salida</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="cursor-default">Costo Total</TooltipTrigger>
+                        <TooltipContent>Precio total de la compra o venta</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableHead>
                   <TableHead className="text-center">Stock Nuevo</TableHead>
                   <TableHead className="">Referencia</TableHead>
                 </TableRow>
@@ -671,14 +694,19 @@ export default function Kardex() {
                           </TableCell>
                           <TableCell className="text-center">{movement.quantity}</TableCell>
                           <TableCell className="text-center">S/ {movement.costUnit}</TableCell>
+                          <TableCell className="text-center">
+                            {movement.type === "salida" && movement.salePrice !== null
+                              ? `S/ ${movement.salePrice.toFixed(2)}`
+                              : "—"}
+                          </TableCell>
                           <TableCell className="text-center">S/ {movement.totalCost}</TableCell>
                           <TableCell className="text-center">{movement.stockAfter}</TableCell>
                           <TableCell>
-                            {(movement.relatedTable && movement.relatedId) && (
+                            {movement.relatedTable === "Sale" && movement.relatedId ? (
                               <span className="text-sm text-muted-foreground">
-                                {getLinkRelativeTable(movement.relatedTable as any, movement.relatedId)}
+                                {getLinkRelativeTable("Sale", movement.relatedId)}
                               </span>
-                            )}
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       )
@@ -756,6 +784,27 @@ export default function Kardex() {
                     required
                   />
                 </div>
+
+                {movementFormData.productId && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="salePrice">Precio de venta</Label>
+                      <div className="p-2 bg-muted/30 rounded text-sm">
+                        S/{" "}
+                        {products.find((p) => p.id === movementFormData.productId)?.price.toFixed(2) ??
+                          "0.00"}
+                      </div>
+                    </div>
+
+                    {movementFormData.price >
+                      (products.find((p) => p.id === movementFormData.productId)?.price || 0) && (
+                        <div className="bg-red-100 text-red-800 p-3 rounded-md text-sm font-medium border border-red-300">
+                          ⚠️ El precio de compra es mayor que el precio de venta. Verifica los valores antes de guardar.
+                        </div>
+                      )}
+                  </>
+                )}
+
               </div>
 
               {movementFormData.productId && (

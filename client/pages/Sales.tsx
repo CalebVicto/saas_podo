@@ -146,10 +146,21 @@ export function Sales() {
   // Sales History state
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [salesSearchTerm, setSalesSearchTerm] = useState("");
-  const [dateFilter, setDateFilter] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0]; // Formato yyyy-MM-dd
-  });
+
+  // Date filter for sales history
+  const getTodayLimaDate = () => {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Lima",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(new Date());
+  };
+
+  const [dateFilter, setDateFilter] = useState(getTodayLimaDate);
+
+  // Payment method filter
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isViewSaleDialogOpen, setIsViewSaleDialogOpen] = useState(false);
@@ -534,14 +545,16 @@ export function Sales() {
   const formatDateTime = (dateTime: string) => {
     const date = new Date(dateTime);
     return {
-      date: date.toLocaleDateString("es-ES", {
+      date: date.toLocaleDateString("es-PE", {
         year: "numeric",
         month: "short",
         day: "numeric",
+        timeZone: "America/Lima",
       }),
-      time: date.toLocaleTimeString("es-ES", {
+      time: date.toLocaleTimeString("es-PE", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "America/Lima",
       }),
     };
   };
@@ -1517,15 +1530,14 @@ export function Sales() {
                   <div className="flex justify-between">
                     <span>Fecha:</span>
                     <span>
-                      {new Date(completedSale.date).toLocaleString("es-ES",
-                        {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        },
-                      )}
+                      {new Date(completedSale.date).toLocaleString("es-PE", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "America/Lima"
+                      })}
                     </span>
                   </div>
                 </div>
