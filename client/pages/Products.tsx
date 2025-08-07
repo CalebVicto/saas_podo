@@ -266,7 +266,8 @@ export function Products() {
       slug: product.slug,
       description: product.description || "",
       // Convert category ID to string to correctly display in the Select component
-      categoryId: String(product.categoryId),
+      // categoryId: String(product.categoryId),
+      categoryId: String(product.categoryId ?? product.category?.id ?? ""),
       price: product.price,
       stock: product.stock, // Keep original stock, not editable
       sku: product.sku,
