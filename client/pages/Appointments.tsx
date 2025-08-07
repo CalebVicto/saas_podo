@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -258,10 +259,10 @@ export function Appointments() {
       });
 
       // Show success message
-      alert("Pago registrado exitosamente");
+      toast({ title: "Pago registrado exitosamente" });
     } catch (error) {
       console.error("Error creating payment:", error);
-      alert("Error al registrar el pago");
+      toast({ title: "Error al registrar el pago", variant: "destructive" });
     }
   };
 

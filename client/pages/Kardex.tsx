@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/use-toast";
 import {
   BarChart,
   Plus,
@@ -405,7 +406,7 @@ export default function Kardex() {
       setIsExportDialogOpen(false);
     } catch (error) {
       console.error("Error al exportar:", error);
-      alert("Error al exportar todos los movimientos");
+      toast({ title: "Error al exportar todos los movimientos", variant: "destructive" });
     }
   };
 
@@ -438,7 +439,7 @@ export default function Kardex() {
       await loadSummary();
     } catch (error) {
       console.error("Error adding movement:", error);
-      alert("Error al registrar el movimiento");
+      toast({ title: "Error al registrar el movimiento", variant: "destructive" });
     }
   };
 

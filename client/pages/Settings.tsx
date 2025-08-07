@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "@/components/ui/use-toast";
 import {
   Settings as SettingsIcon,
   Building,
@@ -85,12 +86,12 @@ export function Settings() {
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert("Las contraseñas no coinciden");
+      toast({ title: "Las contraseñas no coinciden", variant: "destructive" });
       return;
     }
 
     if (passwordForm.newPassword.length < 6) {
-      alert("La nueva contraseña debe tener al menos 6 caracteres");
+      toast({ title: "La nueva contraseña debe tener al menos 6 caracteres", variant: "destructive" });
       return;
     }
 
@@ -104,10 +105,10 @@ export function Settings() {
         newPassword: "",
         confirmPassword: "",
       });
-      alert("Contraseña cambiada exitosamente");
+      toast({ title: "Contraseña cambiada exitosamente" });
     } catch (error) {
       console.error("Error changing password:", error);
-      alert("Error al cambiar la contraseña");
+      toast({ title: "Error al cambiar la contraseña", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }

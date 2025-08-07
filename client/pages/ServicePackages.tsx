@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   Package,
@@ -321,9 +322,10 @@ export function ServicePackages() {
     );
 
     if (associatedPatientPackages.length > 0) {
-      alert(
-        `No se puede eliminar el paquete "${pkg.name}" porque tiene ${associatedPatientPackages.length} asignación(es) a pacientes.`,
-      );
+      toast({
+        title: `No se puede eliminar el paquete "${pkg.name}" porque tiene ${associatedPatientPackages.length} asignación(es) a pacientes.`,
+        variant: "destructive",
+      });
       return;
     }
 
