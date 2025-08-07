@@ -323,7 +323,6 @@ export function Categories() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nombre</TableHead>
-                      <TableHead>Slug</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
@@ -333,11 +332,6 @@ export function Categories() {
                       <TableRow key={category.id} className="hover:bg-muted/50">
                         <TableCell className="font-medium">
                           {category.name}
-                        </TableCell>
-                        <TableCell>
-                          <code className="text-sm bg-muted px-2 py-1 rounded">
-                            {category.slug}
-                          </code>
                         </TableCell>
                         <TableCell>
                           <Badge

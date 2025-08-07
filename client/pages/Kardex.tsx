@@ -41,7 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Product, ProductMovement, KardexMovement, Purchase } from "@shared/api";
+import { Product, ProductMovement, KardexMovement, Purchase, Sale } from "@shared/api";
 import { apiGet, apiPost, type ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
 import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
@@ -200,6 +200,8 @@ export default function Kardex() {
   const [isAddMovementDialogOpen, setIsAddMovementDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [isViewSaleDialogOpen, setIsViewSaleDialogOpen] = useState(false);
 
   const kardexPagination = useRepositoryPagination<ProductMovement>({
     initialPageSize: 15,
@@ -335,6 +337,31 @@ export default function Kardex() {
         Ver {labelMap[relatedTable]}
       </a>
     );
+  };
+
+  const viewSaleDetails = async (saleId: string) => {
+    try {
+      const resp = await apiGet<ApiResponse<Sale>>(`/sale/${saleId}`);
+      if (resp.data && resp.data.state === "success") {
+        setSelectedSale(resp.data.data);
+        setIsViewSaleDialogOpen(true);
+      } else {
+        toast({ title: "No se pudo cargar la venta", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error loading sale:", error);
+      toast({ title: "Error al cargar la venta", variant: "destructive" });
+    }
+  };
+
+  const getPaymentMethodLabel = (method: string) => {
+    const labels = {
+      efectivo: "Efectivo",
+      yape: "Yape",
+      transferencia: "Transferencia",
+      pos: "POS",
+    } as const;
+    return labels[method as keyof typeof labels] || method;
   };
 
 
@@ -704,8 +731,18 @@ export default function Kardex() {
                           <TableCell className="text-center">{movement.stockAfter}</TableCell>
                           <TableCell>
                             {movement.relatedTable === "Sale" && movement.relatedId ? (
+                              <button
+                                onClick={() => viewSaleDetails(movement.relatedId)}
+                                className="text-primary hover:underline"
+                              >
+                                Ver Venta
+                              </button>
+                            ) : movement.relatedTable && movement.relatedId ? (
                               <span className="text-sm text-muted-foreground">
-                                {getLinkRelativeTable("Sale", movement.relatedId)}
+                                {getLinkRelativeTable(
+                                  movement.relatedTable as "Purchase" | "PurchaseReturn" | "Sale",
+                                  movement.relatedId,
+                                )}
                               </span>
                             ) : null}
                           </TableCell>
@@ -717,6 +754,128 @@ export default function Kardex() {
             </Table>
           </CardContent>
         </Card>
+
+        {/* View Sale Details Dialog */}
+        <Dialog
+          open={isViewSaleDialogOpen}
+          onOpenChange={setIsViewSaleDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detalle de Venta</DialogTitle>
+            </DialogHeader>
+
+            {selectedSale && (
+              <div className="space-y-6 py-4">
+                {selectedSale.state === "anulada" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                    <Badge variant="destructive" className="w-fit">Venta Anulada</Badge>
+                    {selectedSale.cancelReason && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Motivo: {selectedSale.cancelReason}
+                      </p>
+                    )}
+                    {selectedSale.canceledAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Fecha de anulación:{" "}
+                        {new Date(selectedSale.canceledAt).toLocaleString("es-PE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                    {selectedSale.canceledBy && (
+                      <p className="text-sm text-muted-foreground">
+                        Anulado por: <span className="font-medium">{selectedSale.canceledBy.firstName} {selectedSale.canceledBy.lastName}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">Información de la Venta</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Fecha y Hora</Label>
+                        <p className="font-medium">
+                          {new Date(selectedSale.date).toLocaleString("es-ES")}
+                        </p>
+                      </div>
+                      <div className="flex flex-col">
+                        <Label className="text-muted-foreground text-sm">Método de Pago</Label>
+                        <Badge variant="outline" className="mt-1 w-fit">
+                          {getPaymentMethodLabel(selectedSale.paymentMethod || "")}
+                        </Badge>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Total</Label>
+                        <p className="font-bold text-xl text-primary">
+                          S/ {selectedSale.totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">Cliente</h3>
+                    <div className="space-y-4">
+                      {selectedSale.patient ? (
+                        <>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Nombre</Label>
+                            <p className="font-medium">
+                              {selectedSale.patient.firstName}{" "}
+                              {selectedSale.patient.paternalSurname}{" "}
+                              {selectedSale.patient.maternalSurname}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">
+                              {selectedSale.patient.documentType === "dni" ? "DNI" : "Pasaporte"}
+                            </Label>
+                            <p className="font-medium">{selectedSale.patient.documentNumber}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Teléfono</Label>
+                            <p className="font-medium">{selectedSale.patient.phone}</p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground">Venta general (sin cliente)</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-foreground mb-3">Productos Vendidos</h3>
+                  <div className="space-y-3 overflow-y-auto max-h-[300px]">
+                    {selectedSale.saleItems.map((item) => (
+                      <div
+                        key={`${item.product?.id}-${item.quantity}`}
+                        className="flex items-center justify-between p-3 border border-border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium">{item.product?.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Cantidad: {item.quantity}
+                          </p>
+                        </div>
+                        <p className="font-medium">
+                          S/ {(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Add Movement Dialog */}
         <Dialog
