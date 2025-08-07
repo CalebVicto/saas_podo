@@ -438,7 +438,7 @@ export function ProductDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm text-muted-foreground">SKU</Label>
-                    <p className="font-medium">{product.sku == "" ? '-' : product.sku}</p>
+                    <p className="font-medium">{(product.sku == "" || product.sku == null) ? '-' : product.sku}</p>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">
@@ -706,55 +706,66 @@ export function ProductDetail() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {monthlySales.map((month, index) => (
-                    <div
-                      key={month.month}
-                      className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <span className="font-semibold text-primary">
-                            {formatMonth(month.month)}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {month.sales} unidades vendidas
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            S/ {month.revenue.toFixed(2)} en ingresos
-                          </p>
-                        </div>
+                  {
+                    monthlySales.length == 0 ?
+                      <div className="text-center py-8 text-muted-foreground">
+                        <BarChart className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-medium">
+                          No hay ventas registradas
+                        </p>
+                        <p className="text-sm">
+                          Las ventas mensuales aparecerán aquí
+                        </p>
                       </div>
-                      <div className="text-right">
-                        {index > 0 && (
-                          <div className="flex items-center gap-1">
-                            {month.sales > monthlySales[index - 1].sales ? (
-                              <TrendingUp className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <TrendingDown className="w-4 h-4 text-red-600" />
-                            )}
-                            <span
-                              className={cn(
-                                "text-xs font-medium",
-                                month.sales > monthlySales[index - 1].sales
-                                  ? "text-green-600"
-                                  : "text-red-600",
-                              )}
-                            >
-                              {(
-                                ((month.sales -
-                                  monthlySales[index - 1].sales) /
-                                  monthlySales[index - 1].sales) *
-                                100
-                              ).toFixed(1)}
-                              %
-                            </span>
+                      : monthlySales.map((month, index) => (
+                        <div
+                          key={month.month}
+                          className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                              <span className="font-semibold text-primary">
+                                {formatMonth(month.month)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {month.sales} unidades vendidas
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                S/ {month.revenue.toFixed(2)} en ingresos
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                          <div className="text-right">
+                            {index > 0 && (
+                              <div className="flex items-center gap-1">
+                                {month.sales > monthlySales[index - 1].sales ? (
+                                  <TrendingUp className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <TrendingDown className="w-4 h-4 text-red-600" />
+                                )}
+                                <span
+                                  className={cn(
+                                    "text-xs font-medium",
+                                    month.sales > monthlySales[index - 1].sales
+                                      ? "text-green-600"
+                                      : "text-red-600",
+                                  )}
+                                >
+                                  {(
+                                    ((month.sales -
+                                      monthlySales[index - 1].sales) /
+                                      monthlySales[index - 1].sales) *
+                                    100
+                                  ).toFixed(1)}
+                                  %
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                 </div>
               </CardContent>
             </Card>
@@ -782,7 +793,8 @@ export function ProductDetail() {
                       Última Venta
                     </span>
                     <span className="font-semibold">
-                      {new Date(stats.lastMovementDate).toLocaleDateString()}
+                      {stats.lastMovementDate ?
+                        new Date(stats.lastMovementDate).toLocaleDateString() : '-'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
