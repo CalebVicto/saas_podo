@@ -72,6 +72,20 @@ interface ProductMovement {
   reference: string;
 }
 
+// Map movement reasons from English to Spanish for display
+const reasonTranslations: Record<string, string> = {
+  purchase: "Compra",
+  sale: "Venta",
+  adjustment: "Ajuste",
+  return: "Devolución",
+  donation: "Donación",
+  transfer: "Transferencia",
+};
+
+const translateReason = (reason: string) => {
+  return reasonTranslations[reason] || reason;
+};
+
 interface Product {
   id: string;
   name: string;
@@ -675,7 +689,7 @@ export function ProductDetail() {
                                   {movement.quantity}
                                 </span>
                               </TableCell>
-                              <TableCell>{movement.reason}</TableCell>
+                              <TableCell>{translateReason(movement.reason)}</TableCell>
                               <TableCell>{movement.previousStock}</TableCell>
                               <TableCell>{movement.newStock}</TableCell>
                               <TableCell>

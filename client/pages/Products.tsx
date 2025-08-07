@@ -143,8 +143,12 @@ export function Products() {
       if (resp.error || !resp.data) {
         throw new Error(resp.error || "Failed to fetch categories");
       }
-
-      setCategories(resp.data.data.data);
+      // Ensure category IDs are treated as strings for Select component
+      const loadedCategories = resp.data.data.data.map((c) => ({
+        ...c,
+        id: String(c.id),
+      }));
+      setCategories(loadedCategories);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -261,7 +265,8 @@ export function Products() {
       name: product.name,
       slug: product.slug,
       description: product.description || "",
-      categoryId: product.categoryId,
+      // Convert category ID to string to correctly display in the Select component
+      categoryId: String(product.categoryId),
       price: product.price,
       stock: product.stock, // Keep original stock, not editable
       sku: product.sku,
