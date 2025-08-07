@@ -4,24 +4,23 @@ import {
   Users,
   Plus,
   Search,
-  Filter,
   Edit,
   Eye,
   UserCheck,
   UserX,
   Calendar,
-  DollarSign,
-  Clock,
-  TrendingUp,
-  Save,
   Mail,
-  Phone,
   Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -29,62 +28,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
-import {
-  Worker,
-  Appointment,
-  Payment,
-  Sale,
-  SaleItem,
-  CreateWorkerRequest,
-} from "@shared/api";
-import {
-  getAllMockWorkers,
-  getMockAppointments,
-  getMockPayments,
-  mockSales,
-  mockSaleItems,
-  getAllMockProducts,
-} from "@/lib/mockData";
 import Layout from "@/components/Layout";
 import {
   Pagination,
   usePagination,
-  paginateArray,
 } from "@/components/ui/pagination";
+import { apiGet, apiPut, apiPost } from "@/lib/auth";
 
-// Predefined worker types
-const WORKER_TYPES = [
-  "Podólogo",
-  "Doctor",
-  "Enfermero",
-  "Masajista",
-  "Fisioterapeuta",
-  "Técnico en Podología",
-  "Asistente",
-];
+interface WorkerStats {
+  totalAppointments: number;
+  completedAppointments: number;
+  thisMonthAppointments: number;
+  totalEarnings: number;
+  totalRevenue: number;
+  totalCommissions: number;
+  salesCount: number;
+  averagePerAppointment: number;
+}
 
-interface User {
+interface Worker {
   id: string;
-  role: "admin" | "worker";
+  firstName: string;
+  lastName: string;
+  username: string;
+  role: "admin" | "trabajador";
+  tenantId: string;
+  active: boolean;
+  newPassword: boolean;
+  createdAt: string;
+  updatedAt: string;
+  stats: WorkerStats;
 }
 
 interface CreateWorkerRequest {
   firstName: string;
   lastName: string;
-  email: string;
-  phone: string;
-  specialization?: string;
-  isActive: boolean;
+  username: string;
+  password: string;
+  role: "admin" | "trabajador";
+  active: boolean;
+}
+
+interface WorkersResponse {
+  state: string;
+  message: string;
+  data: {
+    data: Worker[];
+    total: number;
+    page: number;
+    limit: number;
+  };
 }
 
 export function Workers() {
@@ -92,84 +88,67 @@ export function Workers() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<CreateWorkerRequest>({
+    firstName: "",
+    lastName: "",
+    username: "",
+    password: "",
+    role: "trabajador",
+    active: true,
+  });
 
-  // Pagination
   const pagination = usePagination({
     totalItems: filteredWorkers.length,
     initialPageSize: 9,
   });
 
-  // Form state for new/edit worker
-  const [formData, setFormData] = useState<CreateWorkerRequest>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    specialization: "",
-    workerType: "",
-    isActive: true,
-    hasSystemAccess: false,
-    systemPassword: "",
-  });
-
-  // Date range for stats filtering
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-
-  // Check user role
   const user = JSON.parse(localStorage.getItem("podocare_user") || "{}");
   const isAdmin = user.role === "admin";
 
-  // Load workers on component mount
   useEffect(() => {
     if (!isAdmin) {
       navigate("/dashboard");
       return;
     }
     loadWorkers();
-  }, [isAdmin, navigate]);
+  }, [isAdmin, navigate, startDate, endDate]);
 
-  // Filter workers based on search and filters
   useEffect(() => {
     let filtered = workers;
-
-    // Text search
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        (worker) =>
-          worker.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          worker.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          worker.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          worker.specialization
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()),
+        (w) =>
+          w.firstName.toLowerCase().includes(term) ||
+          w.lastName.toLowerCase().includes(term) ||
+          w.username.toLowerCase().includes(term),
       );
     }
-
-    // Status filter
     if (statusFilter !== "all") {
-      const isActive = statusFilter === "active";
-      filtered = filtered.filter((worker) => worker.isActive === isActive);
+      const active = statusFilter === "active";
+      filtered = filtered.filter((w) => w.active === active);
     }
-
     setFilteredWorkers(filtered);
-    // Reset pagination when filters change
     pagination.resetPagination();
   }, [workers, searchTerm, statusFilter, pagination]);
 
   const loadWorkers = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockWorkers = getAllMockWorkers();
-      setWorkers(mockWorkers);
+      const params = new URLSearchParams({ page: "1", limit: "1000" });
+      if (startDate) params.append("statsStart", startDate);
+      if (endDate) params.append("statsEnd", endDate);
+      const resp = await apiGet<WorkersResponse>(`/user?${params.toString()}`);
+      if (!resp.error && resp.data) {
+        setWorkers(resp.data.data.data);
+      }
     } catch (error) {
       console.error("Error loading workers:", error);
     } finally {
@@ -177,62 +156,18 @@ export function Workers() {
     }
   };
 
-  const handleAddWorker = async () => {
+  const handleToggleStatus = async (id: string) => {
+    const worker = workers.find((w) => w.id === id);
+    if (!worker) return;
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newWorker: Worker = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setWorkers([...workers, newWorker]);
-      setIsAddDialogOpen(false);
-      resetForm();
-    } catch (error) {
-      console.error("Error adding worker:", error);
-    }
-  };
-
-  const handleEditWorker = async () => {
-    if (!selectedWorker) return;
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const updatedWorker: Worker = {
-        ...selectedWorker,
-        ...formData,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setWorkers(
-        workers.map((w) => (w.id === selectedWorker.id ? updatedWorker : w)),
-      );
-      setIsEditDialogOpen(false);
-      setSelectedWorker(null);
-      resetForm();
-    } catch (error) {
-      console.error("Error updating worker:", error);
-    }
-  };
-
-  const handleToggleStatus = async (workerId: string) => {
-    try {
-      const worker = workers.find((w) => w.id === workerId);
-      if (!worker) return;
-
-      const updatedWorker = {
-        ...worker,
-        isActive: !worker.isActive,
-        updatedAt: new Date().toISOString(),
-      };
-
-      setWorkers(workers.map((w) => (w.id === workerId ? updatedWorker : w)));
+      const resp = await apiPut(`/user/${id}`, { active: !worker.active });
+      if (!resp.error) {
+        setWorkers(
+          workers.map((w) =>
+            w.id === id ? { ...w, active: !w.active } : w,
+          ),
+        );
+      }
     } catch (error) {
       console.error("Error updating worker status:", error);
     }
@@ -242,13 +177,10 @@ export function Workers() {
     setFormData({
       firstName: "",
       lastName: "",
-      email: "",
-      phone: "",
-      specialization: "",
-      workerType: "",
-      isActive: true,
-      hasSystemAccess: false,
-      systemPassword: "",
+      username: "",
+      password: "",
+      role: "trabajador",
+      active: true,
     });
   };
 
@@ -257,85 +189,55 @@ export function Workers() {
     setFormData({
       firstName: worker.firstName,
       lastName: worker.lastName,
-      email: worker.email,
-      phone: worker.phone,
-      specialization: worker.specialization || "",
-      workerType: worker.workerType || "",
-      isActive: worker.isActive,
-      hasSystemAccess: worker.hasSystemAccess || false,
-      systemPassword: worker.systemPassword || "",
+      username: worker.username,
+      password: "",
+      role: worker.role,
+      active: worker.active,
     });
     setIsEditDialogOpen(true);
   };
 
-  const openViewDialog = (worker: Worker) => {
-    setSelectedWorker(worker);
-    setIsViewDialogOpen(true);
+  const handleAddWorker = async () => {
+    try {
+      const payload = {
+        ...formData,
+        tenantId: user.tenantId,
+        newPassword: true,
+      };
+      const resp = await apiPost("/user", payload);
+      if (!resp.error) {
+        setIsAddDialogOpen(false);
+        resetForm();
+        loadWorkers();
+      }
+    } catch (error) {
+      console.error("Error adding worker:", error);
+    }
   };
 
-  const getWorkerStats = (
-    workerId: string,
-    startDate?: Date,
-    endDate?: Date,
-  ) => {
-    const appointments = getMockAppointments().filter(
-      (apt) => apt.workerId === workerId,
-    );
-
-    let filteredAppointments = appointments;
-    if (startDate && endDate) {
-      filteredAppointments = appointments.filter((apt) => {
-        const aptDate = new Date(apt.dateTime);
-        return aptDate >= startDate && aptDate <= endDate;
-      });
+  const handleEditWorker = async () => {
+    if (!selectedWorker) return;
+    try {
+      const payload: any = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username,
+        role: formData.role,
+        active: formData.active,
+      };
+      if (formData.password) {
+        payload.password = formData.password;
+      }
+      const resp = await apiPut(`/user/${selectedWorker.id}`, payload);
+      if (!resp.error) {
+        setIsEditDialogOpen(false);
+        setSelectedWorker(null);
+        resetForm();
+        loadWorkers();
+      }
+    } catch (error) {
+      console.error("Error updating worker:", error);
     }
-
-    const completedAppointments = filteredAppointments.filter(
-      (apt) => apt.status === "completed",
-    );
-
-    const appointmentIds = completedAppointments.map((apt) => apt.id);
-    const payments = getMockPayments().filter((payment) =>
-      appointmentIds.includes(payment.appointmentId || ""),
-    );
-    const totalEarnings = payments.reduce((sum, p) => sum + p.amount, 0);
-
-    // Calculate bonuses from sales
-    const workerSales = mockSales.filter((sale) => sale.sellerId === workerId);
-    const products = getAllMockProducts();
-
-    let totalCommissions = 0;
-    workerSales.forEach((sale) => {
-      sale.saleItems.forEach((item: SaleItem) => {
-        const product = products.find((p) => p.id === item.productId);
-        if (product?.commission) {
-          // For simplicity, assume all sales qualify for commission
-          totalCommissions += product.commission * item.quantity;
-        }
-      });
-    });
-
-    const totalRevenue =
-      totalEarnings +
-      workerSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
-
-    return {
-      totalAppointments: appointments.length,
-      completedAppointments: completedAppointments.length,
-      totalEarnings,
-      totalCommissions,
-      totalRevenue,
-      thisMonthAppointments: appointments.filter(
-        (apt) =>
-          new Date(apt.dateTime).getMonth() === new Date().getMonth() &&
-          new Date(apt.dateTime).getFullYear() === new Date().getFullYear(),
-      ).length,
-      salesCount: workerSales.length,
-      averagePerAppointment:
-        completedAppointments.length > 0
-          ? totalRevenue / completedAppointments.length
-          : 0,
-    };
   };
 
   if (!isAdmin) return null;
@@ -441,7 +343,7 @@ export function Workers() {
                     Activos
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    {workers.filter((w) => w.isActive).length}
+                    {workers.filter((w) => w.active).length}
                   </p>
                 </div>
                 <div className="p-3 bg-success/10 rounded-xl">
@@ -459,7 +361,7 @@ export function Workers() {
                     Inactivos
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    {workers.filter((w) => !w.isActive).length}
+                    {workers.filter((w) => !w.active).length}
                   </p>
                 </div>
                 <div className="p-3 bg-destructive/10 rounded-xl">
@@ -477,15 +379,10 @@ export function Workers() {
                     Citas Este Mes
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    {
-                      getMockAppointments().filter(
-                        (apt) =>
-                          new Date(apt.dateTime).getMonth() ===
-                            new Date().getMonth() &&
-                          new Date(apt.dateTime).getFullYear() ===
-                            new Date().getFullYear(),
-                      ).length
-                    }
+                    {workers.reduce(
+                      (sum, w) => sum + (w.stats?.thisMonthAppointments ?? 0),
+                      0,
+                    )}
                   </p>
                 </div>
                 <div className="p-3 bg-secondary/10 rounded-xl">
@@ -503,7 +400,7 @@ export function Workers() {
               <div className="relative flex-1">
                 <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nombre, email o especialización..."
+                  placeholder="Buscar por nombre o usuario..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -520,234 +417,158 @@ export function Workers() {
                   <SelectItem value="inactive">Inactivos</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSearchTerm("");
-                  setStatusFilter("all");
-                }}
-                className="flex items-center gap-2"
-              >
-                <Filter className="w-4 h-4" />
-                Limpiar
-              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Workers Grid */}
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {isLoading ? (
-              // Loading skeletons
-              Array.from({ length: pagination.pageSize }).map((_, i) => (
-                <Card key={i} className="card-modern">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading && <p>Cargando...</p>}
+          {!isLoading && filteredWorkers.length === 0 && (
+            <p className="text-center text-muted-foreground">
+              No se encontraron trabajadores.
+            </p>
+          )}
+
+          {filteredWorkers
+            .slice(pagination.startIndex, pagination.endIndex)
+            .map((worker) => {
+              const stats = worker.stats;
+              return (
+                <Card
+                  key={worker.id}
+                  className="card-modern hover:shadow-lg transition-all duration-200"
+                >
                   <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="loading-shimmer h-6 rounded"></div>
-                      <div className="loading-shimmer h-4 rounded"></div>
-                      <div className="loading-shimmer h-4 w-2/3 rounded"></div>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Users className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-foreground">
+                            {worker.firstName} {worker.lastName}
+                          </h3>
+                          <p className="text-sm text-muted-foreground capitalize">
+                            {worker.role}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={
+                            worker.active ? "status-success" : "status-error"
+                          }
+                        >
+                          {worker.active ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Usuario:</span>
+                        <span className="font-medium truncate">
+                          {worker.username}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Award className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Rol:</span>
+                        <span className="font-medium capitalize">
+                          {worker.role}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Performance Stats */}
+                    <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-foreground">
+                          {stats.completedAppointments}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Citas completadas
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-foreground">
+                          S/ {stats.totalRevenue.toFixed(0)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Ingresos totales
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-green-600">
+                          S/ {stats.totalCommissions.toFixed(0)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Bonos ganados
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-foreground">
+                          {stats.salesCount}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Ventas</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => navigate(`/workers/${worker.id}`)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Ver Detalle
+                      </Button>
+                      <Button
+                        onClick={() => openEditDialog(worker)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Editar
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                      <span className="text-sm font-medium">Estado:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          {worker.active ? "Activo" : "Inactivo"}
+                        </span>
+                        <Switch
+                          checked={worker.active}
+                          onCheckedChange={() => handleToggleStatus(worker.id)}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            ) : filteredWorkers.length === 0 ? (
-              <div className="col-span-full text-center py-12">
-                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {searchTerm
-                    ? "No se encontraron trabajadores"
-                    : "No hay trabajadores registrados"}
-                </h3>
-                <p className="text-muted-foreground mb-6">
-                  {searchTerm
-                    ? "Intenta con otros términos de búsqueda"
-                    : "Comienza agregando tu primer trabajador"}
-                </p>
-                {!searchTerm && (
-                  <Button
-                    onClick={() => setIsAddDialogOpen(true)}
-                    className="btn-primary"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Agregar Trabajador
-                  </Button>
-                )}
-              </div>
-            ) : (
-              paginateArray(
-                filteredWorkers,
-                pagination.currentPage,
-                pagination.pageSize,
-              ).map((worker) => {
-                const dateRange =
-                  startDate && endDate
-                    ? {
-                        startDate: new Date(startDate),
-                        endDate: new Date(endDate),
-                      }
-                    : undefined;
-                const stats = getWorkerStats(
-                  worker.id,
-                  dateRange?.startDate,
-                  dateRange?.endDate,
-                );
-
-                return (
-                  <Card
-                    key={worker.id}
-                    className="card-modern hover:shadow-lg transition-all duration-200"
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Users className="w-6 h-6 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground">
-                              {worker.firstName} {worker.lastName}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {worker.specialization || "Sin especialización"}
-                            </p>
-                            {worker.workerType && (
-                              <p className="text-xs text-primary font-medium">
-                                {worker.workerType}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            variant="outline"
-                            className={
-                              worker.isActive
-                                ? "status-success"
-                                : "status-error"
-                            }
-                          >
-                            {worker.isActive ? "Activo" : "Inactivo"}
-                          </Badge>
-                          {worker.hasSystemAccess && (
-                            <Badge
-                              variant="outline"
-                              className="text-blue-600 border-blue-600"
-                            >
-                              Acceso Sistema
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Email:</span>
-                          <span className="font-medium truncate">
-                            {worker.email}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Tel:</span>
-                          <span className="font-medium">{worker.phone}</span>
-                        </div>
-                      </div>
-
-                      {/* Performance Stats */}
-                      <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
-                        <div className="text-center">
-                          <p className="text-lg font-bold text-foreground">
-                            {stats.completedAppointments}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Citas completadas
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold text-foreground">
-                            S/ {stats.totalRevenue.toFixed(0)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Ingresos totales
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold text-green-600">
-                            S/ {stats.totalCommissions.toFixed(0)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Bonos ganados
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold text-foreground">
-                            {stats.salesCount}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Ventas
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => navigate(`/workers/${worker.id}`)}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Ver Detalle
-                        </Button>
-                        <Button
-                          onClick={() => openEditDialog(worker)}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Editar
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                        <span className="text-sm font-medium">Estado:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">
-                            {worker.isActive ? "Activo" : "Inactivo"}
-                          </span>
-                          <Switch
-                            checked={worker.isActive}
-                            onCheckedChange={() =>
-                              handleToggleStatus(worker.id)
-                            }
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
-
-          {/* Pagination */}
-          {filteredWorkers.length > 0 && (
-            <Pagination
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              totalItems={filteredWorkers.length}
-              pageSize={pagination.pageSize}
-              onPageChange={pagination.goToPage}
-              onPageSizeChange={pagination.setPageSize}
-              showPageSizeSelector={true}
-              pageSizeOptions={[6, 9, 12, 18]}
-            />
-          )}
+              );
+            })}
         </div>
+
+        {/* Pagination */}
+        {filteredWorkers.length > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={filteredWorkers.length}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.goToPage}
+            onPageSizeChange={pagination.setPageSize}
+            showPageSizeSelector={true}
+            pageSizeOptions={[6, 9, 12, 18]}
+          />
+        )}
 
         {/* Add Worker Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -788,149 +609,73 @@ export function Workers() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="username">Usuario *</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
+                  id="username"
+                  value={formData.username}
                   onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
+                    setFormData({ ...formData, username: e.target.value })
                   }
-                  placeholder="carlos@podocare.com"
+                  placeholder="carlos"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Teléfono *</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="+51 987 654 321"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="specialization">Especialización</Label>
-                  <Input
-                    id="specialization"
-                    value={formData.specialization}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        specialization: e.target.value,
-                      })
-                    }
-                    placeholder="Podología General"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Contraseña *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  placeholder="******"
+                  required
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="workerType">Tipo de Trabajador</Label>
+                <Label>Rol *</Label>
                 <Select
-                  value={formData.workerType}
+                  value={formData.role}
                   onValueChange={(value) =>
                     setFormData({
                       ...formData,
-                      workerType: value,
+                      role: value as "admin" | "trabajador",
                     })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo..." />
+                    <SelectValue placeholder="Seleccionar rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    {WORKER_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="trabajador">Trabajador</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="isActive"
-                    checked={formData.isActive}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, isActive: checked })
-                    }
-                  />
-                  <Label htmlFor="isActive">Trabajador activo</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="hasSystemAccess"
-                    checked={formData.hasSystemAccess}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        hasSystemAccess: checked,
-                        systemPassword: checked ? formData.systemPassword : "",
-                      })
-                    }
-                  />
-                  <Label htmlFor="hasSystemAccess">
-                    Permitir acceso al sistema
-                  </Label>
-                </div>
-
-                {formData.hasSystemAccess && (
-                  <div className="space-y-2">
-                    <Label htmlFor="systemPassword">
-                      Contraseña del Sistema
-                    </Label>
-                    <Input
-                      id="systemPassword"
-                      type="password"
-                      value={formData.systemPassword}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          systemPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Contraseña para acceder al sistema"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Si se deja vacío, se generará una contraseña automática
-                    </p>
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="active">Activo</Label>
+                <Switch
+                  id="active"
+                  checked={formData.active}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, active: checked })
+                  }
+                />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setIsAddDialogOpen(false);
-                  resetForm();
-                }}
+                onClick={() => setIsAddDialogOpen(false)}
               >
                 Cancelar
               </Button>
-              <Button
-                onClick={handleAddWorker}
-                className="btn-primary"
-                disabled={
-                  !formData.firstName ||
-                  !formData.lastName ||
-                  !formData.email ||
-                  !formData.phone
-                }
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Trabajador
-              </Button>
+              <Button onClick={handleAddWorker}>Guardar</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -940,7 +685,7 @@ export function Workers() {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Edit className="w-5 h-5 text-primary" />
+                <Users className="w-5 h-5 text-primary" />
                 Editar Trabajador
               </DialogTitle>
             </DialogHeader>
@@ -948,427 +693,98 @@ export function Workers() {
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="editFirstName">Nombres *</Label>
+                  <Label htmlFor="edit-firstName">Nombres *</Label>
                   <Input
-                    id="editFirstName"
+                    id="edit-firstName"
                     value={formData.firstName}
                     onChange={(e) =>
                       setFormData({ ...formData, firstName: e.target.value })
                     }
+                    placeholder="Carlos"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="editLastName">Apellidos *</Label>
+                  <Label htmlFor="edit-lastName">Apellidos *</Label>
                   <Input
-                    id="editLastName"
+                    id="edit-lastName"
                     value={formData.lastName}
                     onChange={(e) =>
                       setFormData({ ...formData, lastName: e.target.value })
                     }
+                    placeholder="Rodríguez"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="editEmail">Email *</Label>
+                <Label htmlFor="edit-username">Usuario *</Label>
                 <Input
-                  id="editEmail"
-                  type="email"
-                  value={formData.email}
+                  id="edit-username"
+                  value={formData.username}
                   onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
+                    setFormData({ ...formData, username: e.target.value })
                   }
+                  placeholder="carlos"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editPhone">Teléfono *</Label>
-                  <Input
-                    id="editPhone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editSpecialization">Especialización</Label>
-                  <Input
-                    id="editSpecialization"
-                    value={formData.specialization}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        specialization: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-password">Contraseña</Label>
+                <Input
+                  id="edit-password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  placeholder="******"
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="editWorkerType">Tipo de Trabajador</Label>
+                <Label>Rol *</Label>
                 <Select
-                  value={formData.workerType}
+                  value={formData.role}
                   onValueChange={(value) =>
                     setFormData({
                       ...formData,
-                      workerType: value,
+                      role: value as "admin" | "trabajador",
                     })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo..." />
+                    <SelectValue placeholder="Seleccionar rol" />
                   </SelectTrigger>
                   <SelectContent>
-                    {WORKER_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="trabajador">Trabajador</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="editIsActive"
-                    checked={formData.isActive}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, isActive: checked })
-                    }
-                  />
-                  <Label htmlFor="editIsActive">Trabajador activo</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="editHasSystemAccess"
-                    checked={formData.hasSystemAccess}
-                    onCheckedChange={(checked) =>
-                      setFormData({
-                        ...formData,
-                        hasSystemAccess: checked,
-                        systemPassword: checked ? formData.systemPassword : "",
-                      })
-                    }
-                  />
-                  <Label htmlFor="editHasSystemAccess">
-                    Permitir acceso al sistema
-                  </Label>
-                </div>
-
-                {formData.hasSystemAccess && (
-                  <div className="space-y-2">
-                    <Label htmlFor="editSystemPassword">
-                      Contraseña del Sistema
-                    </Label>
-                    <Input
-                      id="editSystemPassword"
-                      type="password"
-                      value={formData.systemPassword}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          systemPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Nueva contraseña (dejar vacío para mantener actual)"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Dejar vacío para mantener la contraseña actual
-                    </p>
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="edit-active">Activo</Label>
+                <Switch
+                  id="edit-active"
+                  checked={formData.active}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, active: checked })
+                  }
+                />
               </div>
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => {
-                  setIsEditDialogOpen(false);
-                  setSelectedWorker(null);
-                  resetForm();
-                }}
+                onClick={() => setIsEditDialogOpen(false)}
               >
                 Cancelar
               </Button>
-              <Button
-                onClick={handleEditWorker}
-                className="btn-primary"
-                disabled={
-                  !formData.firstName ||
-                  !formData.lastName ||
-                  !formData.email ||
-                  !formData.phone
-                }
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Actualizar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* View Worker Dialog */}
-        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-primary" />
-                Perfil del Trabajador
-              </DialogTitle>
-            </DialogHeader>
-
-            {selectedWorker && (
-              <div className="space-y-6 py-4">
-                {/* Worker Info */}
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-3">
-                      Información Personal
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Nombre Completo
-                        </Label>
-                        <p className="font-medium">
-                          {selectedWorker.firstName} {selectedWorker.lastName}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Email
-                        </Label>
-                        <p className="font-medium">{selectedWorker.email}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Teléfono
-                        </Label>
-                        <p className="font-medium">{selectedWorker.phone}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Especialización
-                        </Label>
-                        <p className="font-medium">
-                          {selectedWorker.specialization ||
-                            "Sin especialización"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Tipo de Trabajador
-                        </Label>
-                        <p className="font-medium">
-                          {selectedWorker.workerType || "No especificado"}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-sm">
-                          Estado
-                        </Label>
-                        <Badge
-                          variant="outline"
-                          className={
-                            selectedWorker.isActive
-                              ? "status-success"
-                              : "status-error"
-                          }
-                        >
-                          {selectedWorker.isActive ? "Activo" : "Inactivo"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-3">
-                      Estadísticas de Rendimiento
-                    </h3>
-                    <div className="space-y-3">
-                      {(() => {
-                        const dateRange =
-                          startDate && endDate
-                            ? {
-                                startDate: new Date(startDate),
-                                endDate: new Date(endDate),
-                              }
-                            : undefined;
-                        const stats = getWorkerStats(
-                          selectedWorker.id,
-                          dateRange?.startDate,
-                          dateRange?.endDate,
-                        );
-                        return (
-                          <>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Total de Citas
-                              </Label>
-                              <p className="font-medium">
-                                {stats.totalAppointments}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Citas Completadas
-                              </Label>
-                              <p className="font-medium">
-                                {stats.completedAppointments}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Ingresos por Citas
-                              </Label>
-                              <p className="font-medium">
-                                S/ {stats.totalEarnings.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Bonos por Medicamentos
-                              </Label>
-                              <p className="font-medium text-green-600">
-                                S/ {stats.totalCommissions.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Total de Ventas
-                              </Label>
-                              <p className="font-medium">{stats.salesCount}</p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Ingresos Totales
-                              </Label>
-                              <p className="font-medium text-lg">
-                                S/ {stats.totalRevenue.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Promedio por Cita
-                              </Label>
-                              <p className="font-medium">
-                                S/ {stats.averagePerAppointment.toFixed(2)}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-muted-foreground text-sm">
-                                Trabajador desde
-                              </Label>
-                              <p className="font-medium">
-                                {new Date(
-                                  selectedWorker.createdAt,
-                                ).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recent Appointments */}
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">
-                    Citas Recientes
-                  </h3>
-                  {(() => {
-                    const appointments = getMockAppointments()
-                      .filter((apt) => apt.workerId === selectedWorker.id)
-                      .sort(
-                        (a, b) =>
-                          new Date(b.dateTime).getTime() -
-                          new Date(a.dateTime).getTime(),
-                      )
-                      .slice(0, 5);
-
-                    return appointments.length > 0 ? (
-                      <div className="space-y-3">
-                        {appointments.map((appointment) => (
-                          <div
-                            key={appointment.id}
-                            className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium text-sm">
-                                {appointment.patient?.firstName}{" "}
-                                {appointment.patient?.lastName}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {new Date(
-                                  appointment.dateTime,
-                                ).toLocaleDateString()}{" "}
-                                - {appointment.treatmentNotes || "Sin notas"}
-                              </p>
-                            </div>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                appointment.status === "completed" &&
-                                  "status-success",
-                                appointment.status === "scheduled" &&
-                                  "status-info",
-                                appointment.status === "cancelled" &&
-                                  "status-error",
-                              )}
-                            >
-                              {appointment.status === "completed" &&
-                                "Completada"}
-                              {appointment.status === "scheduled" &&
-                                "Programada"}
-                              {appointment.status === "cancelled" &&
-                                "Cancelada"}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        No hay citas registradas
-                      </p>
-                    );
-                  })()}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (selectedWorker) {
-                    openEditDialog(selectedWorker);
-                    setIsViewDialogOpen(false);
-                  }
-                }}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Editar
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsViewDialogOpen(false);
-                  setSelectedWorker(null);
-                }}
-                className="btn-primary"
-              >
-                Cerrar
-              </Button>
+              <Button onClick={handleEditWorker}>Guardar</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1378,3 +794,4 @@ export function Workers() {
 }
 
 export default Workers;
+
