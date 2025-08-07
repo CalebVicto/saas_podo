@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Package,
@@ -264,10 +265,10 @@ export function ProductDetail() {
 
       setIsEditDialogOpen(false);
       loadProductData(id);
-      alert("Producto actualizado exitosamente");
+      toast({ title: "Producto actualizado exitosamente" });
     } catch (error) {
       console.error("Error updating product:", error);
-      alert("Error al actualizar el producto");
+      toast({ title: "Error al actualizar el producto", variant: "destructive" });
     }
   };
 
@@ -298,7 +299,7 @@ export function ProductDetail() {
         navigate("/products");
       } catch (error) {
         console.error("Error deleting product:", error);
-        alert("Error al eliminar el producto");
+        toast({ title: "Error al eliminar el producto", variant: "destructive" });
       }
     }
   };

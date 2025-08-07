@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Tag, Plus, Search, Edit, Trash2, Save, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -195,7 +196,7 @@ export function Categories() {
         `/product-category/${category.id}`,
       );
       if (resp.error) {
-        alert(resp.error);
+        toast({ title: resp.error, variant: "destructive" });
       } else {
         await loadAllCategories();
         await loadCategories();

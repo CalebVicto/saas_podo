@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   DollarSign,
@@ -307,7 +308,7 @@ export function Abonos() {
       resetForm();
     } catch (error) {
       console.error("Error creating abono:", error);
-      alert("Error al crear el abono. Inténtalo de nuevo.");
+      toast({ title: "Error al crear el abono. Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }

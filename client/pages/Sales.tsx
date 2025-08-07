@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
@@ -530,7 +531,7 @@ export function Sales() {
 
     } catch (error) {
       console.error("Error processing sale:", error);
-      alert("Error al procesar la venta. Inténtalo de nuevo.");
+      toast({ title: "Error al procesar la venta. Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
@@ -1787,11 +1788,11 @@ export function Sales() {
                       setDeleteReason("");
                       setSaleToDelete(null);
                     } else {
-                      alert("Error al eliminar la venta.");
+                      toast({ title: "Error al eliminar la venta.", variant: "destructive" });
                     }
                   } catch (err) {
                     console.error(err);
-                    alert("Ocurrió un error al intentar eliminar la venta.");
+                    toast({ title: "Ocurrió un error al intentar eliminar la venta.", variant: "destructive" });
                   }
                 }}
               >

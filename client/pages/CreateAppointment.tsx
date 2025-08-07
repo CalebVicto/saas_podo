@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -513,7 +514,7 @@ export function CreateAppointment() {
       navigate("/appointments");
     } catch (error) {
       console.error("Error creating appointment:", error);
-      alert("Error al crear la cita. Inténtalo de nuevo.");
+      toast({ title: "Error al crear la cita. Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -1459,7 +1460,7 @@ export function CreateAppointment() {
                     variant="secondary"
                     onClick={() => {
                       console.log("Draft saved:", formData);
-                      alert("Borrador guardado exitosamente");
+                      toast({ title: "Borrador guardado exitosamente" });
                     }}
                     disabled={isSaving}
                     size="lg"

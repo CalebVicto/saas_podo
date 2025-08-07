@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -349,7 +350,7 @@ function CreatePatientModal({
       setErrors({});
     } catch (error) {
       console.error("Error creating patient:", error);
-      alert("Error al crear el paciente. Inténtalo de nuevo.");
+      toast({ title: "Error al crear el paciente. Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -910,14 +911,14 @@ export function ScheduleAppointment() {
         reminderDays: 1,
       });
 
-      alert(
-        editingAppointment
+      toast({
+        title: editingAppointment
           ? "Cita actualizada exitosamente"
           : "Cita programada exitosamente",
-      );
+      });
     } catch (error) {
       console.error("Error scheduling appointment:", error);
-      alert("Error al programar la cita. Inténtalo de nuevo.");
+      toast({ title: "Error al programar la cita. Inténtalo de nuevo.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -1508,7 +1509,7 @@ export function ScheduleAppointment() {
                             variant="secondary"
                             onClick={() => {
                               console.log("Draft saved:", formData);
-                              alert("Borrador guardado exitosamente");
+                              toast({ title: "Borrador guardado exitosamente" });
                             }}
                             disabled={isSaving}
                             size="lg"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "@/components/ui/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Users,
@@ -195,9 +196,10 @@ export function WorkerDetail() {
 
   const handleEdit = () => {
     console.log("Edit worker:", worker?.id);
-    alert(
-      "Funcionalidad de edición disponible en la página principal de trabajadores",
-    );
+    toast({
+      title:
+        "Funcionalidad de edición disponible en la página principal de trabajadores",
+    });
   };
 
   const handleDelete = () => {
