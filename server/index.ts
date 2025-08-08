@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { validateToken, refreshToken, logout } from "./routes/auth";
+import appointmentRouter from "./routes/appointment";
 
 export function createServer() {
   const app = express();
@@ -22,6 +23,9 @@ export function createServer() {
   app.post("/api/auth/validate", validateToken);
   app.post("/api/auth/refresh", refreshToken);
   app.post("/api/auth/logout", logout);
+
+  // Appointment endpoints
+  app.use("/api/appointment", appointmentRouter);
 
   return app;
 }
