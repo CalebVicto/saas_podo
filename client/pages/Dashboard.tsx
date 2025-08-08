@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -43,7 +43,7 @@ interface RecentActivity {
 }
 
 // Mock data - in a real app this would come from API
-const mockStats: DashboardStats = {
+const mockAdminStats: DashboardStats = {
   totalPatients: 247,
   todayAppointments: 12,
   todayIncome: 1580,
@@ -54,7 +54,18 @@ const mockStats: DashboardStats = {
   completedAppointments: 8,
 };
 
-const mockRecentActivity: RecentActivity[] = [
+const mockWorkerStats: DashboardStats = {
+  totalPatients: 32,
+  todayAppointments: 5,
+  todayIncome: 320,
+  lowStockAlerts: 0,
+  weeklyAppointments: 18,
+  monthlyIncome: 2400,
+  activeWorkers: 1,
+  completedAppointments: 3,
+};
+
+const mockAdminActivity: RecentActivity[] = [
   {
     id: "1",
     type: "appointment",
@@ -79,6 +90,28 @@ const mockRecentActivity: RecentActivity[] = [
     type: "appointment",
     description: "Cita reagendada con Ana García",
     time: "1:45 PM",
+  },
+];
+
+const mockWorkerActivity: RecentActivity[] = [
+  {
+    id: "1",
+    type: "appointment",
+    description: "Cita completada con Juan Pérez",
+    time: "09:00 AM",
+  },
+  {
+    id: "2",
+    type: "patient",
+    description: "Nuevo paciente: Luisa Fernanda",
+    time: "11:30 AM",
+  },
+  {
+    id: "3",
+    type: "payment",
+    description: "Pago recibido - Control mensual",
+    time: "12:15 PM",
+    amount: 80,
   },
 ];
 
@@ -159,49 +192,81 @@ const useAuth = () => {
 export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>(mockStats);
-  const [recentActivity, setRecentActivity] =
-    useState<RecentActivity[]>(mockRecentActivity);
+  const viewMode =
+    (localStorage.getItem("podocare_view_mode") as "admin" | "worker") ||
+    user?.role ||
+    "worker";
+
+  const stats = viewMode === "admin" ? mockAdminStats : mockWorkerStats;
+  const recentActivity =
+    viewMode === "admin" ? mockAdminActivity : mockWorkerActivity;
 
   return (
     <Layout title="Dashboard" subtitle="Resumen de tu clínica podológica">
       <div className="p-4 lg:p-6 space-y-6">
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Total Pacientes"
-            value={stats.totalPatients}
-            icon={Users}
-            trend="up"
-            trendValue="+12%"
-            color="primary"
-          />
-          <StatCard
-            title="Citas Hoy"
-            value={`${stats.completedAppointments}/${stats.todayAppointments}`}
-            icon={Calendar}
-            trend="up"
-            trendValue="+5%"
-            color="secondary"
-          />
-          <StatCard
-            title="Ingresos Hoy"
-            value={`S/ ${stats.todayIncome.toLocaleString()}`}
-            icon={DollarSign}
-            trend="up"
-            trendValue="+8%"
-            color="accent"
-          />
-          <StatCard
-            title="Stock Bajo"
-            value={stats.lowStockAlerts}
-            icon={AlertTriangle}
-            color="warning"
-          />
-        </div>
+        {viewMode === "admin" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              title="Total Pacientes"
+              value={stats.totalPatients}
+              icon={Users}
+              trend="up"
+              trendValue="+12%"
+              color="primary"
+            />
+            <StatCard
+              title="Citas Hoy"
+              value={`${stats.completedAppointments}/${stats.todayAppointments}`}
+              icon={Calendar}
+              trend="up"
+              trendValue="+5%"
+              color="secondary"
+            />
+            <StatCard
+              title="Ingresos Hoy"
+              value={`S/ ${stats.todayIncome.toLocaleString()}`}
+              icon={DollarSign}
+              trend="up"
+              trendValue="+8%"
+              color="accent"
+            />
+            <StatCard
+              title="Stock Bajo"
+              value={stats.lowStockAlerts}
+              icon={AlertTriangle}
+              color="warning"
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <StatCard
+              title="Citas Hoy"
+              value={`${stats.completedAppointments}/${stats.todayAppointments}`}
+              icon={Calendar}
+              trend="up"
+              trendValue="+5%"
+              color="primary"
+            />
+            <StatCard
+              title="Ingresos Hoy"
+              value={`S/ ${stats.todayIncome.toLocaleString()}`}
+              icon={DollarSign}
+              trend="up"
+              trendValue="+8%"
+              color="secondary"
+            />
+            <StatCard
+              title="Pacientes Totales"
+              value={stats.totalPatients}
+              icon={Users}
+              color="accent"
+            />
+          </div>
+        )}
 
         {/* Additional Stats Row */}
-        {user.role === "admin" && (
+        {viewMode === "admin" && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title="Citas Semanales"
@@ -278,10 +343,7 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div
-                className={cn(
-                  "grid gap-3",
-                  user?.role === "admin" ? "grid-cols-2" : "grid-cols-2",
-                )}
+                className={cn("grid gap-3", viewMode === "admin" ? "grid-cols-2" : "grid-cols-2")}
               >
                 <Button
                   onClick={() => navigate("/appointments/new")}
@@ -306,7 +368,7 @@ export function Dashboard() {
                   <ShoppingBag className="w-6 h-6" />
                   <span className="text-sm">Vender Producto</span>
                 </Button>
-                {user?.role === "admin" ? (
+                {viewMode === "admin" ? (
                   <Button
                     onClick={() => navigate("/reports")}
                     variant="outline"

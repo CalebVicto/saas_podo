@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     tokenStorage.setToken(accessToken);
     tokenStorage.setUser(mapped);
+    localStorage.setItem("podocare_view_mode", mapped.role);
     setToken(accessToken);
     setUser(mapped);
     return mapped;
@@ -117,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     tokenStorage.clear();
+    localStorage.removeItem("podocare_view_mode");
     setToken(null);
     setUser(null);
     window.location.href = "/login";
