@@ -192,10 +192,17 @@ const useAuth = () => {
 export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const viewMode =
-    (localStorage.getItem("podocare_view_mode") as "admin" | "worker") ||
-    user?.role ||
-    "worker";
+
+  const storedMode = localStorage.getItem("podocare_view_mode");
+  const viewMode: "admin" | "worker" = storedMode
+    ? (() => {
+      try {
+        return JSON.parse(storedMode);
+      } catch {
+        return storedMode as "admin" | "worker";
+      }
+    })()
+    : user?.role || "worker";
 
   const stats = viewMode === "admin" ? mockAdminStats : mockWorkerStats;
   const recentActivity =

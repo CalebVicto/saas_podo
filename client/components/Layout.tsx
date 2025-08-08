@@ -21,7 +21,14 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   });
   const [viewMode, setViewMode] = useState<"admin" | "worker">(() => {
     const stored = localStorage.getItem("podocare_view_mode");
-    return stored ? JSON.parse(stored) : user?.role || "worker";
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return stored as "admin" | "worker";
+      }
+    }
+    return user?.role || "worker";
   });
 
   useEffect(() => {
@@ -33,14 +40,20 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
   useEffect(() => {
     if (user) {
       const stored = localStorage.getItem("podocare_view_mode");
-      setViewMode(
-        stored ? JSON.parse(stored) : user.role,
-      );
+      if (stored) {
+        try {
+          setViewMode(JSON.parse(stored));
+        } catch {
+          setViewMode(stored as "admin" | "worker");
+        }
+      } else {
+        setViewMode(user.role);
+      }
     }
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem("podocare_view_mode", JSON.stringify(viewMode));
+    localStorage.setItem("podocare_view_mode", viewMode);
   }, [viewMode]);
 
   const handleLogout = () => {
@@ -83,11 +96,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
-          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 shadow-sm relative ${
-            viewMode === "admin"
-              ? "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-blue-600"
-              : "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-green-500"
-          }`}
+          className={`bg-card border-b border-border p-4 lg:p-6 flex-shrink-0 shadow-sm relative ${viewMode === "admin"
+            ? "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-blue-600"
+            : "before:absolute before:top-0 before:left-0 before:right-0 before:h-1 before:bg-green-500"
+            }`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
