@@ -32,10 +32,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
-import {
-  Pagination,
-  usePagination,
-} from "@/components/ui/pagination";
+import { Pagination, usePagination } from "@/components/ui/pagination";
 import { apiGet, apiPut, apiPost } from "@/lib/auth";
 
 interface WorkerStats {
@@ -60,7 +57,7 @@ interface Worker {
   newPassword: boolean;
   createdAt: string;
   updatedAt: string;
-  stats: WorkerStats;
+  stats?: Partial<WorkerStats>;
 }
 
 interface CreateWorkerRequest {
@@ -72,7 +69,7 @@ interface CreateWorkerRequest {
   active: boolean;
 }
 
-interface WorkersResponse {
+interface WorkersResponseAll {
   state: string;
   message: string;
   data: {
@@ -83,12 +80,33 @@ interface WorkersResponse {
   };
 }
 
+function formatDateLima(d: Date) {
+  const lima = new Date(d.toLocaleString("en-US", { timeZone: "America/Lima" }));
+  const y = lima.getFullYear();
+  const m = String(lima.getMonth() + 1).padStart(2, "0");
+  const day = String(lima.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getSafeStats(stats?: Partial<WorkerStats>): WorkerStats {
+  return {
+    totalAppointments: Number(stats?.totalAppointments ?? 0),
+    completedAppointments: Number(stats?.completedAppointments ?? 0),
+    thisMonthAppointments: Number(stats?.thisMonthAppointments ?? 0),
+    totalEarnings: Number(stats?.totalEarnings ?? 0),
+    totalRevenue: Number(stats?.totalRevenue ?? 0),
+    totalCommissions: Number(stats?.totalCommissions ?? 0),
+    salesCount: Number(stats?.salesCount ?? 0),
+    averagePerAppointment: Number(stats?.averagePerAppointment ?? 0),
+  };
+}
+
 export function Workers() {
   const navigate = useNavigate();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -104,6 +122,7 @@ export function Workers() {
     active: true,
   });
 
+  // Paginación 100% cliente
   const pagination = usePagination({
     totalItems: filteredWorkers.length,
     initialPageSize: 9,
@@ -112,27 +131,30 @@ export function Workers() {
   const user = JSON.parse(localStorage.getItem("podocare_user") || "{}");
   const isAdmin = user.role === "admin";
 
+  // Fechas por defecto (mes actual) en zona America/Lima
   useEffect(() => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    setStartDate(firstDay.toISOString().split("T")[0]);
-    setEndDate(lastDay.toISOString().split("T")[0]);
+    setStartDate(formatDateLima(firstDay));
+    setEndDate(formatDateLima(lastDay));
   }, []);
 
-
+  // Cargar TODOS los usuarios (gran límite) + rango de stats
   useEffect(() => {
     if (!isAdmin) {
       navigate("/dashboard");
       return;
     }
     loadWorkers();
-  }, [isAdmin, navigate, startDate, endDate, pagination.currentPage, pagination.pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, navigate, startDate, endDate]);
 
+  // Filtrado en cliente + reset de página
   useEffect(() => {
     let filtered = workers;
-    if (searchTerm) {
+
+    if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (w) =>
@@ -141,26 +163,43 @@ export function Workers() {
           w.username.toLowerCase().includes(term),
       );
     }
+
     if (statusFilter !== "all") {
       const active = statusFilter === "active";
       filtered = filtered.filter((w) => w.active === active);
     }
+
     setFilteredWorkers(filtered);
-    pagination.resetPagination();
-  }, [workers, searchTerm, statusFilter, pagination]);
+    pagination.resetPagination(); // vuelve a página 1 al cambiar filtros/búsqueda
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workers, searchTerm, statusFilter]);
+
+  // Clamp de página cuando cambia el total filtrado o el pageSize
+  useEffect(() => {
+    const newTotalPages = Math.max(
+      1,
+      Math.ceil(filteredWorkers.length / pagination.pageSize),
+    );
+    if (pagination.currentPage > newTotalPages) {
+      pagination.goToPage(newTotalPages);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredWorkers.length, pagination.pageSize]);
 
   const loadWorkers = async () => {
     setIsLoading(true);
     try {
+      // Como no podemos server-side pagination, pedimos "todo" con gran límite.
       const params = new URLSearchParams({
-        page: pagination.currentPage.toString(),
-        limit: pagination.pageSize.toString(),
+        page: "1",
+        limit: "100000",
       });
       if (startDate) params.append("statsStart", startDate);
       if (endDate) params.append("statsEnd", endDate);
-      const resp = await apiGet<WorkersResponse>(`/user?${params.toString()}`);
+
+      const resp = await apiGet<WorkersResponseAll>(`/user?${params.toString()}`);
       if (!resp.error && resp.data) {
-        setWorkers(resp.data.data.data);
+        setWorkers(resp.data.data.data || []);
       }
     } catch (error) {
       console.error("Error loading workers:", error);
@@ -175,10 +214,8 @@ export function Workers() {
     try {
       const resp = await apiPut(`/user/${id}`, { active: !worker.active });
       if (!resp.error) {
-        setWorkers(
-          workers.map((w) =>
-            w.id === id ? { ...w, active: !w.active } : w,
-          ),
+        setWorkers((prev) =>
+          prev.map((w) => (w.id === id ? { ...w, active: !w.active } : w)),
         );
       }
     } catch (error) {
@@ -255,11 +292,14 @@ export function Workers() {
 
   if (!isAdmin) return null;
 
+  // Cálculos de paginación en cliente
+  const totalItems = filteredWorkers.length;
+  const sliceStart = (pagination.currentPage - 1) * pagination.pageSize;
+  const sliceEnd = sliceStart + pagination.pageSize;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pagination.pageSize));
+
   return (
-    <Layout
-      title="Gestión de Trabajadores"
-      subtitle="Administra el personal de tu clínica"
-    >
+    <Layout title="Gestión de Trabajadores" subtitle="Administra el personal de tu clínica">
       <div className="p-6 space-y-6">
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -269,10 +309,7 @@ export function Workers() {
             </div>
           </div>
 
-          <Button
-            onClick={() => setIsAddDialogOpen(true)}
-            className="btn-primary flex items-center gap-2"
-          >
+          <Button onClick={() => setIsAddDialogOpen(true)} className="btn-primary flex items-center gap-2">
             <Plus className="w-5 h-5" />
             Nuevo Trabajador
           </Button>
@@ -329,12 +366,8 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Total Trabajadores
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">
-                    {workers.length}
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Total Trabajadores</p>
+                  <p className="text-3xl font-bold text-foreground">{workers.length}</p>
                 </div>
                 <div className="p-3 bg-primary/10 rounded-xl">
                   <Users className="w-6 h-6 text-primary" />
@@ -347,12 +380,8 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Activos
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">
-                    {workers.filter((w) => w.active).length}
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Activos</p>
+                  <p className="text-3xl font-bold text-foreground">{workers.filter((w) => w.active).length}</p>
                 </div>
                 <div className="p-3 bg-success/10 rounded-xl">
                   <UserCheck className="w-6 h-6 text-success" />
@@ -365,12 +394,8 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Inactivos
-                  </p>
-                  <p className="text-3xl font-bold text-foreground">
-                    {workers.filter((w) => !w.active).length}
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Inactivos</p>
+                  <p className="text-3xl font-bold text-foreground">{workers.filter((w) => !w.active).length}</p>
                 </div>
                 <div className="p-3 bg-destructive/10 rounded-xl">
                   <UserX className="w-6 h-6 text-destructive" />
@@ -383,14 +408,9 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Citas Este Mes
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Citas Este Mes</p>
                   <p className="text-3xl font-bold text-foreground">
-                    {workers.reduce(
-                      (sum, w) => sum + (w.stats?.thisMonthAppointments ?? 0),
-                      0,
-                    )}
+                    {workers.reduce((sum, w) => sum + getSafeStats(w.stats).thisMonthAppointments, 0)}
                   </p>
                 </div>
                 <div className="p-3 bg-secondary/10 rounded-xl">
@@ -417,7 +437,7 @@ export function Workers() {
                 />
               </div>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
@@ -431,24 +451,33 @@ export function Workers() {
           </CardContent>
         </Card>
 
+        {/* Pagination */}
+        {totalItems > 0 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.goToPage}
+            onPageSizeChange={pagination.setPageSize}
+            showPageSizeSelector
+            pageSizeOptions={[6, 9, 12, 18]}
+          />
+        )}
+
         {/* Workers Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading && <p>Cargando...</p>}
           {!isLoading && filteredWorkers.length === 0 && (
-            <p className="text-center text-muted-foreground">
-              No se encontraron trabajadores.
-            </p>
+            <p className="text-center text-muted-foreground">No se encontraron trabajadores.</p>
           )}
 
           {filteredWorkers
-            .slice(pagination.startIndex, pagination.endIndex)
+            .slice(sliceStart, sliceEnd)
             .map((worker) => {
-              const stats = worker.stats;
+              const stats = getSafeStats(worker.stats);
               return (
-                <Card
-                  key={worker.id}
-                  className="card-modern hover:shadow-lg transition-all duration-200"
-                >
+                <Card key={worker.id} className="card-modern hover:shadow-lg transition-all duration-200">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -459,17 +488,13 @@ export function Workers() {
                           <h3 className="font-semibold text-foreground">
                             {worker.firstName} {worker.lastName}
                           </h3>
-                          <p className="text-sm text-muted-foreground capitalize">
-                            {worker.role}
-                          </p>
+                          <p className="text-sm text-muted-foreground capitalize">{worker.role}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
-                          className={
-                            worker.active ? "status-success" : "status-error"
-                          }
+                          className={worker.active ? "status-success" : "status-error"}
                         >
                           {worker.active ? "Activo" : "Inactivo"}
                         </Badge>
@@ -480,49 +505,31 @@ export function Workers() {
                       <div className="flex items-center gap-2 text-sm">
                         <Mail className="w-4 h-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Usuario:</span>
-                        <span className="font-medium truncate">
-                          {worker.username}
-                        </span>
+                        <span className="font-medium truncate">{worker.username}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Award className="w-4 h-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Rol:</span>
-                        <span className="font-medium capitalize">
-                          {worker.role}
-                        </span>
+                        <span className="font-medium capitalize">{worker.role}</span>
                       </div>
                     </div>
 
                     {/* Performance Stats */}
                     <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
                       <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">
-                          {stats.completedAppointments}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Citas completadas
-                        </p>
+                        <p className="text-lg font-bold text-foreground">{stats.completedAppointments}</p>
+                        <p className="text-xs text-muted-foreground">Citas completadas</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">
-                          S/ {stats.totalRevenue.toFixed(0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Ingresos totales
-                        </p>
+                        <p className="text-lg font-bold text-foreground">S/ {Number(stats.totalRevenue).toFixed(0)}</p>
+                        <p className="text-xs text-muted-foreground">Ingresos totales</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-lg font-bold text-green-600">
-                          S/ {stats.totalCommissions.toFixed(0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Bonos ganados
-                        </p>
+                        <p className="text-lg font-bold text-green-600">S/ {Number(stats.totalCommissions).toFixed(0)}</p>
+                        <p className="text-xs text-muted-foreground">Bonos ganados</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">
-                          {stats.salesCount}
-                        </p>
+                        <p className="text-lg font-bold text-foreground">{stats.salesCount}</p>
                         <p className="text-xs text-muted-foreground">Ventas</p>
                       </div>
                     </div>
@@ -554,10 +561,7 @@ export function Workers() {
                         <span className="text-sm text-muted-foreground">
                           {worker.active ? "Activo" : "Inactivo"}
                         </span>
-                        <Switch
-                          checked={worker.active}
-                          onCheckedChange={() => handleToggleStatus(worker.id)}
-                        />
+                        <Switch checked={worker.active} onCheckedChange={() => handleToggleStatus(worker.id)} />
                       </div>
                     </div>
                   </CardContent>
@@ -566,22 +570,8 @@ export function Workers() {
             })}
         </div>
 
-        {/* Pagination */}
-        {filteredWorkers.length > 0 && (
-          <Pagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            totalItems={filteredWorkers.length}
-            pageSize={pagination.pageSize}
-            onPageChange={pagination.goToPage}
-            onPageSizeChange={pagination.setPageSize}
-            showPageSizeSelector={true}
-            pageSizeOptions={[6, 9, 12, 18]}
-          />
-        )}
-
         {/* Add Worker Dialog */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={(o) => { setIsAddDialogOpen(o); if (!o) resetForm(); }}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -590,6 +580,10 @@ export function Workers() {
               </DialogTitle>
             </DialogHeader>
 
+            {/* Anti-autofill */}
+            <input type="text" name="fake-user" autoComplete="username" className="hidden" />
+            <input type="password" name="fake-pass" autoComplete="new-password" className="hidden" />
+
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -597,9 +591,7 @@ export function Workers() {
                   <Input
                     id="firstName"
                     value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     placeholder="Carlos"
                     required
                     autoComplete="off"
@@ -610,9 +602,7 @@ export function Workers() {
                   <Input
                     id="lastName"
                     value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     placeholder="Rodríguez"
                     required
                     autoComplete="off"
@@ -625,9 +615,7 @@ export function Workers() {
                 <Input
                   id="username"
                   value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="carlos"
                   required
                   autoComplete="off"
@@ -640,12 +628,10 @@ export function Workers() {
                   id="password"
                   type="password"
                   value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="******"
                   required
-                  autoComplete="off" name="fake-field"
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -653,12 +639,7 @@ export function Workers() {
                 <Label>Rol *</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      role: value as "admin" | "trabajador",
-                    })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, role: value as "admin" | "trabajador" })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar rol" />
@@ -675,18 +656,13 @@ export function Workers() {
                 <Switch
                   id="active"
                   checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, active: checked })
-                  }
+                  onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsAddDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={handleAddWorker}>Guardar</Button>
@@ -695,7 +671,16 @@ export function Workers() {
         </Dialog>
 
         {/* Edit Worker Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog
+          open={isEditDialogOpen}
+          onOpenChange={(o) => {
+            setIsEditDialogOpen(o);
+            if (!o) {
+              setSelectedWorker(null);
+              resetForm();
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -704,6 +689,10 @@ export function Workers() {
               </DialogTitle>
             </DialogHeader>
 
+            {/* Anti-autofill */}
+            <input type="text" name="fake-user-edit" autoComplete="username" className="hidden" />
+            <input type="password" name="fake-pass-edit" autoComplete="new-password" className="hidden" />
+
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -711,9 +700,7 @@ export function Workers() {
                   <Input
                     id="edit-firstName"
                     value={formData.firstName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     placeholder="Carlos"
                     required
                     autoComplete="off"
@@ -724,9 +711,7 @@ export function Workers() {
                   <Input
                     id="edit-lastName"
                     value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     placeholder="Rodríguez"
                     required
                     autoComplete="off"
@@ -739,9 +724,7 @@ export function Workers() {
                 <Input
                   id="edit-username"
                   value={formData.username}
-                  onChange={(e) =>
-                    setFormData({ ...formData, username: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                   placeholder="carlos"
                   required
                   autoComplete="off"
@@ -754,11 +737,9 @@ export function Workers() {
                   id="edit-password"
                   type="password"
                   value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="******"
-                  autoComplete="off"
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -766,12 +747,7 @@ export function Workers() {
                 <Label>Rol *</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      role: value as "admin" | "trabajador",
-                    })
-                  }
+                  onValueChange={(value) => setFormData({ ...formData, role: value as "admin" | "trabajador" })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar rol" />
@@ -788,18 +764,13 @@ export function Workers() {
                 <Switch
                   id="edit-active"
                   checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, active: checked })
-                  }
+                  onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
                 />
               </div>
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button onClick={handleEditWorker}>Guardar</Button>
@@ -812,4 +783,3 @@ export function Workers() {
 }
 
 export default Workers;
-

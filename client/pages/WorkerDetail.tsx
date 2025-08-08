@@ -9,7 +9,6 @@ import {
   Calendar,
   DollarSign,
   TrendingUp,
-  Clock,
   Award,
   Mail,
   Phone,
@@ -18,7 +17,6 @@ import {
   Package,
   Activity,
   BarChart,
-  Stethoscope,
   Wallet,
   Smartphone,
   CreditCard,
@@ -45,9 +43,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Appointment, Payment } from "@shared/api";
-import { apiGet } from "@/lib/auth";
+import { apiGet, apiPut } from "@/lib/auth";
 import Layout from "@/components/Layout";
 
 interface Worker {
@@ -81,24 +82,23 @@ interface WorkerStats {
   packagesAttended: number;
   averageRating: number;
   completionRate: number;
-  monthlyAppointments: { month: string; count: number; revenue: number }[];
   paymentMethodBreakdown: {
     method: string;
     amount: number;
     count: number;
-    percentage: number;
+    percentage?: number; // lo calculamos en front
   }[];
+  monthlyPerformance: {
+    month: string;
+    appointments: number;
+    revenue: number;
+    bonus: number;
+  }[];
+  averageAppointmentDuration: number; // min
+  uniquePatients: number;
+  repeatAppointments: number;
+  totalWorkDays: number;
 }
-
-// Mock monthly performance data
-const mockMonthlyPerformance = [
-  { month: "Ene", appointments: 45, revenue: 2250, bonus: 180 },
-  { month: "Feb", appointments: 52, revenue: 2600, bonus: 210 },
-  { month: "Mar", appointments: 38, revenue: 1900, bonus: 150 },
-  { month: "Abr", appointments: 61, revenue: 3050, bonus: 245 },
-  { month: "May", appointments: 48, revenue: 2400, bonus: 190 },
-  { month: "Jun", appointments: 55, revenue: 2750, bonus: 220 },
-];
 
 export function WorkerDetail() {
   const navigate = useNavigate();
@@ -109,52 +109,61 @@ export function WorkerDetail() {
   const [stats, setStats] = useState<WorkerStats | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState("6"); // months
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    username: "",
+    password: "",
+    role: "trabajador" as "admin" | "trabajador",
+    active: true,
+  });
 
   useEffect(() => {
     if (id) {
-      loadWorkerData(id);
+      loadWorkerData(id, selectedPeriod);
     }
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, selectedPeriod]);
 
-  const loadWorkerData = async (workerId: string) => {
+  const loadWorkerData = async (workerId: string, months = "6") => {
     setIsLoading(true);
     try {
       const [workerResp, appointmentsResp, paymentsResp, statsResp] =
         await Promise.all([
           apiGet<ApiResponse<Worker>>(`/worker/${workerId}`),
-          apiGet<ApiResponse<Appointment[]>>(
-            `/worker/${workerId}/appointments`,
-          ),
+          apiGet<ApiResponse<Appointment[]>>(`/worker/${workerId}/appointments`),
           apiGet<ApiResponse<Payment[]>>(`/worker/${workerId}/payments`),
-          apiGet<ApiResponse<WorkerStats>>(`/worker/${workerId}/stats`),
+          apiGet<ApiResponse<WorkerStats>>(
+            `/worker/${workerId}/stats?months=${months}`,
+          ),
         ]);
 
-      if (workerResp.error || !workerResp.data) {
+      if ((workerResp as any).error || !workerResp.data) {
         navigate("/workers");
         return;
       }
 
       setWorker(workerResp.data.data);
 
-      if (!appointmentsResp.error && appointmentsResp.data) {
+      if (!(appointmentsResp as any).error && appointmentsResp.data) {
         setAppointments(appointmentsResp.data.data);
       }
 
-      if (!paymentsResp.error && paymentsResp.data) {
+      if (!(paymentsResp as any).error && paymentsResp.data) {
         setPayments(paymentsResp.data.data);
       }
 
-      if (!statsResp.error && statsResp.data) {
+      if (!(statsResp as any).error && statsResp.data) {
         const statsData = statsResp.data.data;
-        const totalMethodAmount = statsData.paymentMethodBreakdown.reduce(
-          (sum, m) => sum + m.amount,
+        const totalMethodAmount = (statsData.paymentMethodBreakdown || []).reduce(
+          (sum, m) => sum + (m.amount || 0),
           0,
         );
-        const paymentMethodBreakdown = statsData.paymentMethodBreakdown.map(
+        const paymentMethodBreakdown = (statsData.paymentMethodBreakdown || []).map(
           (m) => ({
             ...m,
-            percentage:
-              totalMethodAmount > 0 ? (m.amount / totalMethodAmount) * 100 : 0,
+            percentage: totalMethodAmount > 0 ? (m.amount / totalMethodAmount) * 100 : 0,
           }),
         );
         setStats({ ...statsData, paymentMethodBreakdown });
@@ -168,33 +177,67 @@ export function WorkerDetail() {
   };
 
   const handleEdit = () => {
-    console.log("Edit worker:", worker?.id);
-    toast({
-      title:
-        "Funcionalidad de edición disponible en la página principal de trabajadores",
+    if (!worker) return;
+    setFormData({
+      firstName: worker.firstName || "",
+      lastName: worker.lastName || "",
+      username: worker.username || "",
+      password: "",
+      role: worker.role,
+      active: worker.active,
     });
+    setIsEditDialogOpen(true);
   };
 
-  const handleDelete = () => {
+  const handleEditWorker = async () => {
     if (!worker) return;
+    try {
+      const payload: any = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username,
+        role: formData.role,
+        active: formData.active,
+      };
+      if (formData.password) payload.password = formData.password;
 
-    if (
-      confirm(
-        `¿Estás seguro de que quieres eliminar al trabajador "${worker.firstName} ${worker.lastName}"?`,
-      )
-    ) {
-      console.log("Delete worker:", worker.id);
-      navigate("/workers");
+      const resp = await apiPut(`/user/${worker.id}`, payload);
+      if (!(resp as any).error) {
+        // refrescamos los datos del worker sin recargar toda la página
+        setWorker({
+          ...worker,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          username: formData.username,
+          role: formData.role,
+          active: formData.active,
+          updatedAt: new Date().toISOString(),
+        });
+        setIsEditDialogOpen(false);
+        toast({ title: "Trabajador actualizado correctamente" });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "No se pudo actualizar", description: "Intenta de nuevo." });
     }
   };
 
-  const toggleStatus = () => {
+
+  const toggleStatus = async () => {
     if (!worker) return;
-    setWorker({ ...worker, active: !worker.active });
+    try {
+      const resp = await apiPut(`/user/${worker.id}`, { active: !worker.active });
+      if (!(resp as any).error) {
+        setWorker({ ...worker, active: !worker.active });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "No se pudo cambiar el estado" });
+    }
   };
 
   const getRecentAppointments = () => {
-    return appointments
+    return [...appointments]
       .sort(
         (a, b) =>
           new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime(),
@@ -321,6 +364,8 @@ export function WorkerDetail() {
     );
   }
 
+  const safeDiv = (a: number, b: number) => (b > 0 ? a / b : 0);
+
   return (
     <Layout
       title={`${worker.firstName} ${worker.lastName}`}
@@ -363,19 +408,11 @@ export function WorkerDetail() {
               <Edit className="w-4 h-4" />
               Editar
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleDelete}
-              className="flex items-center gap-2 text-destructive hover:text-destructive"
-            >
-              <Trash2 className="w-4 h-4" />
-              Eliminar
-            </Button>
           </div>
         </div>
 
         {/* Worker Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4">
           {/* Worker Info */}
           <div className="lg:col-span-2">
             <Card className="card-modern">
@@ -383,8 +420,8 @@ export function WorkerDetail() {
                 <CardTitle className="flex items-center gap-2">
                   <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                     <span className="font-semibold text-primary text-lg">
-                      {worker.firstName.charAt(0)}
-                      {worker.lastName.charAt(0)}
+                      {worker.firstName?.charAt(0)}
+                      {worker.lastName?.charAt(0)}
                     </span>
                   </div>
                   <div>
@@ -423,44 +460,26 @@ export function WorkerDetail() {
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">
-                      Especialización
+                      Rol
                     </Label>
                     <div className="flex items-center gap-2">
-                      <Stethoscope className="w-4 h-4 text-muted-foreground" />
+                      <Users className="w-4 h-4 text-muted-foreground" />
                       <p className="font-medium">
-                        {worker.specialization || "No especificada"}
+                        {worker.role === "admin" ? "Administrador" : "Trabajador"}
                       </p>
                     </div>
                   </div>
                   <div>
                     <Label className="text-sm text-muted-foreground">
                       Estado
-                    </Label>
+                    </Label>{" "}
+                    <br />
                     <Badge
                       variant={worker.active ? "default" : "secondary"}
                       className="text-xs"
                     >
                       {worker.active ? "Activo" : "Inactivo"}
                     </Badge>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">
-                      Acceso al Sistema
-                    </Label>
-                    <Badge
-                      variant={worker.hasSystemAccess ? "default" : "outline"}
-                      className="text-xs"
-                    >
-                      {worker.hasSystemAccess ? "Autorizado" : "Sin acceso"}
-                    </Badge>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">
-                      Tipo de Trabajador
-                    </Label>
-                    <p className="font-medium">
-                      {worker.workerType || "No especificado"}
-                    </p>
                   </div>
                 </div>
 
@@ -483,7 +502,7 @@ export function WorkerDetail() {
           </div>
 
           {/* Quick Stats */}
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
@@ -511,7 +530,7 @@ export function WorkerDetail() {
                       Ingresos Generados
                     </p>
                     <p className="text-2xl font-bold">
-                      S/ {stats.revenueGenerated.toFixed(2)}
+                      S/ {Number(stats.revenueGenerated || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -529,7 +548,7 @@ export function WorkerDetail() {
                       Comisiones por Medicamentos
                     </p>
                     <p className="text-2xl font-bold">
-                      S/ {stats.commissionFromMedications.toFixed(2)}
+                      S/ {Number(stats.commissionFromMedications || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -565,7 +584,7 @@ export function WorkerDetail() {
                       Tasa de Finalización
                     </p>
                     <p className="text-2xl font-bold">
-                      {stats.completionRate.toFixed(1)}%
+                      {Number(stats.completionRate || 0).toFixed(1)}%
                     </p>
                   </div>
                 </div>
@@ -575,7 +594,7 @@ export function WorkerDetail() {
         </div>
 
         {/* Payment Methods Breakdown */}
-        {stats.paymentMethodBreakdown.length > 0 && (
+        {stats.paymentMethodBreakdown?.length > 0 && (
           <Card className="card-modern">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -588,9 +607,7 @@ export function WorkerDetail() {
                 {stats.paymentMethodBreakdown.map((method) => {
                   const config =
                     getPaymentMethodConfig()[
-                      method.method as keyof ReturnType<
-                        typeof getPaymentMethodConfig
-                      >
+                    method.method as keyof ReturnType<typeof getPaymentMethodConfig>
                     ] || getPaymentMethodConfig().other;
                   const IconComponent = config.icon;
                   return (
@@ -598,22 +615,18 @@ export function WorkerDetail() {
                       key={method.method}
                       className="flex flex-col items-center p-4 bg-muted/30 rounded-lg"
                     >
-                      <div
-                        className={cn("p-3 rounded-full mb-3", config.iconBg)}
-                      >
-                        <IconComponent
-                          className={cn("w-6 h-6", config.color)}
-                        />
+                      <div className={cn("p-3 rounded-full mb-3", config.iconBg)}>
+                        <IconComponent className={cn("w-6 h-6", config.color)} />
                       </div>
                       <div className="text-center space-y-1">
                         <p className="text-xs font-medium text-muted-foreground">
                           {config.label}
                         </p>
                         <p className="text-lg font-bold text-foreground">
-                          S/ {method.amount.toFixed(2)}
+                          S/ {Number(method.amount || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {method.count} pagos ({method.percentage.toFixed(1)}%)
+                          {method.count} pagos ({Number(method.percentage || 0).toFixed(1)}%)
                         </p>
                       </div>
                     </div>
@@ -651,60 +664,58 @@ export function WorkerDetail() {
             <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {mockMonthlyPerformance.map((month, index) => (
-                    <div
-                      key={month.month}
-                      className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <span className="font-semibold text-primary">
-                            {month.month}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {month.appointments} citas
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            S/ {month.revenue} en ingresos • S/ {month.bonus} en
-                            comisiones
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        {index > 0 && (
-                          <div className="flex items-center gap-1">
-                            {month.appointments >
-                            mockMonthlyPerformance[index - 1].appointments ? (
-                              <TrendingUp className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <TrendingUp className="w-4 h-4 text-red-600 rotate-180" />
-                            )}
-                            <span
-                              className={cn(
-                                "text-xs font-medium",
-                                month.appointments >
-                                  mockMonthlyPerformance[index - 1].appointments
-                                  ? "text-green-600"
-                                  : "text-red-600",
+                  {stats.monthlyPerformance?.length ? (
+                    <div className="space-y-4">
+                      {stats.monthlyPerformance.map((m, i) => {
+                        const prev = i > 0 ? stats.monthlyPerformance[i - 1] : null;
+                        const trendUp = prev ? m.appointments > prev.appointments : null;
+                        const pct =
+                          prev && prev.appointments > 0
+                            ? (((m.appointments - prev.appointments) / prev.appointments) * 100).toFixed(1)
+                            : "0.0";
+                        return (
+                          <div
+                            key={`${m.month}-${i}`}
+                            className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                                <span className="font-semibold text-primary">{m.month}</span>
+                              </div>
+                              <div>
+                                <p className="font-medium">{m.appointments} citas</p>
+                                <p className="text-sm text-muted-foreground">
+                                  S/ {Number(m.revenue || 0)} en ingresos • S/ {Number(m.bonus || 0)} en comisiones
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {prev && (
+                                <div className="flex items-center gap-1">
+                                  {trendUp ? (
+                                    <TrendingUp className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <TrendingUp className="w-4 h-4 text-red-600 rotate-180" />
+                                  )}
+                                  <span
+                                    className={`text-xs font-medium ${trendUp ? "text-green-600" : "text-red-600"}`}
+                                  >
+                                    {pct}%
+                                  </span>
+                                </div>
                               )}
-                            >
-                              {(
-                                ((month.appointments -
-                                  mockMonthlyPerformance[index - 1]
-                                    .appointments) /
-                                  mockMonthlyPerformance[index - 1]
-                                    .appointments) *
-                                100
-                              ).toFixed(1)}
-                              %
-                            </span>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
-                  ))}
+                  ) : (
+                    <Card className="card-modern">
+                      <CardContent className="p-6 text-sm text-muted-foreground">
+                        Sin datos de rendimiento mensual
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -723,12 +734,8 @@ export function WorkerDetail() {
                 {appointments.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium">
-                      No hay citas registradas
-                    </p>
-                    <p className="text-sm">
-                      Las citas del trabajador aparecerán aquí
-                    </p>
+                    <p className="text-lg font-medium">No hay citas registradas</p>
+                    <p className="text-sm">Las citas del trabajador aparecerán aquí</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -764,14 +771,10 @@ export function WorkerDetail() {
                               <TableCell>
                                 <div>
                                   <p className="font-medium">
-                                    {new Date(
-                                      appointment.dateTime,
-                                    ).toLocaleDateString()}
+                                    {new Date(appointment.dateTime).toLocaleDateString()}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    {new Date(
-                                      appointment.dateTime,
-                                    ).toLocaleTimeString([], {
+                                    {new Date(appointment.dateTime).toLocaleTimeString([], {
                                       hour: "2-digit",
                                       minute: "2-digit",
                                     })}
@@ -785,23 +788,19 @@ export function WorkerDetail() {
                               </TableCell>
                               <TableCell>
                                 <Badge
-                                  className={cn(
-                                    "text-xs",
-                                    getStatusColor(appointment.status),
-                                  )}
+                                  className={cn("text-xs", getStatusColor(appointment.status))}
                                 >
                                   {getStatusText(appointment.status)}
                                 </Badge>
                               </TableCell>
                               <TableCell>
                                 <p className="text-sm max-w-xs truncate">
-                                  {appointment.treatmentNotes ||
-                                    "No especificado"}
+                                  {appointment.treatmentNotes || "No especificado"}
                                 </p>
                               </TableCell>
                               <TableCell className="text-right">
                                 <p className="font-medium">
-                                  S/ {payment?.amount.toFixed(2) || "0.00"}
+                                  S/ {Number(payment?.amount || 0).toFixed(2)}
                                 </p>
                               </TableCell>
                             </TableRow>
@@ -832,7 +831,7 @@ export function WorkerDetail() {
                     </span>
                     <div className="flex items-center gap-1">
                       <span className="font-semibold">
-                        {stats.averageRating}
+                        {Number(stats.averageRating || 0).toFixed(1)}
                       </span>
                       <span className="text-yellow-500">★</span>
                     </div>
@@ -842,7 +841,7 @@ export function WorkerDetail() {
                       Citas por Mes (Promedio)
                     </span>
                     <span className="font-semibold">
-                      {(stats.totalAppointments / 6).toFixed(1)}
+                      {safeDiv(stats.totalAppointments || 0, Number(selectedPeriod)).toFixed(1)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -850,10 +849,7 @@ export function WorkerDetail() {
                       Ingresos por Cita
                     </span>
                     <span className="font-semibold">
-                      S/{" "}
-                      {(
-                        stats.revenueGenerated / stats.totalAppointments
-                      ).toFixed(2)}
+                      S/ {safeDiv(stats.revenueGenerated || 0, stats.totalAppointments || 0).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -861,7 +857,7 @@ export function WorkerDetail() {
                       Comisión Total
                     </span>
                     <span className="font-semibold">
-                      S/ {stats.commissionFromMedications.toFixed(2)}
+                      S/ {Number(stats.commissionFromMedications || 0).toFixed(2)}
                     </span>
                   </div>
                 </CardContent>
@@ -879,31 +875,27 @@ export function WorkerDetail() {
                     <span className="text-sm text-muted-foreground">
                       Tiempo Promedio por Cita
                     </span>
-                    <span className="font-semibold">60 min</span>
+                    <span className="font-semibold">
+                      {Number(stats.averageAppointmentDuration || 0)} min
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">
                       Pacientes Únicos
                     </span>
-                    <span className="font-semibold">
-                      {Math.floor(stats.totalAppointments * 0.7)}
-                    </span>
+                    <span className="font-semibold">{Number(stats.uniquePatients || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">
                       Citas Repetidas
                     </span>
-                    <span className="font-semibold">
-                      {Math.floor(stats.totalAppointments * 0.3)}
-                    </span>
+                    <span className="font-semibold">{Number(stats.repeatAppointments || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">
                       Días Trabajados (Total)
                     </span>
-                    <span className="font-semibold">
-                      {Math.floor(stats.totalAppointments / 3)}
-                    </span>
+                    <span className="font-semibold">{Number(stats.totalWorkDays || 0)}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -911,6 +903,102 @@ export function WorkerDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Editar Trabajador
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">Nombres *</Label>
+                <Input
+                  id="edit-firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  placeholder="Carlos"
+                  required
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">Apellidos *</Label>
+                <Input
+                  id="edit-lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  placeholder="Rodríguez"
+                  required
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-username">Usuario *</Label>
+              <Input
+                id="edit-username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="carlos"
+                required
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-password">Contraseña (opcional)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="******"
+                autoComplete="new-password"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Rol *</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, role: value as "admin" | "trabajador" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trabajador">Trabajador</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-active">Activo</Label>
+              <Switch
+                id="edit-active"
+                checked={formData.active}
+                onCheckedChange={(checked) => setFormData({ ...formData, active: checked })}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditWorker}>Guardar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
