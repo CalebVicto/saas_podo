@@ -19,9 +19,10 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
     const stored = localStorage.getItem("podocare_sidebar_collapsed");
     return stored ? JSON.parse(stored) : false;
   });
-  const [viewMode, setViewMode] = useState<"admin" | "worker">(
-    user?.role || "worker",
-  );
+  const [viewMode, setViewMode] = useState<"admin" | "worker">(() => {
+    const stored = localStorage.getItem("podocare_view_mode");
+    return stored ? JSON.parse(stored) : user?.role || "worker";
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -31,9 +32,16 @@ export function Layout({ children, title, subtitle }: LayoutProps) {
 
   useEffect(() => {
     if (user) {
-      setViewMode(user.role);
+      const stored = localStorage.getItem("podocare_view_mode");
+      setViewMode(
+        stored ? JSON.parse(stored) : user.role,
+      );
     }
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem("podocare_view_mode", JSON.stringify(viewMode));
+  }, [viewMode]);
 
   const handleLogout = () => {
     logout();
