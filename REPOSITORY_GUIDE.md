@@ -340,3 +340,30 @@ When converting existing components to use repositories:
 ✅ **Development Tools**: Debug panel for switching data sources
 
 This Repository Pattern implementation provides a solid foundation for scalable, maintainable data access in your React application.
+
+## Appointment Payment and Edit Endpoints
+
+### Register Payment
+
+- **URL:** `/api/appointment/{id}/payment`
+- **Method:** `PUT`
+- **Auth:** Bearer token
+- **Body:** `{ "paymentMethod": "cash" | "transfer" | "yape" | "pos" }`
+- **Response:** Marks the appointment as paid and stores the payment date.
+
+If the appointment total is `0`, it is automatically marked as paid using the `cash` method with the current date.
+
+### Edit Appointment
+
+- **URL:** `/api/appointment/{id}`
+- **Method:** `PUT`
+- **Auth:** Bearer token with worker role
+- **Body (optional fields):** `patientId`, `diagnosis`, `treatment`, `treatmentPrice`, `observation`, `products` (`[{ productId, quantity }]`), `foot_inf`, `foot_post`, `paymentMethod`
+- **Response:** Updates the appointment data, recalculates prices and, if the total ends in `0`, marks it as paid automatically with current date and `cash` payment method.
+
+### Cancel Appointment
+
+- **URL:** `/api/appointment/{id}`
+- **Method:** `DELETE`
+- **Auth:** Bearer token with worker role
+- **Response:** Marks the appointment as canceled. If products were associated, the sale is canceled and the kardex is updated.
