@@ -89,7 +89,7 @@ export function Sidebar({
         { icon: ShoppingBag, label: "Productos", path: "/products" },
         { icon: Tag, label: "Categorías", path: "/categories" },
         { icon: BarChart, label: "Kardex", path: "/kardex" },
-        { icon: FolderOpen, label: "Paquetes", path: "/packages" },
+        // { icon: FolderOpen, label: "Paquetes", path: "/packages" },
       ],
     },
     {
@@ -98,40 +98,28 @@ export function Sidebar({
       icon: Users,
       items: [
         { icon: Users, label: "Trabajadores", path: "/workers" },
-        {
-          icon: UserSquare,
-          label: "Tipos de Trabajador",
-          path: "/worker-types",
-        },
-        {
-          icon: UserCheck,
-          label: "Cuentas de Usuario",
-          path: "/user-accounts",
-        },
+        // { icon: UserSquare, label: "Tipos de Trabajador", path: "/worker-types" },
+        // { icon: UserCheck, label: "Cuentas de Usuario", path: "/user-accounts" },
       ],
     },
-    {
-      id: "services",
-      title: "Servicios",
-      icon: Calendar,
-      items: [
-        { icon: Calendar, label: "Citas", path: "/appointments" },
-        {
-          icon: Briefcase,
-          label: "Paquetes y Sesiones",
-          path: "/service-packages",
-        },
-      ],
-    },
-    {
-      id: "reports",
-      title: "Reportes y Configuración",
-      icon: FileText,
-      items: [
-        { icon: TrendingUp, label: "Reportes Financieros", path: "/reports" },
-        { icon: Settings, label: "Configuración", path: "/settings" },
-      ],
-    },
+    // {
+    //   id: "services",
+    //   title: "Servicios",
+    //   icon: Calendar,
+    //   items: [
+    //     { icon: Calendar, label: "Citas", path: "/appointments" },
+    //     { icon: Briefcase, label: "Paquetes y Sesiones", path: "/service-packages", },
+    //   ],
+    // },
+    // {
+    //   id: "reports",
+    //   title: "Reportes y Configuración",
+    //   icon: FileText,
+    //   items: [
+    //     { icon: TrendingUp, label: "Reportes Financieros", path: "/reports" },
+    //     { icon: Settings, label: "Configuración", path: "/settings" },
+    //   ],
+    // },
   ];
 
   // Worker menu organized by sections
