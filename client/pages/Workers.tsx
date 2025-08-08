@@ -69,7 +69,7 @@ interface CreateWorkerRequest {
   active: boolean;
 }
 
-interface WorkersResponseAll {
+interface WorkersResponse {
   state: string;
   message: string;
   data: {
@@ -104,7 +104,7 @@ function getSafeStats(stats?: Partial<WorkerStats>): WorkerStats {
 export function Workers() {
   const navigate = useNavigate();
   const [workers, setWorkers] = useState<Worker[]>([]);
-  const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [startDate, setStartDate] = useState("");
@@ -122,11 +122,8 @@ export function Workers() {
     active: true,
   });
 
-  // Paginación 100% cliente
-  const pagination = usePagination({
-    totalItems: filteredWorkers.length,
-    initialPageSize: 9,
-  });
+  // Server-side pagination
+  const pagination = usePagination({ totalItems, initialPageSize: 9 });
 
   const user = JSON.parse(localStorage.getItem("podocare_user") || "{}");
   const isAdmin = user.role === "admin";
@@ -140,7 +137,7 @@ export function Workers() {
     setEndDate(formatDateLima(lastDay));
   }, []);
 
-  // Cargar TODOS los usuarios (gran límite) + rango de stats
+  // Cargar del servidor cuando cambie: página, pageSize, fechas, búsqueda, estado
   useEffect(() => {
     if (!isAdmin) {
       navigate("/dashboard");
@@ -148,58 +145,29 @@ export function Workers() {
     }
     loadWorkers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, navigate, startDate, endDate]);
-
-  // Filtrado en cliente + reset de página
-  useEffect(() => {
-    let filtered = workers;
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (w) =>
-          w.firstName.toLowerCase().includes(term) ||
-          w.lastName.toLowerCase().includes(term) ||
-          w.username.toLowerCase().includes(term),
-      );
-    }
-
-    if (statusFilter !== "all") {
-      const active = statusFilter === "active";
-      filtered = filtered.filter((w) => w.active === active);
-    }
-
-    setFilteredWorkers(filtered);
-    pagination.resetPagination(); // vuelve a página 1 al cambiar filtros/búsqueda
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workers, searchTerm, statusFilter]);
-
-  // Clamp de página cuando cambia el total filtrado o el pageSize
-  useEffect(() => {
-    const newTotalPages = Math.max(
-      1,
-      Math.ceil(filteredWorkers.length / pagination.pageSize),
-    );
-    if (pagination.currentPage > newTotalPages) {
-      pagination.goToPage(newTotalPages);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredWorkers.length, pagination.pageSize]);
+  }, [isAdmin, navigate, pagination.currentPage, pagination.pageSize, startDate, endDate, searchTerm, statusFilter]);
 
   const loadWorkers = async () => {
     setIsLoading(true);
     try {
-      // Como no podemos server-side pagination, pedimos "todo" con gran límite.
       const params = new URLSearchParams({
-        page: "1",
-        limit: "100000",
+        page: String(pagination.currentPage),
+        limit: String(pagination.pageSize),
       });
       if (startDate) params.append("statsStart", startDate);
       if (endDate) params.append("statsEnd", endDate);
+      if (searchTerm.trim()) params.append("q", searchTerm.trim());     // implementa en backend si aún no
+      if (statusFilter !== "all") params.append("status", statusFilter); // implementa en backend si aún no
 
-      const resp = await apiGet<WorkersResponseAll>(`/user?${params.toString()}`);
+      const resp = await apiGet<WorkersResponse>(`/user?${params.toString()}`);
       if (!resp.error && resp.data) {
-        setWorkers(resp.data.data.data || []);
+        const { data, total, page, limit } = resp.data.data;
+        setWorkers(data || []);
+        setTotalItems(Number(total || 0));
+
+        // Asegura que el paginador quede alineado si el backend ajusta page/limit
+        if (pagination.currentPage !== page) pagination.goToPage(page);
+        if (pagination.pageSize !== limit) pagination.setPageSize(limit);
       }
     } catch (error) {
       console.error("Error loading workers:", error);
@@ -208,15 +176,20 @@ export function Workers() {
     }
   };
 
+  // Al cambiar búsqueda/estado, volver a la página 1
+  useEffect(() => {
+    pagination.goToPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter, startDate, endDate]);
+
   const handleToggleStatus = async (id: string) => {
     const worker = workers.find((w) => w.id === id);
     if (!worker) return;
     try {
       const resp = await apiPut(`/user/${id}`, { active: !worker.active });
       if (!resp.error) {
-        setWorkers((prev) =>
-          prev.map((w) => (w.id === id ? { ...w, active: !w.active } : w)),
-        );
+        // Refresca la página actual del listado
+        loadWorkers();
       }
     } catch (error) {
       console.error("Error updating worker status:", error);
@@ -258,6 +231,8 @@ export function Workers() {
       if (!resp.error) {
         setIsAddDialogOpen(false);
         resetForm();
+        // vuelve a cargar desde el inicio para que aparezca el nuevo
+        pagination.goToPage(1);
         loadWorkers();
       }
     } catch (error) {
@@ -292,10 +267,6 @@ export function Workers() {
 
   if (!isAdmin) return null;
 
-  // Cálculos de paginación en cliente
-  const totalItems = filteredWorkers.length;
-  const sliceStart = (pagination.currentPage - 1) * pagination.pageSize;
-  const sliceEnd = sliceStart + pagination.pageSize;
   const totalPages = Math.max(1, Math.ceil(totalItems / pagination.pageSize));
 
   return (
@@ -360,13 +331,13 @@ export function Workers() {
           </CardContent>
         </Card>
 
-        {/* Stats Cards */}
+        {/* Stats Cards (nota: suman solo la página actual a menos que tu API devuelva agregados globales) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card className="card-modern">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Total Trabajadores</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Trabajadores (página)</p>
                   <p className="text-3xl font-bold text-foreground">{workers.length}</p>
                 </div>
                 <div className="p-3 bg-primary/10 rounded-xl">
@@ -380,7 +351,7 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Activos</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Activos (página)</p>
                   <p className="text-3xl font-bold text-foreground">{workers.filter((w) => w.active).length}</p>
                 </div>
                 <div className="p-3 bg-success/10 rounded-xl">
@@ -394,7 +365,7 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Inactivos</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Inactivos (página)</p>
                   <p className="text-3xl font-bold text-foreground">{workers.filter((w) => !w.active).length}</p>
                 </div>
                 <div className="p-3 bg-destructive/10 rounded-xl">
@@ -408,7 +379,7 @@ export function Workers() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Citas Este Mes</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Citas Este Mes (página)</p>
                   <p className="text-3xl font-bold text-foreground">
                     {workers.reduce((sum, w) => sum + getSafeStats(w.stats).thisMonthAppointments, 0)}
                   </p>
@@ -451,6 +422,109 @@ export function Workers() {
           </CardContent>
         </Card>
 
+        {/* Workers Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isLoading && <p>Cargando...</p>}
+          {!isLoading && workers.length === 0 && (
+            <p className="text-center text-muted-foreground">No se encontraron trabajadores.</p>
+          )}
+
+          {workers.map((worker) => {
+            const stats = getSafeStats(worker.stats);
+            return (
+              <Card key={worker.id} className="card-modern hover:shadow-lg transition-all duration-200">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">
+                          {worker.firstName} {worker.lastName}
+                        </h3>
+                        <p className="text-sm text-muted-foreground capitalize">{worker.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={worker.active ? "status-success" : "status-error"}
+                      >
+                        {worker.active ? "Activo" : "Inactivo"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Usuario:</span>
+                      <span className="font-medium truncate">{worker.username}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Award className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Rol:</span>
+                      <span className="font-medium capitalize">{worker.role}</span>
+                    </div>
+                  </div>
+
+                  {/* Performance Stats */}
+                  <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{stats.completedAppointments}</p>
+                      <p className="text-xs text-muted-foreground">Citas completadas</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">S/ {Number(stats.totalRevenue).toFixed(0)}</p>
+                      <p className="text-xs text-muted-foreground">Ingresos totales</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-green-600">S/ {Number(stats.totalCommissions).toFixed(0)}</p>
+                      <p className="text-xs text-muted-foreground">Bonos ganados</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-foreground">{stats.salesCount}</p>
+                      <p className="text-xs text-muted-foreground">Ventas</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => navigate(`/workers/${worker.id}`)}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      Ver Detalle
+                    </Button>
+                    <Button
+                      onClick={() => openEditDialog(worker)}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Editar
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                    <span className="text-sm font-medium">Estado:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {worker.active ? "Activo" : "Inactivo"}
+                      </span>
+                      <Switch checked={worker.active} onCheckedChange={() => handleToggleStatus(worker.id)} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
         {/* Pagination */}
         {totalItems > 0 && (
           <Pagination
@@ -464,111 +538,6 @@ export function Workers() {
             pageSizeOptions={[6, 9, 12, 18]}
           />
         )}
-
-        {/* Workers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading && <p>Cargando...</p>}
-          {!isLoading && filteredWorkers.length === 0 && (
-            <p className="text-center text-muted-foreground">No se encontraron trabajadores.</p>
-          )}
-
-          {filteredWorkers
-            .slice(sliceStart, sliceEnd)
-            .map((worker) => {
-              const stats = getSafeStats(worker.stats);
-              return (
-                <Card key={worker.id} className="card-modern hover:shadow-lg transition-all duration-200">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Users className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {worker.firstName} {worker.lastName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground capitalize">{worker.role}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={worker.active ? "status-success" : "status-error"}
-                        >
-                          {worker.active ? "Activo" : "Inactivo"}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Usuario:</span>
-                        <span className="font-medium truncate">{worker.username}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Award className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Rol:</span>
-                        <span className="font-medium capitalize">{worker.role}</span>
-                      </div>
-                    </div>
-
-                    {/* Performance Stats */}
-                    <div className="grid grid-cols-2 gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">{stats.completedAppointments}</p>
-                        <p className="text-xs text-muted-foreground">Citas completadas</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">S/ {Number(stats.totalRevenue).toFixed(0)}</p>
-                        <p className="text-xs text-muted-foreground">Ingresos totales</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-green-600">S/ {Number(stats.totalCommissions).toFixed(0)}</p>
-                        <p className="text-xs text-muted-foreground">Bonos ganados</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-lg font-bold text-foreground">{stats.salesCount}</p>
-                        <p className="text-xs text-muted-foreground">Ventas</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => navigate(`/workers/${worker.id}`)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Ver Detalle
-                      </Button>
-                      <Button
-                        onClick={() => openEditDialog(worker)}
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Editar
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                      <span className="text-sm font-medium">Estado:</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {worker.active ? "Activo" : "Inactivo"}
-                        </span>
-                        <Switch checked={worker.active} onCheckedChange={() => handleToggleStatus(worker.id)} />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-        </div>
 
         {/* Add Worker Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={(o) => { setIsAddDialogOpen(o); if (!o) resetForm(); }}>
