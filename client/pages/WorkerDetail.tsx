@@ -5,7 +5,6 @@ import {
   Users,
   ArrowLeft,
   Edit,
-  Trash2,
   Calendar,
   DollarSign,
   TrendingUp,
@@ -86,7 +85,7 @@ interface WorkerStats {
     method: string;
     amount: number;
     count: number;
-    percentage?: number; // lo calculamos en front
+    percentage?: number; // calculado en front
   }[];
   monthlyPerformance: {
     month: string;
@@ -107,7 +106,8 @@ export function WorkerDetail() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stats, setStats] = useState<WorkerStats | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState("6"); // months
+  const [selectedPeriod, setSelectedPeriod] = useState("6"); // months (string en UI)
+
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -135,7 +135,7 @@ export function WorkerDetail() {
           apiGet<ApiResponse<Appointment[]>>(`/worker/${workerId}/appointments`),
           apiGet<ApiResponse<Payment[]>>(`/worker/${workerId}/payments`),
           apiGet<ApiResponse<WorkerStats>>(
-            `/worker/${workerId}/stats?months=${months}`,
+            `/worker/${workerId}/stats?months=${Number(months)}`
           ),
         ]);
 
@@ -147,25 +147,23 @@ export function WorkerDetail() {
       setWorker(workerResp.data.data);
 
       if (!(appointmentsResp as any).error && appointmentsResp.data) {
-        setAppointments(appointmentsResp.data.data);
+        setAppointments(appointmentsResp.data.data || []);
       }
 
       if (!(paymentsResp as any).error && paymentsResp.data) {
-        setPayments(paymentsResp.data.data);
+        setPayments(paymentsResp.data.data || []);
       }
 
       if (!(statsResp as any).error && statsResp.data) {
         const statsData = statsResp.data.data;
         const totalMethodAmount = (statsData.paymentMethodBreakdown || []).reduce(
-          (sum, m) => sum + (m.amount || 0),
-          0,
+          (sum, m) => sum + (m?.amount || 0),
+          0
         );
-        const paymentMethodBreakdown = (statsData.paymentMethodBreakdown || []).map(
-          (m) => ({
-            ...m,
-            percentage: totalMethodAmount > 0 ? (m.amount / totalMethodAmount) * 100 : 0,
-          }),
-        );
+        const paymentMethodBreakdown = (statsData.paymentMethodBreakdown || []).map((m) => ({
+          ...m,
+          percentage: totalMethodAmount > 0 ? (Number(m?.amount || 0) / totalMethodAmount) * 100 : 0,
+        }));
         setStats({ ...statsData, paymentMethodBreakdown });
       }
     } catch (error) {
@@ -203,7 +201,6 @@ export function WorkerDetail() {
 
       const resp = await apiPut(`/user/${worker.id}`, payload);
       if (!(resp as any).error) {
-        // refrescamos los datos del worker sin recargar toda la página
         setWorker({
           ...worker,
           firstName: formData.firstName,
@@ -222,7 +219,6 @@ export function WorkerDetail() {
     }
   };
 
-
   const toggleStatus = async () => {
     if (!worker) return;
     try {
@@ -238,10 +234,7 @@ export function WorkerDetail() {
 
   const getRecentAppointments = () => {
     return [...appointments]
-      .sort(
-        (a, b) =>
-          new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime(),
-      )
+      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
       .slice(0, 10);
   };
 
@@ -322,12 +315,12 @@ export function WorkerDetail() {
     };
   };
 
+  const fmt = (d?: string) => (d ? new Date(d).toLocaleDateString() : "—");
+  const safeDiv = (a: number, b: number) => (b > 0 ? a / b : 0);
+
   if (isLoading) {
     return (
-      <Layout
-        title="Detalle del Trabajador"
-        subtitle="Información completa del trabajador"
-      >
+      <Layout title="Detalle del Trabajador" subtitle="Información completa del trabajador">
         <div className="p-6">
           <div className="space-y-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -341,10 +334,7 @@ export function WorkerDetail() {
 
   if (!worker || !stats) {
     return (
-      <Layout
-        title="Trabajador no encontrado"
-        subtitle="El trabajador solicitado no existe"
-      >
+      <Layout title="Trabajador no encontrado" subtitle="El trabajador solicitado no existe">
         <div className="p-6">
           <Card className="card-modern">
             <CardContent className="p-12 text-center">
@@ -364,13 +354,8 @@ export function WorkerDetail() {
     );
   }
 
-  const safeDiv = (a: number, b: number) => (b > 0 ? a / b : 0);
-
   return (
-    <Layout
-      title={`${worker.firstName} ${worker.lastName}`}
-      subtitle="Perfil completo del trabajador"
-    >
+    <Layout title={`${worker.firstName} ${worker.lastName}`} subtitle="Perfil completo del trabajador">
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -388,23 +373,13 @@ export function WorkerDetail() {
               onClick={toggleStatus}
               className={cn(
                 "flex items-center gap-2",
-                worker.active
-                  ? "text-red-600 hover:text-red-700"
-                  : "text-green-600 hover:text-green-700",
+                worker.active ? "text-red-600 hover:text-red-700" : "text-green-600 hover:text-green-700"
               )}
             >
-              {worker.active ? (
-                <UserX className="w-4 h-4" />
-              ) : (
-                <UserCheck className="w-4 h-4" />
-              )}
+              {worker.active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
               {worker.active ? "Desactivar" : "Activar"}
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleEdit}
-              className="flex items-center gap-2"
-            >
+            <Button variant="outline" onClick={handleEdit} className="flex items-center gap-2">
               <Edit className="w-4 h-4" />
               Editar
             </Button>
@@ -437,31 +412,21 @@ export function WorkerDetail() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-sm text-muted-foreground">
-                      Correo Electrónico
-                    </Label>
+                    <Label className="text-sm text-muted-foreground">Correo Electrónico</Label>
                     <div className="flex items-center gap-2">
                       <Mail className="w-4 h-4 text-muted-foreground" />
-                      <p className="font-medium">
-                        {worker.email || "No especificado"}
-                      </p>
+                      <p className="font-medium">{worker.email || "No especificado"}</p>
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm text-muted-foreground">
-                      Teléfono
-                    </Label>
+                    <Label className="text-sm text-muted-foreground">Teléfono</Label>
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      <p className="font-medium">
-                        {worker.phone || "No especificado"}
-                      </p>
+                      <p className="font-medium">{worker.phone || "No especificado"}</p>
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm text-muted-foreground">
-                      Rol
-                    </Label>
+                    <Label className="text-sm text-muted-foreground">Rol</Label>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-muted-foreground" />
                       <p className="font-medium">
@@ -470,14 +435,8 @@ export function WorkerDetail() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-sm text-muted-foreground">
-                      Estado
-                    </Label>{" "}
-                    <br />
-                    <Badge
-                      variant={worker.active ? "default" : "secondary"}
-                      className="text-xs"
-                    >
+                    <Label className="text-sm text-muted-foreground">Estado</Label> <br />
+                    <Badge variant={worker.active ? "default" : "secondary"} className="text-xs">
                       {worker.active ? "Activo" : "Inactivo"}
                     </Badge>
                   </div>
@@ -485,16 +444,12 @@ export function WorkerDetail() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-muted-foreground pt-4 border-t">
                   <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Fecha de Registro
-                    </Label>
-                    <p>{new Date(worker.createdAt).toLocaleDateString()}</p>
+                    <Label className="text-xs text-muted-foreground">Fecha de Registro</Label>
+                    <p>{fmt(worker.createdAt)}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Última Actualización
-                    </Label>
-                    <p>{new Date(worker.updatedAt).toLocaleDateString()}</p>
+                    <Label className="text-xs text-muted-foreground">Última Actualización</Label>
+                    <p>{fmt(worker.updatedAt)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -511,9 +466,7 @@ export function WorkerDetail() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Citas</p>
-                    <p className="text-2xl font-bold">
-                      {stats.totalAppointments}
-                    </p>
+                    <p className="text-2xl font-bold">{Number(stats.totalAppointments || 0)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -522,13 +475,11 @@ export function WorkerDetail() {
             <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green/10 rounded-lg">
+                  <div className="p-3 bg-green-50 rounded-lg">
                     <DollarSign className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Ingresos Generados
-                    </p>
+                    <p className="text-sm text-muted-foreground">Ingresos Generados</p>
                     <p className="text-2xl font-bold">
                       S/ {Number(stats.revenueGenerated || 0).toFixed(2)}
                     </p>
@@ -540,13 +491,11 @@ export function WorkerDetail() {
             <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue/10 rounded-lg">
+                  <div className="p-3 bg-blue-50 rounded-lg">
                     <Award className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Comisiones por Medicamentos
-                    </p>
+                    <p className="text-sm text-muted-foreground">Comisiones por Medicamentos</p>
                     <p className="text-2xl font-bold">
                       S/ {Number(stats.commissionFromMedications || 0).toFixed(2)}
                     </p>
@@ -558,16 +507,12 @@ export function WorkerDetail() {
             <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-purple/10 rounded-lg">
+                  <div className="p-3 bg-purple-50 rounded-lg">
                     <Package className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Paquetes Atendidos
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {stats.packagesAttended}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Paquetes Atendidos</p>
+                    <p className="text-2xl font-bold">{Number(stats.packagesAttended || 0)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -576,13 +521,11 @@ export function WorkerDetail() {
             <Card className="card-modern">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-orange/10 rounded-lg">
+                  <div className="p-3 bg-orange-50 rounded-lg">
                     <TrendingUp className="w-6 h-6 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Tasa de Finalización
-                    </p>
+                    <p className="text-sm text-muted-foreground">Tasa de Finalización</p>
                     <p className="text-2xl font-bold">
                       {Number(stats.completionRate || 0).toFixed(1)}%
                     </p>
@@ -604,15 +547,14 @@ export function WorkerDetail() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {stats.paymentMethodBreakdown.map((method) => {
+                {stats.paymentMethodBreakdown.map((method, i) => {
+                  const cfgMap = getPaymentMethodConfig();
                   const config =
-                    getPaymentMethodConfig()[
-                    method.method as keyof ReturnType<typeof getPaymentMethodConfig>
-                    ] || getPaymentMethodConfig().other;
+                    cfgMap[method.method as keyof typeof cfgMap] || cfgMap.other;
                   const IconComponent = config.icon;
                   return (
                     <div
-                      key={method.method}
+                      key={method.method || `method-${i}`}
                       className="flex flex-col items-center p-4 bg-muted/30 rounded-lg"
                     >
                       <div className={cn("p-3 rounded-full mb-3", config.iconBg)}>
@@ -626,7 +568,7 @@ export function WorkerDetail() {
                           S/ {Number(method.amount || 0).toFixed(2)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {method.count} pagos ({Number(method.percentage || 0).toFixed(1)}%)
+                          {Number(method.count || 0)} pagos ({Number(method.percentage || 0).toFixed(1)}%)
                         </p>
                       </div>
                     </div>
@@ -753,15 +695,14 @@ export function WorkerDetail() {
                       <TableBody>
                         {getRecentAppointments().map((appointment) => {
                           const payment = payments.find(
-                            (p) => p.appointmentId === appointment.id,
+                            (p) => p.appointmentId === appointment.id
                           );
                           return (
                             <TableRow key={appointment.id}>
                               <TableCell>
                                 <div>
                                   <p className="font-medium">
-                                    {appointment.patient?.firstName}{" "}
-                                    {appointment.patient?.paternalSurname}
+                                    {appointment.patient?.firstName} {appointment.patient?.paternalSurname}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
                                     DNI: {appointment.patient?.documentNumber}
@@ -787,9 +728,7 @@ export function WorkerDetail() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge
-                                  className={cn("text-xs", getStatusColor(appointment.status))}
-                                >
+                                <Badge className={cn("text-xs", getStatusColor(appointment.status))}>
                                   {getStatusText(appointment.status)}
                                 </Badge>
                               </TableCell>
@@ -826,9 +765,7 @@ export function WorkerDetail() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Calificación Promedio
-                    </span>
+                    <span className="text-sm text-muted-foreground">Calificación Promedio</span>
                     <div className="flex items-center gap-1">
                       <span className="font-semibold">
                         {Number(stats.averageRating || 0).toFixed(1)}
@@ -837,25 +774,19 @@ export function WorkerDetail() {
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Citas por Mes (Promedio)
-                    </span>
+                    <span className="text-sm text-muted-foreground">Citas por Mes (Promedio)</span>
                     <span className="font-semibold">
-                      {safeDiv(stats.totalAppointments || 0, Number(selectedPeriod)).toFixed(1)}
+                      {safeDiv(Number(stats.totalAppointments || 0), Number(selectedPeriod)).toFixed(1)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Ingresos por Cita
-                    </span>
+                    <span className="text-sm text-muted-foreground">Ingresos por Cita</span>
                     <span className="font-semibold">
-                      S/ {safeDiv(stats.revenueGenerated || 0, stats.totalAppointments || 0).toFixed(2)}
+                      S/ {safeDiv(Number(stats.revenueGenerated || 0), Number(stats.totalAppointments || 0)).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Comisión Total
-                    </span>
+                    <span className="text-sm text-muted-foreground">Comisión Total</span>
                     <span className="font-semibold">
                       S/ {Number(stats.commissionFromMedications || 0).toFixed(2)}
                     </span>
@@ -872,29 +803,19 @@ export function WorkerDetail() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Tiempo Promedio por Cita
-                    </span>
-                    <span className="font-semibold">
-                      {Number(stats.averageAppointmentDuration || 0)} min
-                    </span>
+                    <span className="text-sm text-muted-foreground">Tiempo Promedio por Cita</span>
+                    <span className="font-semibold">{Number(stats.averageAppointmentDuration || 0)} min</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Pacientes Únicos
-                    </span>
+                    <span className="text-sm text-muted-foreground">Pacientes Únicos</span>
                     <span className="font-semibold">{Number(stats.uniquePatients || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Citas Repetidas
-                    </span>
+                    <span className="text-sm text-muted-foreground">Citas Repetidas</span>
                     <span className="font-semibold">{Number(stats.repeatAppointments || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                      Días Trabajados (Total)
-                    </span>
+                    <span className="text-sm text-muted-foreground">Días Trabajados (Total)</span>
                     <span className="font-semibold">{Number(stats.totalWorkDays || 0)}</span>
                   </div>
                 </CardContent>
