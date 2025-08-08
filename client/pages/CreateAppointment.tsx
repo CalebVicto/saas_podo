@@ -62,6 +62,9 @@ import { PatientRepository } from "@/lib/api/patient";
 import { WorkerRepository } from "@/lib/api/worker";
 import Layout from "@/components/Layout";
 
+// Feature flag to toggle package and payment sections
+const SHOW_PACKAGE_PAYMENT = false;
+
 // Predefined diagnosis options
 const PREDEFINED_DIAGNOSES = [
   "Onicomicosis",
@@ -716,22 +719,26 @@ export function CreateAppointment() {
                           <span className="hidden sm:inline">Productos</span>
                           <span className="sm:hidden">Prod</span>
                         </TabsTrigger>
-                        <TabsTrigger
-                          value="package"
-                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
-                        >
-                          <PackageOpen className="w-4 h-4" />
-                          <span className="hidden sm:inline">Paquete</span>
-                          <span className="sm:hidden">Paq</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                          value="payment"
-                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
-                        >
-                          <Wallet className="w-4 h-4" />
-                          <span className="hidden sm:inline">Pago</span>
-                          <span className="sm:hidden">Pag</span>
-                        </TabsTrigger>
+                        {SHOW_PACKAGE_PAYMENT && (
+                          <TabsTrigger
+                            value="package"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                          >
+                            <PackageOpen className="w-4 h-4" />
+                            <span className="hidden sm:inline">Paquete</span>
+                            <span className="sm:hidden">Paq</span>
+                          </TabsTrigger>
+                        )}
+                        {SHOW_PACKAGE_PAYMENT && (
+                          <TabsTrigger
+                            value="payment"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                          >
+                            <Wallet className="w-4 h-4" />
+                            <span className="hidden sm:inline">Pago</span>
+                            <span className="sm:hidden">Pag</span>
+                          </TabsTrigger>
+                        )}
                       </TabsList>
                     </div>
 
@@ -1079,354 +1086,356 @@ export function CreateAppointment() {
                       </div>
                     </TabsContent>
 
-                    {/* Package Tab */}
-                    <TabsContent
-                      value="package"
-                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
-                    >
-                      <div className="space-y-4">
-                        <Label className="text-base font-semibold">
-                          Paquetes Disponibles para este Paciente
-                        </Label>
-
-                        {(() => {
-                          const availablePackages = getAvailablePackages();
-
-                          if (!formData.patientId) {
-                            return (
-                              <div className="text-center py-8 text-muted-foreground">
-                                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <p>
-                                  Selecciona un paciente para ver sus paquetes
-                                </p>
-                              </div>
-                            );
-                          }
-
-                          if (availablePackages.length === 0) {
-                            return (
-                              <div className="text-center py-8 text-muted-foreground">
-                                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <p>Este paciente no tiene paquetes activos</p>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="space-y-4">
-                              {availablePackages.map((patientPackage) => (
-                                <div
-                                  key={patientPackage.id}
-                                  className={cn(
-                                    "border rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
-                                    selectedPackage?.id === patientPackage.id
-                                      ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md scale-[1.02]"
-                                      : "hover:bg-muted/30",
-                                  )}
-                                  onClick={() =>
-                                    handlePackageSelection(patientPackage)
-                                  }
-                                >
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <h4 className="font-medium">
-                                        {patientPackage.package?.name}
-                                      </h4>
-                                      <p className="text-sm text-muted-foreground mt-1">
-                                        Sesiones restantes:{" "}
-                                        {patientPackage.remainingSessions}
-                                      </p>
-                                      <p className="text-sm text-muted-foreground">
-                                        Total del paquete: S/{" "}
-                                        {patientPackage.package?.totalPrice.toFixed(
-                                          2,
-                                        )}
-                                      </p>
-                                    </div>
-                                    {selectedPackage?.id ===
-                                      patientPackage.id && (
-                                        <Badge variant="default">
-                                          Seleccionado
-                                        </Badge>
-                                      )}
-                                  </div>
-                                </div>
-                              ))}
-
-                              {selectedPackage && usePackageSession && (
-                                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      <Check className="w-5 h-5 text-green-600" />
-                                      <span className="font-medium text-green-800">
-                                        Usando sesión del paquete
-                                      </span>
-                                    </div>
-                                    <Button
-                                      onClick={clearPackageSelection}
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                  <p className="text-sm text-green-700">
-                                    Esta cita utilizará 1 sesión del paquete "
-                                    {selectedPackage.package?.name}". Sesiones
-                                    restantes después de esta cita:{" "}
-                                    {selectedPackage.remainingSessions - 1}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </TabsContent>
-
-                    {/* Payment Tab */}
-                    <TabsContent
-                      value="payment"
-                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
-                    >
-                      <div className="space-y-4">
-                        <Label className="text-base font-semibold">
-                          Opciones de Pago
-                        </Label>
-
-                        {/* Cost Summary */}
-                        <Card className="border-blue-200 bg-blue-50">
-                          <CardContent className="p-4">
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm">Costo total:</span>
-                                <span className="font-bold text-lg">
-                                  S/ {getTotalCost().toFixed(2)}
-                                </span>
-                              </div>
-                              {getTotalAbonoAmount() > 0 && (
-                                <>
-                                  <div className="flex justify-between items-center text-green-600">
-                                    <span className="text-sm">
-                                      Abonos aplicados:
-                                    </span>
-                                    <span className="font-medium">
-                                      -S/ {getTotalAbonoAmount().toFixed(2)}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between items-center pt-2 border-t border-blue-300">
-                                    <span className="font-medium">
-                                      Saldo restante:
-                                    </span>
-                                    <span className="font-bold text-xl text-blue-800">
-                                      S/ {getRemainingBalance().toFixed(2)}
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Available Abonos */}
-                        <div className="space-y-3">
-                          <Label className="text-sm font-medium">
-                            Abonos Disponibles del Paciente
+                    {SHOW_PACKAGE_PAYMENT && (
+                      <TabsContent
+                        value="package"
+                        className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                      >
+                        <div className="space-y-4">
+                          <Label className="text-base font-semibold">
+                            Paquetes Disponibles para este Paciente
                           </Label>
 
-                          {!formData.patientId ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>Selecciona un paciente para ver sus abonos</p>
-                            </div>
-                          ) : availableAbonos.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>Este paciente no tiene abonos disponibles</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              {availableAbonos.map((abono) => {
-                                const isSelected = selectedAbonos.some(
-                                  (sa) => sa.abono.id === abono.id,
-                                );
-                                const selectedAbono = selectedAbonos.find(
-                                  (sa) => sa.abono.id === abono.id,
-                                );
+                          {(() => {
+                            const availablePackages = getAvailablePackages();
 
-                                return (
+                            if (!formData.patientId) {
+                              return (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                  <p>
+                                    Selecciona un paciente para ver sus paquetes
+                                  </p>
+                                </div>
+                              );
+                            }
+
+                            if (availablePackages.length === 0) {
+                              return (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                  <p>Este paciente no tiene paquetes activos</p>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="space-y-4">
+                                {availablePackages.map((patientPackage) => (
                                   <div
-                                    key={abono.id}
+                                    key={patientPackage.id}
                                     className={cn(
-                                      "border rounded-lg p-4 transition-all duration-300",
-                                      isSelected
-                                        ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-md"
-                                        : "hover:bg-muted/30 hover:shadow-sm",
+                                      "border rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
+                                      selectedPackage?.id === patientPackage.id
+                                        ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md scale-[1.02]"
+                                        : "hover:bg-muted/30",
                                     )}
+                                    onClick={() =>
+                                      handlePackageSelection(patientPackage)
+                                    }
                                   >
                                     <div className="flex items-start justify-between">
                                       <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <h4 className="font-medium">
-                                            Abono {abono.method.toUpperCase()}
-                                          </h4>
-                                          <Badge variant="secondary">
-                                            S/{" "}
-                                            {abono.remainingAmount.toFixed(2)}{" "}
-                                            disponible
-                                          </Badge>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">
-                                          Registrado:{" "}
-                                          {new Date(
-                                            abono.registeredAt,
-                                          ).toLocaleDateString()}
+                                        <h4 className="font-medium">
+                                          {patientPackage.package?.name}
+                                        </h4>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                          Sesiones restantes:{" "}
+                                          {patientPackage.remainingSessions}
                                         </p>
-                                        {abono.notes && (
-                                          <p className="text-xs text-muted-foreground mt-1">
-                                            {abono.notes}
-                                          </p>
-                                        )}
+                                        <p className="text-sm text-muted-foreground">
+                                          Total del paquete: S/{" "}
+                                          {patientPackage.package?.totalPrice.toFixed(
+                                            2,
+                                          )}
+                                        </p>
                                       </div>
-                                      <div className="flex items-center gap-2">
-                                        {!isSelected ? (
-                                          <Button
-                                            onClick={() =>
-                                              addAbonoToPayment(abono)
-                                            }
-                                            size="sm"
-                                            variant="outline"
-                                            className="text-green-600 border-green-600 hover:bg-green-50"
-                                          >
-                                            <Plus className="w-4 h-4 mr-1" />
-                                            Usar
-                                          </Button>
-                                        ) : (
-                                          <Button
-                                            onClick={() =>
-                                              removeAbonoFromPayment(abono.id)
-                                            }
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-red-600 hover:bg-red-50"
-                                          >
-                                            <X className="w-4 h-4" />
-                                          </Button>
+                                      {selectedPackage?.id ===
+                                        patientPackage.id && (
+                                          <Badge variant="default">
+                                            Seleccionado
+                                          </Badge>
                                         )}
-                                      </div>
                                     </div>
+                                  </div>
+                                ))}
 
-                                    {isSelected && selectedAbono && (
-                                      <div className="mt-3 pt-3 border-t border-green-200">
-                                        <div className="flex items-center gap-3">
-                                          <Label className="text-sm font-medium text-green-800">
-                                            Monto a usar:
-                                          </Label>
-                                          <div className="flex items-center gap-2">
+                                {selectedPackage && usePackageSession && (
+                                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="flex items-center gap-2">
+                                        <Check className="w-5 h-5 text-green-600" />
+                                        <span className="font-medium text-green-800">
+                                          Usando sesión del paquete
+                                        </span>
+                                      </div>
+                                      <Button
+                                        onClick={clearPackageSelection}
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                    <p className="text-sm text-green-700">
+                                      Esta cita utilizará 1 sesión del paquete "
+                                      {selectedPackage.package?.name}". Sesiones
+                                      restantes después de esta cita:{" "}
+                                      {selectedPackage.remainingSessions - 1}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </TabsContent>
+                    )}
+
+                    {SHOW_PACKAGE_PAYMENT && (
+                      <TabsContent
+                        value="payment"
+                        className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                      >
+                        <div className="space-y-4">
+                          <Label className="text-base font-semibold">
+                            Opciones de Pago
+                          </Label>
+
+                          {/* Cost Summary */}
+                          <Card className="border-blue-200 bg-blue-50">
+                            <CardContent className="p-4">
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm">Costo total:</span>
+                                  <span className="font-bold text-lg">
+                                    S/ {getTotalCost().toFixed(2)}
+                                  </span>
+                                </div>
+                                {getTotalAbonoAmount() > 0 && (
+                                  <>
+                                    <div className="flex justify-between items-center text-green-600">
+                                      <span className="text-sm">
+                                        Abonos aplicados:
+                                      </span>
+                                      <span className="font-medium">
+                                        -S/ {getTotalAbonoAmount().toFixed(2)}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2 border-t border-blue-300">
+                                      <span className="font-medium">
+                                        Saldo restante:
+                                      </span>
+                                      <span className="font-bold text-xl text-blue-800">
+                                        S/ {getRemainingBalance().toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          {/* Available Abonos */}
+                          <div className="space-y-3">
+                            <Label className="text-sm font-medium">
+                              Abonos Disponibles del Paciente
+                            </Label>
+
+                            {!formData.patientId ? (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p>Selecciona un paciente para ver sus abonos</p>
+                              </div>
+                            ) : availableAbonos.length === 0 ? (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                <p>Este paciente no tiene abonos disponibles</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {availableAbonos.map((abono) => {
+                                  const isSelected = selectedAbonos.some(
+                                    (sa) => sa.abono.id === abono.id,
+                                  );
+                                  const selectedAbono = selectedAbonos.find(
+                                    (sa) => sa.abono.id === abono.id,
+                                  );
+
+                                  return (
+                                    <div
+                                      key={abono.id}
+                                      className={cn(
+                                        "border rounded-lg p-4 transition-all duration-300",
+                                        isSelected
+                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-md"
+                                          : "hover:bg-muted/30 hover:shadow-sm",
+                                      )}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <h4 className="font-medium">
+                                              Abono {abono.method.toUpperCase()}
+                                            </h4>
+                                            <Badge variant="secondary">
+                                              S/{" "}
+                                              {abono.remainingAmount.toFixed(2)}{" "}
+                                              disponible
+                                            </Badge>
+                                          </div>
+                                          <p className="text-sm text-muted-foreground">
+                                            Registrado:{" "}
+                                            {new Date(
+                                              abono.registeredAt,
+                                            ).toLocaleDateString()}
+                                          </p>
+                                          {abono.notes && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              {abono.notes}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {!isSelected ? (
                                             <Button
                                               onClick={() =>
-                                                updateAbonoAmount(
-                                                  abono.id,
-                                                  selectedAbono.amountToUse - 5,
-                                                )
+                                                addAbonoToPayment(abono)
                                               }
                                               size="sm"
                                               variant="outline"
-                                              className="h-6 w-6 p-0"
-                                              disabled={
-                                                selectedAbono.amountToUse <= 5
-                                              }
+                                              className="text-green-600 border-green-600 hover:bg-green-50"
                                             >
-                                              <Minus className="w-3 h-3" />
+                                              <Plus className="w-4 h-4 mr-1" />
+                                              Usar
                                             </Button>
-                                            <div className="relative">
-                                              <DollarSign className="w-3 h-3 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                                              <Input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                max={abono.remainingAmount}
-                                                value={
-                                                  selectedAbono.amountToUse
-                                                }
-                                                onChange={(e) =>
+                                          ) : (
+                                            <Button
+                                              onClick={() =>
+                                                removeAbonoFromPayment(abono.id)
+                                              }
+                                              size="sm"
+                                              variant="ghost"
+                                              className="text-red-600 hover:bg-red-50"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {isSelected && selectedAbono && (
+                                        <div className="mt-3 pt-3 border-t border-green-200">
+                                          <div className="flex items-center gap-3">
+                                            <Label className="text-sm font-medium text-green-800">
+                                              Monto a usar:
+                                            </Label>
+                                            <div className="flex items-center gap-2">
+                                              <Button
+                                                onClick={() =>
                                                   updateAbonoAmount(
                                                     abono.id,
-                                                    parseFloat(
-                                                      e.target.value,
-                                                    ) || 0,
+                                                    selectedAbono.amountToUse - 5,
                                                   )
                                                 }
-                                                className="w-24 h-8 pl-6 text-sm"
-                                              />
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 w-6 p-0"
+                                                disabled={
+                                                  selectedAbono.amountToUse <= 5
+                                                }
+                                              >
+                                                <Minus className="w-3 h-3" />
+                                              </Button>
+                                              <div className="relative">
+                                                <DollarSign className="w-3 h-3 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                                                <Input
+                                                  type="number"
+                                                  step="0.01"
+                                                  min="0"
+                                                  max={abono.remainingAmount}
+                                                  value={
+                                                    selectedAbono.amountToUse
+                                                  }
+                                                  onChange={(e) =>
+                                                    updateAbonoAmount(
+                                                      abono.id,
+                                                      parseFloat(
+                                                        e.target.value,
+                                                      ) || 0,
+                                                    )
+                                                  }
+                                                  className="w-24 h-8 pl-6 text-sm"
+                                                />
+                                              </div>
+                                              <Button
+                                                onClick={() =>
+                                                  updateAbonoAmount(
+                                                    abono.id,
+                                                    selectedAbono.amountToUse + 5,
+                                                  )
+                                                }
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 w-6 p-0"
+                                                disabled={
+                                                  selectedAbono.amountToUse >=
+                                                  abono.remainingAmount
+                                                }
+                                              >
+                                                <Plus className="w-3 h-3" />
+                                              </Button>
                                             </div>
                                             <Button
                                               onClick={() =>
                                                 updateAbonoAmount(
                                                   abono.id,
-                                                  selectedAbono.amountToUse + 5,
+                                                  Math.min(
+                                                    abono.remainingAmount,
+                                                    getRemainingBalance() +
+                                                    selectedAbono.amountToUse,
+                                                  ),
                                                 )
                                               }
                                               size="sm"
-                                              variant="outline"
-                                              className="h-6 w-6 p-0"
-                                              disabled={
-                                                selectedAbono.amountToUse >=
-                                                abono.remainingAmount
-                                              }
+                                              variant="ghost"
+                                              className="text-xs text-green-600 hover:bg-green-50"
                                             >
-                                              <Plus className="w-3 h-3" />
+                                              Usar máximo
                                             </Button>
                                           </div>
-                                          <Button
-                                            onClick={() =>
-                                              updateAbonoAmount(
-                                                abono.id,
-                                                Math.min(
-                                                  abono.remainingAmount,
-                                                  getRemainingBalance() +
-                                                  selectedAbono.amountToUse,
-                                                ),
-                                              )
-                                            }
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-xs text-green-600 hover:bg-green-50"
-                                          >
-                                            Usar máximo
-                                          </Button>
                                         </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                                      )}
+                                    </div>
+                                  );
+                                })}
 
-                              {selectedAbonos.length > 0 && (
-                                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <CheckCircle className="w-5 h-5 text-green-600" />
-                                      <span className="font-medium text-green-800">
-                                        Abonos seleccionados
+                                {selectedAbonos.length > 0 && (
+                                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <CheckCircle className="w-5 h-5 text-green-600" />
+                                        <span className="font-medium text-green-800">
+                                          Abonos seleccionados
+                                        </span>
+                                      </div>
+                                      <span className="font-bold text-green-800">
+                                        S/ {getTotalAbonoAmount().toFixed(2)}
                                       </span>
                                     </div>
-                                    <span className="font-bold text-green-800">
-                                      S/ {getTotalAbonoAmount().toFixed(2)}
-                                    </span>
+                                    <p className="text-sm text-green-700 mt-1">
+                                      Se aplicarán automáticamente al confirmar la
+                                      cita
+                                    </p>
                                   </div>
-                                  <p className="text-sm text-green-700 mt-1">
-                                    Se aplicarán automáticamente al confirmar la
-                                    cita
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </TabsContent>
+                      </TabsContent>
+                    )}
                   </Tabs>
                 </CardContent>
               </Card>
@@ -1507,38 +1516,42 @@ export function CreateAppointment() {
                               </Badge>
                             )}
                           </TabsTrigger>
-                          <TabsTrigger
-                            value="package"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
-                          >
-                            <Package className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden sm:inline">Paquete</span>
-                            <span className="sm:hidden">Paq</span>
-                            {selectedPackage && usePackageSession && (
-                              <Badge
-                                variant="secondary"
-                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
-                              >
-                                1
-                              </Badge>
-                            )}
-                          </TabsTrigger>
-                          <TabsTrigger
-                            value="payment"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
-                          >
-                            <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span className="hidden sm:inline">Pago</span>
-                            <span className="sm:hidden">Pag</span>
-                            {selectedAbonos.length > 0 && (
-                              <Badge
-                                variant="secondary"
-                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
-                              >
-                                {selectedAbonos.length}
-                              </Badge>
-                            )}
-                          </TabsTrigger>
+                          {SHOW_PACKAGE_PAYMENT && (
+                            <TabsTrigger
+                              value="package"
+                              className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                            >
+                              <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span className="hidden sm:inline">Paquete</span>
+                              <span className="sm:hidden">Paq</span>
+                              {selectedPackage && usePackageSession && (
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                                >
+                                  1
+                                </Badge>
+                              )}
+                            </TabsTrigger>
+                          )}
+                          {SHOW_PACKAGE_PAYMENT && (
+                            <TabsTrigger
+                              value="payment"
+                              className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                            >
+                              <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span className="hidden sm:inline">Pago</span>
+                              <span className="sm:hidden">Pag</span>
+                              {selectedAbonos.length > 0 && (
+                                <Badge
+                                  variant="secondary"
+                                  className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                                >
+                                  {selectedAbonos.length}
+                                </Badge>
+                              )}
+                            </TabsTrigger>
+                          )}
                         </TabsList>
                       </div>
 
@@ -1786,162 +1799,164 @@ export function CreateAppointment() {
                         )}
                       </TabsContent>
 
-                      {/* Package Tab */}
-                      <TabsContent
-                        value="package"
-                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
-                      >
-                        {selectedPackage && usePackageSession ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-medium text-green-800">
-                                Paquete Asignado
-                              </h3>
-                              <Badge variant="secondary">1 sesión</Badge>
-                            </div>
+                      {SHOW_PACKAGE_PAYMENT && (
+                        <TabsContent
+                          value="package"
+                          className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                        >
+                          {selectedPackage && usePackageSession ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-medium text-green-800">
+                                  Paquete Asignado
+                                </h3>
+                                <Badge variant="secondary">1 sesión</Badge>
+                              </div>
 
-                            <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                              <div className="flex justify-between items-start mb-2">
-                                <div>
-                                  <h4 className="font-medium text-green-800">
-                                    {selectedPackage.package?.name}
-                                  </h4>
-                                  <p className="text-sm text-green-600">
-                                    Sesiones restantes:{" "}
-                                    {selectedPackage.remainingSessions - 1}
-                                  </p>
+                              <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <h4 className="font-medium text-green-800">
+                                      {selectedPackage.package?.name}
+                                    </h4>
+                                    <p className="text-sm text-green-600">
+                                      Sesiones restantes:{" "}
+                                      {selectedPackage.remainingSessions - 1}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={clearPackageSelection}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
                                 </div>
-                                <Button
-                                  onClick={clearPackageSelection}
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
-                                >
-                                  <X className="w-3 h-3" />
-                                </Button>
+                                <p className="text-xs text-green-500">
+                                  Se usará 1 sesión de este paquete
+                                </p>
                               </div>
-                              <p className="text-xs text-green-500">
-                                Se usará 1 sesión de este paquete
-                              </p>
-                            </div>
 
-                            <div className="pt-3 border-t">
-                              <div className="flex justify-between items-center">
-                                <span className="font-bold">
-                                  Costo paquete:
-                                </span>
-                                <span className="font-bold text-lg text-green-600">
-                                  Incluido
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>No hay paquete seleccionado</p>
-                            <p className="text-sm">
-                              Ve a la pestaña "Paquete" para asignar
-                            </p>
-                          </div>
-                        )}
-                      </TabsContent>
-
-                      {/* Payment Tab */}
-                      <TabsContent
-                        value="payment"
-                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
-                      >
-                        {getTotalCost() > 0 ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <h3 className="font-medium">Resumen de Pago</h3>
-                            </div>
-
-                            {/* Cost Breakdown */}
-                            <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                              <div className="flex justify-between text-sm">
-                                <span>Costo total:</span>
-                                <span className="font-medium">
-                                  S/ {getTotalCost().toFixed(2)}
-                                </span>
-                              </div>
-                              {getTotalAbonoAmount() > 0 && (
-                                <div className="flex justify-between text-sm text-green-600">
-                                  <span>Abonos aplicados:</span>
-                                  <span className="font-medium">
-                                    -S/ {getTotalAbonoAmount().toFixed(2)}
+                              <div className="pt-3 border-t">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold">
+                                    Costo paquete:
+                                  </span>
+                                  <span className="font-bold text-lg text-green-600">
+                                    Incluido
                                   </span>
                                 </div>
-                              )}
-                              <div className="flex justify-between pt-2 border-t border-blue-300">
-                                <span className="font-bold">
-                                  Saldo restante:
-                                </span>
-                                <span className="font-bold text-lg text-blue-800">
-                                  S/ {getRemainingBalance().toFixed(2)}
-                                </span>
                               </div>
                             </div>
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>No hay paquete seleccionado</p>
+                              <p className="text-sm">
+                                Ve a la pestaña "Paquete" para asignar
+                              </p>
+                            </div>
+                          )}
+                        </TabsContent>
+                      )}
 
-                            {/* Selected Abonos */}
-                            {selectedAbonos.length > 0 && (
-                              <div className="space-y-2">
-                                <h4 className="font-medium text-green-800">
-                                  Abonos a Usar:
-                                </h4>
-                                {selectedAbonos.map(
-                                  ({ abono, amountToUse }) => (
-                                    <div
-                                      key={abono.id}
-                                      className="p-3 bg-green-50 rounded-lg border border-green-200"
-                                    >
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                          <p className="font-medium text-green-800">
-                                            {abono.method.toUpperCase()}
-                                          </p>
-                                          <p className="text-xs text-green-600">
-                                            Disponible: S/{" "}
-                                            {abono.remainingAmount.toFixed(2)}
-                                          </p>
-                                        </div>
-                                        <div className="text-right">
-                                          <p className="font-bold text-green-800">
-                                            S/ {amountToUse.toFixed(2)}
-                                          </p>
+                      {SHOW_PACKAGE_PAYMENT && (
+                        <TabsContent
+                          value="payment"
+                          className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                        >
+                          {getTotalCost() > 0 ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-medium">Resumen de Pago</h3>
+                              </div>
+
+                              {/* Cost Breakdown */}
+                              <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="flex justify-between text-sm">
+                                  <span>Costo total:</span>
+                                  <span className="font-medium">
+                                    S/ {getTotalCost().toFixed(2)}
+                                  </span>
+                                </div>
+                                {getTotalAbonoAmount() > 0 && (
+                                  <div className="flex justify-between text-sm text-green-600">
+                                    <span>Abonos aplicados:</span>
+                                    <span className="font-medium">
+                                      -S/ {getTotalAbonoAmount().toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between pt-2 border-t border-blue-300">
+                                  <span className="font-bold">
+                                    Saldo restante:
+                                  </span>
+                                  <span className="font-bold text-lg text-blue-800">
+                                    S/ {getRemainingBalance().toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Selected Abonos */}
+                              {selectedAbonos.length > 0 && (
+                                <div className="space-y-2">
+                                  <h4 className="font-medium text-green-800">
+                                    Abonos a Usar:
+                                  </h4>
+                                  {selectedAbonos.map(
+                                    ({ abono, amountToUse }) => (
+                                      <div
+                                        key={abono.id}
+                                        className="p-3 bg-green-50 rounded-lg border border-green-200"
+                                      >
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                            <p className="font-medium text-green-800">
+                                              {abono.method.toUpperCase()}
+                                            </p>
+                                            <p className="text-xs text-green-600">
+                                              Disponible: S/{" "}
+                                              {abono.remainingAmount.toFixed(2)}
+                                            </p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="font-bold text-green-800">
+                                              S/ {amountToUse.toFixed(2)}
+                                            </p>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  ),
-                                )}
-                              </div>
-                            )}
+                                    ),
+                                  )}
+                                </div>
+                              )}
 
-                            {/* Payment Methods Suggestion */}
-                            {getRemainingBalance() > 0 && (
-                              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                                <p className="text-sm text-amber-800">
-                                  <strong>Saldo pendiente:</strong> S/{" "}
-                                  {getRemainingBalance().toFixed(2)}
-                                </p>
-                                <p className="text-xs text-amber-600 mt-1">
-                                  Deberá ser pagado con efectivo, tarjeta u otro
-                                  método al momento de la cita.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>No hay costos que mostrar</p>
-                            <p className="text-sm">
-                              Agrega productos o precio de tratamiento
-                            </p>
-                          </div>
-                        )}
-                      </TabsContent>
+                              {/* Payment Methods Suggestion */}
+                              {getRemainingBalance() > 0 && (
+                                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                  <p className="text-sm text-amber-800">
+                                    <strong>Saldo pendiente:</strong> S/{" "}
+                                    {getRemainingBalance().toFixed(2)}
+                                  </p>
+                                  <p className="text-xs text-amber-600 mt-1">
+                                    Deberá ser pagado con efectivo, tarjeta u otro
+                                    método al momento de la cita.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>No hay costos que mostrar</p>
+                              <p className="text-sm">
+                                Agrega productos o precio de tratamiento
+                              </p>
+                            </div>
+                          )}
+                        </TabsContent>
+                      )}
                     </Tabs>
 
                     {/* Total Cost Summary - Always at bottom */}
