@@ -481,9 +481,9 @@ export function CreateAppointment() {
     } else {
       const appointmentDate = new Date(formData.dateTime);
       const now = new Date();
-      if (appointmentDate < now) {
-        newErrors.dateTime = "La fecha no puede ser en el pasado";
-      }
+      // if (appointmentDate < now) {
+      //   newErrors.dateTime = "La fecha no puede ser en el pasado";
+      // }
     }
     if (!formData.treatmentNotes?.trim()) {
       newErrors.treatmentNotes = "Describe el tratamiento";
