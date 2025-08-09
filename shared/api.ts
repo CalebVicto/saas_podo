@@ -330,6 +330,7 @@ export interface Sale {
   totalAmount: number;
   patientId?: string;
   appointmentId?: string;
+  appointment?: Appointment; 
   sellerId: string;
   date: string;
   payment?: Payment;

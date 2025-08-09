@@ -16,6 +16,7 @@ import {
   Building,
   Banknote,
   Wallet,
+  SmartphoneNfc,
   ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,22 @@ const paymentMethodConfig = {
     cardColor: "text-indigo-600",
     cardBg: "bg-indigo-50",
     iconBg: "bg-indigo-100",
+  },
+  pos: {
+    label: "POS",
+    icon: SmartphoneNfc,
+    className: "bg-orange-100 text-orange-800 border-orange-200",
+    cardColor: "text-orange-600",
+    cardBg: "bg-orange-50",
+    iconBg: "bg-orange-100",
+  },
+  efectivo: {
+    label: "Efectivo",
+    icon: Banknote,
+    className: "bg-green-100 text-green-800 border-green-200",
+    cardColor: "text-green-600",
+    cardBg: "bg-green-50",
+    iconBg: "bg-green-100",
   },
 };
 
