@@ -185,6 +185,28 @@ export interface CreatePaymentRequest {
   method: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
 }
 
+export interface PaymentStats {
+  range: {
+    from: string;
+    to: string;
+  };
+  totals: {
+    _id: string | null;
+    amountAll: number;
+    amountCompleted: number;
+    countAll: number;
+    countCompleted: number;
+    countPending: number;
+    countFailed: number;
+  };
+  today: {
+    _id: string | null;
+    amount: number;
+    count: number;
+  };
+  byMethod: Record<string, { amount: number; count: number }>;
+}
+
 // Abonos (Partial Payments) Types
 export interface Abono {
   id: string;

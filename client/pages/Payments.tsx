@@ -47,7 +47,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Payment, CreatePaymentRequest, Appointment, Sale } from "@shared/api";
+import {
+  Payment,
+  CreatePaymentRequest,
+  Appointment,
+  Sale,
+  PaymentStats,
+} from "@shared/api";
 import { getMockPayments, getMockAppointments, getMockSales } from "@/lib/mockData";
 import { AppointmentDetailStory } from "@/components/appointments/AppointmentDetailStory";
 import { apiGet, ApiResponse } from "@/lib/auth";
@@ -178,6 +184,7 @@ export function Payments() {
   const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = useState(false);
   const [isSaleDialogOpen, setIsSaleDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [stats, setStats] = useState<PaymentStats | null>(null);
 
   // Pagination
   const pagination = usePagination({
@@ -286,6 +293,7 @@ export function Payments() {
       const params = new URLSearchParams();
       params.set("page", pagination.currentPage.toString());
       params.set("limit", pagination.pageSize.toString());
+      params.set("includeStats", "true");
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
       if (methodFilter !== "all") params.set("paymentType", methodFilter);
@@ -295,7 +303,10 @@ export function Payments() {
       if (amountMax) params.set("amountMax", amountMax);
 
       const resp = await apiGet<
-        ApiResponse<{ data: any[]; total: number; page: number; limit: number }>
+        ApiResponse<
+          { data: any[]; total: number; page: number; limit: number },
+          PaymentStats
+        >
       >(`/payment?${params.toString()}`);
       if (!resp.error && resp.data) {
         const raw = resp.data.data.data || [];
@@ -312,6 +323,7 @@ export function Payments() {
           saleId: p.referenceTable === "Sale" ? p.referenceId : undefined,
         }));
         setPayments(items);
+        setStats(resp.data.stats || null);
       }
     } catch (error) {
       console.error("Error loading payments:", error);
@@ -390,45 +402,12 @@ export function Payments() {
     return { type: "other" as const, label: "Pago directo" };
   };
 
-  // Calculate stats
-  const totalAmount = payments.reduce((sum, p) => sum + p.amount, 0);
-  const todayAmount = payments
-    .filter((p) => {
-      const paymentDate = p.paidAt || p.createdAt;
-      return paymentDate.startsWith(new Date().toISOString().split("T")[0]);
-    })
-    .reduce((sum, p) => sum + p.amount, 0);
-
-  const completedPayments = payments.filter((p) => p.status === "completed");
-  const pendingPayments = payments.filter((p) => p.status === "pending");
-
-  // Calculate daily income by payment method
-  const getDailyPaymentMethodStats = () => {
-    const today = new Date().toISOString().split("T")[0];
-    const todayPayments = payments.filter((p) => {
-      const paymentDate = p.paidAt || p.createdAt;
-      return paymentDate.startsWith(today) && p.status === "completed";
-    });
-
-    const methodStats: Record<string, { amount: number; count: number }> = {};
-
-    // Initialize all methods
-    Object.keys(paymentMethodConfig).forEach((method) => {
-      methodStats[method] = { amount: 0, count: 0 };
-    });
-
-    // Calculate stats for today's payments
-    todayPayments.forEach((payment) => {
-      if (methodStats[payment.method]) {
-        methodStats[payment.method].amount += payment.amount;
-        methodStats[payment.method].count += 1;
-      }
-    });
-
-    return methodStats;
-  };
-
-  const dailyMethodStats = getDailyPaymentMethodStats();
+  // Calculate stats from API response
+  const totalAmount = stats?.totals.amountCompleted ?? 0;
+  const todayAmount = stats?.today.amount ?? 0;
+  const completedCount = stats?.totals.countCompleted ?? 0;
+  const pendingCount = stats?.totals.countPending ?? 0;
+  const methodStats = stats?.byMethod ?? {};
 
   const getPaymentMethodLabel = (method: string) => {
     const labels = {
@@ -514,7 +493,7 @@ export function Payments() {
                     Pagos Completados
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    {completedPayments.length}
+                    {completedCount}
                   </p>
                 </div>
                 <div className="p-3 bg-success/10 rounded-xl">
@@ -532,7 +511,7 @@ export function Payments() {
                     Pagos Pendientes
                   </p>
                   <p className="text-3xl font-bold text-foreground">
-                    {pendingPayments.length}
+                    {pendingCount}
                   </p>
                 </div>
                 <div className="p-3 bg-warning/10 rounded-xl">
@@ -561,7 +540,7 @@ export function Payments() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {Object.entries(paymentMethodConfig).map(([method, config]) => {
-              const stats = dailyMethodStats[method];
+              const statsEntry = methodStats[method] || { amount: 0, count: 0 };
               const IconComponent = config.icon;
               return (
                 <Card
@@ -575,9 +554,9 @@ export function Payments() {
                           className={cn("w-5 h-5", config.cardColor)}
                         />
                       </div>
-                      {stats.count > 0 && (
+                      {statsEntry.count > 0 && (
                         <Badge variant="outline" className="text-xs">
-                          {stats.count}
+                          {statsEntry.count}
                         </Badge>
                       )}
                     </div>
@@ -591,10 +570,10 @@ export function Payments() {
                         {method === "balance" && "💼"} {config.label}
                       </p>
                       <p className="text-lg font-bold text-foreground">
-                        S/ {stats.amount.toFixed(2)}
+                        S/ {statsEntry.amount.toFixed(2)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {stats.count} {stats.count === 1 ? "pago" : "pagos"}
+                        {statsEntry.count} {statsEntry.count === 1 ? "pago" : "pagos"}
                       </p>
                     </div>
                   </CardContent>
