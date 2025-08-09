@@ -78,7 +78,7 @@ interface SaleForm {
   customerId?: string;
   items: CartItem[];
   totalAmount: number;
-  paymentMethod: "efectivo" | "yape" | "transferencia" | "pos";
+  paymentMethod: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
   notes?: string;
 }
 
@@ -125,7 +125,7 @@ export function Sales() {
   const [saleForm, setSaleForm] = useState<SaleForm>({
     items: [],
     totalAmount: 0,
-    paymentMethod: "efectivo",
+    paymentMethod: "cash",
     notes: "",
   });
   const [isProcessing, setIsProcessing] = useState(false);
@@ -486,7 +486,7 @@ export function Sales() {
       setSaleForm({
         items: [],
         totalAmount: 0,
-        paymentMethod: "efectivo",
+        paymentMethod: "cash",
         customerId: undefined,
         notes: "",
       });
@@ -562,11 +562,13 @@ export function Sales() {
 
   const getPaymentMethodLabel = (method: string) => {
     const labels = {
-      efectivo: "Efectivo",
+      cash: "Efectivo",
+      transfer: "Transferencia",
       yape: "Yape",
-      transferencia: "Transferencia",
       pos: "POS",
-    };
+      plin: "Plin",
+      balance: "Saldo",
+    } as const;
     return labels[method as keyof typeof labels] || method;
   };
 
@@ -604,7 +606,7 @@ export function Sales() {
     // Método de pago
     setSaleForm((prev: any) => ({
       ...prev,
-      paymentMethod: sale.paymentMethod || "efectivo",
+      paymentMethod: sale.paymentMethod || "cash",
     }));
   };
 
@@ -991,12 +993,12 @@ export function Sales() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="efectivo">Efectivo</SelectItem>
+                          <SelectItem value="cash">Efectivo</SelectItem>
                           <SelectItem value="yape">Yape</SelectItem>
-                          <SelectItem value="transferencia">
-                            Transferencia
-                          </SelectItem>
+                          <SelectItem value="plin">Plin</SelectItem>
+                          <SelectItem value="transfer">Transferencia</SelectItem>
                           <SelectItem value="pos">POS</SelectItem>
+                          <SelectItem value="balance">Saldo</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1111,10 +1113,12 @@ export function Sales() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos los métodos</SelectItem>
-                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                      <SelectItem value="cash">Efectivo</SelectItem>
                       <SelectItem value="yape">Yape</SelectItem>
-                      <SelectItem value="transferencia">Transferencia</SelectItem>
+                      <SelectItem value="plin">Plin</SelectItem>
+                      <SelectItem value="transfer">Transferencia</SelectItem>
                       <SelectItem value="pos">POS</SelectItem>
+                      <SelectItem value="balance">Saldo</SelectItem>
                     </SelectContent>
                   </Select>
 

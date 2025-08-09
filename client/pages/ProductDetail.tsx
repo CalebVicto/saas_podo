@@ -382,10 +382,12 @@ export function ProductDetail() {
 
   const getPaymentMethodLabel = (method: string) => {
     const labels = {
-      efectivo: "Efectivo",
+      cash: "Efectivo",
+      transfer: "Transferencia",
       yape: "Yape",
-      transferencia: "Transferencia",
       pos: "POS",
+      plin: "Plin",
+      balance: "Saldo",
     } as const;
     return labels[method as keyof typeof labels] || method;
   };

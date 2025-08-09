@@ -60,7 +60,8 @@ const paymentMethodConfig = {
   yape: { label: "Yape", icon: CreditCard },
   plin: { label: "Plin", icon: CreditCard },
   transfer: { label: "Transferencia", icon: CreditCard },
-  card: { label: "Tarjeta", icon: CreditCard },
+  pos: { label: "POS", icon: CreditCard },
+  balance: { label: "Saldo", icon: Wallet },
 };
 
 interface SearchableSelectProps {

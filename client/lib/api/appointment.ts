@@ -97,7 +97,10 @@ export class AppointmentRepository {
 
   async updatePayment(
     id: string,
-    data: { paymentMethod: "cash" | "transfer" | "yape" | "pos"; tenantId?: string }
+    data: {
+      paymentMethod: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
+      tenantId?: string;
+    }
   ) {
     const resp = await apiPut<ApiResponse<void>>(`/appointment/${id}/payment`, data);
     if (resp.error || !resp.data) {

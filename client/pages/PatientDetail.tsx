@@ -92,17 +92,20 @@ const appointmentStatusConfig = {
 
 const paymentMethodConfig = {
   cash: { label: "Efectivo", icon: Wallet },
-  yape: { label: "Yape", icon: CreditCard },
-  plin: { label: "Plin", icon: CreditCard },
   transfer: { label: "Transferencia", icon: CreditCard },
-  card: { label: "Tarjeta", icon: CreditCard },
+  yape: { label: "Yape", icon: CreditCard },
+  pos: { label: "POS", icon: CreditCard },
+  plin: { label: "Plin", icon: CreditCard },
+  balance: { label: "Saldo", icon: Wallet },
 };
 
 const balanceMethodConfig = {
-  efectivo: { label: "Efectivo", icon: Wallet },
+  cash: { label: "Efectivo", icon: Wallet },
   yape: { label: "Yape", icon: CreditCard },
-  transferencia: { label: "Transferencia", icon: CreditCard },
+  transfer: { label: "Transferencia", icon: CreditCard },
   pos: { label: "POS", icon: CreditCard },
+  plin: { label: "Plin", icon: CreditCard },
+  balance: { label: "Saldo", icon: Wallet },
 };
 
 export function PatientDetail() {
@@ -121,7 +124,7 @@ export function PatientDetail() {
   const [formViewAddBalance, setFormViewAddBalance] = useState(false);
   const [amount, setAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<keyof typeof balanceMethodConfig>(
-    "efectivo",
+    "cash",
   );
   const [description, setDescription] = useState("");
   const [isSavingBalance, setIsSavingBalance] = useState(false);
@@ -213,7 +216,7 @@ export function PatientDetail() {
       setFormViewAddBalance(false);
       setAmount(0);
       setDescription("");
-      setPaymentMethod("efectivo");
+      setPaymentMethod("cash");
       await loadPatientData();
     } catch (err: any) {
       toast({
@@ -1180,7 +1183,7 @@ export function PatientDetail() {
                 setFormViewAddBalance(false);
                 setAmount(0);
                 setDescription("");
-                setPaymentMethod("efectivo");
+                setPaymentMethod("cash");
               }}
               disabled={isSavingBalance}
             >
