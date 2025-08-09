@@ -78,6 +78,7 @@ export interface Worker {
   id: string;
   firstName: string;
   lastName: string;
+  username: string;
   email: string;
   phone: string;
   specialization?: string;
@@ -113,7 +114,7 @@ export interface Appointment {
   treatment?: string;
   treatmentPrice?: number;
   appointmentPrice?: number;
-  status: "registered" | "paid" | "cancelled" | "completed" | "scheduled";
+  status: "registered" | "paid" | "canceled" | "completed" | "scheduled";
   createdAt: string;
   updatedAt: string;
   patient?: Patient;

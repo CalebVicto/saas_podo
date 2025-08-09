@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from "@/lib/auth";
+import { apiGet, apiPost, apiPatch, apiPut, apiDelete } from "@/lib/auth";
 import type {
   Appointment,
   PaginatedResponse,
@@ -25,7 +25,7 @@ export class AppointmentRepository {
     if (params?.search) searchParams.append("search", params.search);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        if (!['page','limit','search'].includes(key) && value !== undefined)
+        if (!['page', 'limit', 'search'].includes(key) && value !== undefined)
           searchParams.append(key, String(value));
       });
     }
@@ -65,10 +65,29 @@ export class AppointmentRepository {
   }
 
   async update(id: string, data: Partial<Appointment>): Promise<Appointment> {
-    const resp = await apiPatch<ApiResponse<Appointment>>(`/appointment/${id}`, data);
+    const resp = await apiPut<ApiResponse<Appointment>>(`/appointment/${id}`, data);
     if (resp.error || !resp.data) {
       throw new Error(resp.error || "Failed to update appointment");
     }
     return resp.data.data;
   }
+
+  async delete(id: string): Promise<void> {
+    const resp = await apiDelete<ApiResponse<void>>(`/appointment/${id}`);
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to delete appointment");
+    }
+  }
+
+  async updatePayment(
+    id: string,
+    data: { paymentMethod: "cash" | "transfer" | "yape" | "pos"; tenantId?: string }
+  ) {
+    const resp = await apiPut<ApiResponse<void>>(`/appointment/${id}/payment`, data);
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to update appointment payment");
+    }
+    return resp.data;
+  }
+
 }
