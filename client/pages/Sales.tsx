@@ -1765,6 +1765,20 @@ export function Sales() {
                     Esta venta fue hecha con una cita, para eliminar esta venta se debe borrar esa cita.
                   </p>
                   <div className="bg-muted p-4 rounded-lg text-sm space-y-1">
+                    {/* Pacienta */}
+                    <p>
+                      <span className="font-medium">Paciente:</span>{" "}
+                      {saleToDelete.patient.firstName}{" "}
+                      {saleToDelete.patient.paternalSurname}{" "}
+                      {saleToDelete.patient.maternalSurname}
+                    </p>
+                    {/* Document */}
+                    <p>
+                      <span className="font-medium">
+                        {saleToDelete.patient.documentType === "dni" ? "DNI" : "Pasaporte"}:
+                      </span>{" "}
+                      {saleToDelete.patient.documentNumber} 
+                    </p>
                     {saleToDelete.appointment.diagnosis && (
                       <p>
                         <span className="font-medium">Diagnóstico:</span>{" "}

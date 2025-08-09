@@ -147,7 +147,7 @@ export function Sidebar({
       items: [
         { icon: ShoppingCart, label: "Ventas / POS", path: "/sales" },
         { icon: DollarSign, label: "Pagos", path: "/payments" },
-        { icon: Wallet, label: "Abonos", path: "/abonos" },
+        // { icon: Wallet, label: "Abonos", path: "/abonos" },
       ],
     },
   ];

@@ -18,6 +18,7 @@ import {
   Wallet,
   SmartphoneNfc,
   ArrowUpDown,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,14 +104,6 @@ const paymentMethodConfig = {
     cardBg: "bg-orange-50",
     iconBg: "bg-orange-100",
   },
-  card: {
-    label: "Tarjeta",
-    icon: CreditCard,
-    className: "bg-gray-100 text-gray-800 border-gray-200",
-    cardColor: "text-indigo-600",
-    cardBg: "bg-indigo-50",
-    iconBg: "bg-indigo-100",
-  },
   pos: {
     label: "POS",
     icon: SmartphoneNfc,
@@ -119,14 +112,14 @@ const paymentMethodConfig = {
     cardBg: "bg-orange-50",
     iconBg: "bg-orange-100",
   },
-  efectivo: {
-    label: "Efectivo",
-    icon: Banknote,
-    className: "bg-green-100 text-green-800 border-green-200",
-    cardColor: "text-green-600",
-    cardBg: "bg-green-50",
-    iconBg: "bg-green-100",
-  },
+  balance: {
+    label: "Saldo",
+    icon: Wallet,
+    className: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    cardColor: "text-yellow-600",
+    cardBg: "bg-yellow-50",
+    iconBg: "bg-yellow-100",
+  }
 };
 
 const statusConfig = {
@@ -392,6 +385,17 @@ export function Payments() {
 
   const dailyMethodStats = getDailyPaymentMethodStats();
 
+  const getPaymentMethodLabel = (method: string) => {
+    const labels = {
+      efectivo: "Efectivo",
+      yape: "Yape",
+      transferencia: "Transferencia",
+      pos: "POS",
+    };
+    return labels[method as keyof typeof labels] || method;
+  };
+
+
   if (!user) return null;
 
   return (
@@ -508,7 +512,7 @@ export function Payments() {
             </Badge>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {Object.entries(paymentMethodConfig).map(([method, config]) => {
               const stats = dailyMethodStats[method];
               const IconComponent = config.icon;
@@ -639,9 +643,9 @@ export function Payments() {
                 </h3>
                 <p className="text-muted-foreground mb-6">
                   {searchTerm ||
-                  methodFilter !== "all" ||
-                  statusFilter !== "all" ||
-                  dateFilter
+                    methodFilter !== "all" ||
+                    statusFilter !== "all" ||
+                    dateFilter
                     ? "No se encontraron pagos con los filtros aplicados"
                     : "No hay pagos registrados"}
                 </p>
@@ -844,7 +848,8 @@ export function Payments() {
                               value={appointment.id}
                             >
                               {appointment.patient?.firstName}{" "}
-                              {appointment.patient?.lastName} -{" "}
+                              {appointment.patient?.paternalSurname}{" "}
+                              {appointment.patient?.maternalSurname} -{" "}
                               {new Date(
                                 appointment.dateTime,
                               ).toLocaleDateString()}
@@ -944,7 +949,7 @@ export function Payments() {
                 Registrar Pago
               </Button>
             </div>
-        </DialogContent>
+          </DialogContent>
         </Dialog>
 
         {/* View Appointment Dialog */}
@@ -976,63 +981,254 @@ export function Payments() {
           </DialogContent>
         </Dialog>
 
-        {/* View Sale Dialog */}
-        <Dialog open={isSaleDialogOpen} onOpenChange={setIsSaleDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        {/* View Sale Details Dialog */}
+        {/* View Sale Details Dialog */}
+        <Dialog
+          open={isSaleDialogOpen}
+          onOpenChange={setIsSaleDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-primary" />
+                <Package className="w-5 h-5 text-primary" />
                 Detalle de la Venta
               </DialogTitle>
             </DialogHeader>
+
             {selectedSale && (
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground text-sm">Fecha</Label>
-                    <p className="font-medium mt-1">
-                      {new Date(selectedSale.date).toLocaleString("es-PE")}
-                    </p>
+              <div className="space-y-6 py-4">
+                {/* Aviso de anulación */}
+                {selectedSale.state === "anulada" && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                    <Badge variant="destructive" className="w-fit">Venta Anulada</Badge>
+                    {selectedSale.cancelReason && (
+                      <p className="text-sm text-muted-foreground italic">
+                        Motivo: {selectedSale.cancelReason}
+                      </p>
+                    )}
+                    {selectedSale.canceledAt && (
+                      <p className="text-sm text-muted-foreground">
+                        Fecha de anulación:{" "}
+                        {new Date(selectedSale.canceledAt).toLocaleString("es-PE", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                    {selectedSale.canceledBy && (
+                      <p className="text-sm text-muted-foreground">
+                        Anulado por:{" "}
+                        <span className="font-medium">
+                          {(selectedSale.canceledBy as any)?.firstName} {(selectedSale.canceledBy as any)?.lastName}
+                        </span>
+                      </p>
+                    )}
                   </div>
+                )}
+
+                {/* Badges compactos */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">ID: {selectedSale.id}</Badge>
+                  <Badge variant="outline">
+                    {new Date(selectedSale.date).toLocaleString("es-PE")}
+                  </Badge>
+                  <Badge variant="outline" className="capitalize">
+                    Estado: {selectedSale.state ?? "—"}
+                  </Badge>
+                  <Badge variant="outline" className="capitalize">
+                    Pago: {getPaymentMethodLabel(selectedSale.paymentMethod)}
+                  </Badge>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Info venta */}
                   <div>
-                    <Label className="text-muted-foreground text-sm">
-                      Método de Pago
-                    </Label>
-                    <p className="font-medium mt-1 capitalize">
-                      {selectedSale.paymentMethod || "—"}
-                    </p>
+                    <h3 className="font-semibold text-foreground mb-3">Información de la Venta</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Fecha y Hora</Label>
+                        <p className="font-medium">
+                          {new Date(selectedSale.date).toLocaleString("es-ES")}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col">
+                        <Label className="text-muted-foreground text-sm">Método de Pago</Label>
+                        <Badge variant="outline" className="mt-1 w-fit">
+                          {getPaymentMethodLabel(selectedSale.paymentMethod)}
+                        </Badge>
+                      </div>
+
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Vendedor</Label>
+                        <p className="font-medium">
+                          {(selectedSale as any).user?.name ||
+                            (selectedSale as any).user ||
+                            selectedSale.user?.username || "—"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Total</Label>
+                        <p className="font-bold text-xl text-primary">
+                          S/ {selectedSale.totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cliente */}
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-3">Cliente</h3>
+                    <div className="space-y-4">
+                      {selectedSale.patient && typeof selectedSale.patient === "object" ? (
+                        <>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Nombre</Label>
+                            <p className="font-medium">
+                              {selectedSale.patient.firstName} {selectedSale.patient.paternalSurname} {selectedSale.patient.maternalSurname}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">
+                              {selectedSale.patient.documentType === "dni" ? "DNI" : "Documento"}
+                            </Label>
+                            <p className="font-medium">{selectedSale.patient.documentNumber}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-sm">Teléfono</Label>
+                            <p className="font-medium">{selectedSale.patient.phone || "—"}</p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          {typeof selectedSale.patient === "string" ? selectedSale.patient : "Venta general (sin cliente)"}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead className="text-right">Cantidad</TableHead>
-                      <TableHead className="text-right">Precio</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedSale.saleItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.product.name}</TableCell>
-                        <TableCell className="text-right">
-                          {item.quantity}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          S/ {item.price.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="text-right font-bold">
-                  Total: S/ {selectedSale.totalAmount.toFixed(2)}
+
+                {/* Cita vinculada */}
+                {selectedSale.appointment && (
+                  <div className="space-y-3 p-4 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <h4 className="font-semibold">Cita vinculada</h4>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-muted-foreground text-sm">ID Cita</Label>
+                        <p className="font-medium">
+                          {(selectedSale.appointment as any).id || (selectedSale.appointment as any)._id}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Estado</Label>
+                        <p className="font-medium capitalize">{(selectedSale.appointment as any).status}</p>
+                      </div>
+                      {(selectedSale.appointment as any).diagnosis && (
+                        <div className="md:col-span-2">
+                          <Label className="text-muted-foreground text-sm">Diagnóstico</Label>
+                          <p className="font-medium">{(selectedSale.appointment as any).diagnosis}</p>
+                        </div>
+                      )}
+                      {(selectedSale.appointment as any).treatment && (
+                        <div className="md:col-span-2">
+                          <Label className="text-muted-foreground text-sm">Tratamiento</Label>
+                          <p className="font-medium">{(selectedSale.appointment as any).treatment}</p>
+                        </div>
+                      )}
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Precio Cita</Label>
+                        <p className="font-medium">
+                          S/ {(((selectedSale.appointment as any).appointmentPrice ?? 0)).toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-sm">Precio Tratamiento</Label>
+                        <p className="font-medium">
+                          S/ {(((selectedSale.appointment as any).treatmentPrice ?? 0)).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Productos */}
+                <div>
+                  <h3 className="font-semibold text-foreground mb-3">Productos Vendidos</h3>
+                  <div className="space-y-3 overflow-y-auto max-h-[300px]">
+                    {selectedSale.saleItems.map((item) => {
+                      const importe = (item.price ?? 0) * (item.quantity ?? 0);
+                      return (
+                        <div
+                          key={`${item.product?.id ?? item.product?.sku ?? Math.random()}-${item.quantity}`}
+                          className="flex items-center justify-between p-3 border border-border rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                              <Package className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{item.product?.name ?? "—"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                SKU/ID: {item.product?.sku || item.product?.customId || item.product?.id || "—"}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                S/ {(item.price ?? 0).toFixed(2)} c/u
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">
+                              {item.quantity} x S/ {(item.price ?? 0).toFixed(2)}
+                            </p>
+                            <p className="font-bold text-primary">
+                              S/ {importe.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Resumen y Nota */}
+                {(() => {
+                  const subtotal = (selectedSale.saleItems || []).reduce(
+                    (s, it) => s + (it.quantity ?? 0) * (it.price ?? 0), 0
+                  );
+                  const total = selectedSale.totalAmount ?? subtotal;
+                  return (
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold text-foreground mb-3">Nota</h3>
+                        <div className="p-3 rounded-lg border bg-muted/30 text-sm">
+                          {selectedSale.note || "—"}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end justify-center gap-1">
+                        <div className="text-sm text-muted-foreground">Subtotal</div>
+                        <div className="text-lg font-bold">S/ {subtotal.toFixed(2)}</div>
+                        <div className="text-sm text-muted-foreground mt-2">Total</div>
+                        <div className="text-2xl font-extrabold">S/ {total.toFixed(2)}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
-            <div className="flex justify-end mt-4">
+
+            <div className="flex justify-end">
               <Button
-                onClick={() => setIsSaleDialogOpen(false)}
+                onClick={() => {
+                  setIsSaleDialogOpen(false);
+                  setSelectedSale(null);
+                }}
                 className="btn-primary"
               >
                 Cerrar
@@ -1040,6 +1236,7 @@ export function Payments() {
             </div>
           </DialogContent>
         </Dialog>
+
 
         {/* View Payment Dialog */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
