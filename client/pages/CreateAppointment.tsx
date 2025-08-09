@@ -372,7 +372,7 @@ export function CreateAppointment() {
     duration: 60,
     treatmentNotes: "",
     diagnosis: "",
-    observations: "",
+    observation: "",
     treatmentPrice: undefined,
   });
 
@@ -423,7 +423,7 @@ export function CreateAppointment() {
             duration: appt.duration || 60,
             treatmentNotes: appt.treatment || "",
             diagnosis: appt.diagnosis || "",
-            observations: appt.observations || "",
+            observation: appt.observation || "",
             treatmentPrice: appt.treatmentPrice,
           });
           if (appt.products) {
@@ -586,10 +586,17 @@ export function CreateAppointment() {
           : "Error creating appointment:",
         error,
       );
+      let message = '';
+      if (error instanceof Error) {
+        message = error.message;
+      } else {
+        message = isEditMode
+          ? "Error al actualizar la cita"
+          : "Error al crear la cita";
+      }
+
       toast({
-        title: isEditMode
-          ? "Error al actualizar la cita. Inténtalo de nuevo."
-          : "Error al crear la cita. Inténtalo de nuevo.",
+        title: message,
         variant: "destructive",
       });
     } finally {
@@ -1044,11 +1051,11 @@ export function CreateAppointment() {
                         <Label htmlFor="observations">Observaciones</Label>
                         <Textarea
                           id="observations"
-                          value={formData.observations || ""}
+                          value={formData.observation || ""}
                           onChange={(e) => {
                             setFormData({
                               ...formData,
-                              observations: e.target.value,
+                              observation: e.target.value,
                             });
                           }}
                           placeholder="Observaciones adicionales, notas especiales..."
@@ -1552,7 +1559,7 @@ export function CreateAppointment() {
                       </>
                     )}
                   </Button>
-{/* 
+                  {/* 
                   <Button
                     variant="secondary"
                     onClick={() => {
@@ -1754,7 +1761,7 @@ export function CreateAppointment() {
                             </div>
                           )}
 
-                        {formData.observations && (
+                        {formData.observation && (
                           <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                             <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
                             <div>
@@ -1762,7 +1769,7 @@ export function CreateAppointment() {
                                 Observaciones
                               </p>
                               <p className="text-sm text-amber-600">
-                                {formData.observations}
+                                {formData.observation}
                               </p>
                             </div>
                           </div>

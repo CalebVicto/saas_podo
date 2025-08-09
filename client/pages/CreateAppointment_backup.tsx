@@ -360,7 +360,7 @@ export function CreateAppointment() {
     duration: 60,
     treatmentNotes: "",
     diagnosis: "",
-    observations: "",
+    observation: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -771,11 +771,11 @@ export function CreateAppointment() {
                         <Label htmlFor="observations">Observaciones</Label>
                         <Textarea
                           id="observations"
-                          value={formData.observations || ""}
+                          value={formData.observation || ""}
                           onChange={(e) => {
                             setFormData({
                               ...formData,
-                              observations: e.target.value,
+                              observation: e.target.value,
                             });
                           }}
                           placeholder="Observaciones adicionales, notas especiales..."
@@ -1127,7 +1127,7 @@ export function CreateAppointment() {
                           </div>
                         )}
 
-                        {formData.observations && (
+                        {formData.observation && (
                           <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
                             <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
                             <div>
@@ -1135,7 +1135,7 @@ export function CreateAppointment() {
                                 Observaciones
                               </p>
                               <p className="text-sm text-amber-600">
-                                {formData.observations}
+                                {formData.observation}
                               </p>
                             </div>
                           </div>

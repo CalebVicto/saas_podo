@@ -119,6 +119,7 @@ export interface Appointment {
   updatedAt: string;
   patient?: Patient;
   worker?: Worker;
+  observation?: string;
   payment?: Payment;
   saleId?: string;
   products?: { id: string; name: string; price: number }[];
@@ -131,7 +132,7 @@ export interface CreateAppointmentRequest {
   duration: number;
   treatmentNotes?: string;
   diagnosis?: string;
-  observations?: string;
+  observation?: string;
   treatmentPrice?: number;
 }
 
@@ -142,7 +143,7 @@ export interface ScheduleAppointmentRequest {
   duration: number;
   reason: string;
   treatmentNotes?: string;
-  observations?: string;
+  observation?: string;
   priority: "low" | "medium" | "high";
   reminderEnabled: boolean;
   reminderDays: number;

@@ -746,7 +746,7 @@ export function ScheduleAppointment() {
     duration: 60,
     reason: "",
     treatmentNotes: "",
-    observations: "",
+    observation: "",
     priority: "medium",
     reminderEnabled: true,
     reminderDays: 1,
@@ -872,7 +872,7 @@ export function ScheduleAppointment() {
         status: "scheduled",
         reason: formData.reason,
         treatmentNotes: formData.treatmentNotes,
-        observations: formData.observations,
+        observations: formData.observation,
         priority: formData.priority,
         reminderEnabled: formData.reminderEnabled,
         reminderDays: formData.reminderDays,
@@ -905,7 +905,7 @@ export function ScheduleAppointment() {
         duration: 60,
         reason: "",
         treatmentNotes: "",
-        observations: "",
+        observation: "",
         priority: "medium",
         reminderEnabled: true,
         reminderDays: 1,
@@ -932,7 +932,7 @@ export function ScheduleAppointment() {
       duration: appointment.duration,
       reason: appointment.reason,
       treatmentNotes: appointment.treatmentNotes || "",
-      observations: appointment.observations || "",
+      observation: appointment.observations || "",
       priority: appointment.priority,
       reminderEnabled: appointment.reminderEnabled,
       reminderDays: appointment.reminderDays,
@@ -949,7 +949,7 @@ export function ScheduleAppointment() {
       duration: 60,
       reason: "",
       treatmentNotes: "",
-      observations: "",
+      observation: "",
       priority: "medium",
       reminderEnabled: true,
       reminderDays: 1,
@@ -1464,11 +1464,11 @@ export function ScheduleAppointment() {
                           </Label>
                           <Textarea
                             id="observations"
-                            value={formData.observations || ""}
+                            value={formData.observation || ""}
                             onChange={(e) => {
                               setFormData({
                                 ...formData,
-                                observations: e.target.value,
+                                observation: e.target.value,
                               });
                             }}
                             placeholder="Notas especiales, instrucciones, preparación requerida..."
