@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Calendar,
   Clock,
@@ -352,6 +352,8 @@ function SearchableTextInput({
 
 export function CreateAppointment() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const appointmentRepository = useMemo(() => new AppointmentRepository(), []);
   const patientRepository = useMemo(() => new PatientRepository(), []);
   const workerRepository = useMemo(() => new WorkerRepository(), []);
@@ -405,6 +407,56 @@ export function CreateAppointment() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (isEditMode && id) {
+      const fetchAppointment = async () => {
+        setIsLoading(true);
+        try {
+          const appt = await appointmentRepository.getById(id);
+          setFormData({
+            patientId: appt.patientId || "",
+            workerId: appt.workerId || "",
+            dateTime: appt.dateTime
+              ? appt.dateTime.slice(0, 16)
+              : getPeruDateTimeLocalNow(),
+            duration: appt.duration || 60,
+            treatmentNotes: appt.treatment || "",
+            diagnosis: appt.diagnosis || "",
+            observations: appt.observations || "",
+            treatmentPrice: appt.treatmentPrice,
+          });
+          if (appt.products) {
+            setSelectedProducts(
+              appt.products.map((p: any) => ({
+                product: {
+                  id: p.id,
+                  name: p.name,
+                  slug: "",
+                  price: p.price,
+                  stock: 0,
+                  categoryId: "",
+                  status: "active",
+                  createdAt: "",
+                  updatedAt: "",
+                } as Product,
+                quantity: p.quantity || 1,
+              })),
+            );
+          }
+        } catch (error) {
+          console.error("Error loading appointment:", error);
+          toast({
+            title: "Error al cargar la cita.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchAppointment();
+    }
+  }, [id, isEditMode, appointmentRepository]);
 
   useEffect(() => {
     const loadPatientData = async () => {
@@ -501,23 +553,45 @@ export function CreateAppointment() {
 
     setIsSaving(true);
     try {
-      const payload = {
+      const productsPayload = selectedProducts.map((sp) => ({
+        productId: sp.product.id,
+        quantity: sp.quantity,
+      }));
+      const appointmentPrice =
+        (formData.treatmentPrice || 0) +
+        selectedProducts.reduce(
+          (sum, sp) => sum + sp.product.price * sp.quantity,
+          0,
+        );
+      const payload: any = {
         userId: formData.workerId,
-        date: formData.dateTime.split("T")[0],
         diagnosis: formData.diagnosis,
         treatment: formData.treatmentNotes,
         treatmentPrice: formData.treatmentPrice || 0,
         patientId: formData.patientId,
-        products: selectedProducts.map((sp) => ({
-          productId: sp.product.id,
-          quantity: sp.quantity,
-        })),
+        products: productsPayload,
+        appointmentPrice,
       };
-      await appointmentRepository.create(payload);
+      if (isEditMode && id) {
+        await appointmentRepository.update(id, payload);
+      } else {
+        payload.date = formData.dateTime.split("T")[0];
+        await appointmentRepository.create(payload);
+      }
       navigate("/appointments");
     } catch (error) {
-      console.error("Error creating appointment:", error);
-      toast({ title: "Error al crear la cita. Inténtalo de nuevo.", variant: "destructive" });
+      console.error(
+        isEditMode
+          ? "Error updating appointment:"
+          : "Error creating appointment:",
+        error,
+      );
+      toast({
+        title: isEditMode
+          ? "Error al actualizar la cita. Inténtalo de nuevo."
+          : "Error al crear la cita. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -658,7 +732,14 @@ export function CreateAppointment() {
 
   if (isLoading) {
     return (
-      <Layout title="Nueva Cita" subtitle="Programar nueva cita médica">
+      <Layout
+        title={isEditMode ? "Editar Cita" : "Nueva Cita"}
+        subtitle={
+          isEditMode
+            ? "Actualizar información de la cita"
+            : "Programar nueva cita médica"
+        }
+      >
         <div className="p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="space-y-4">
@@ -673,7 +754,14 @@ export function CreateAppointment() {
   }
 
   return (
-    <Layout title="Nueva Cita" subtitle="Programar nueva cita médica">
+    <Layout
+      title={isEditMode ? "Editar Cita" : "Nueva Cita"}
+      subtitle={
+        isEditMode
+          ? "Actualizar información de la cita"
+          : "Programar nueva cita médica"
+      }
+    >
       <div className="h-full flex flex-col">
         <div className="p-6 flex-1 space-y-6">
           {/* Header Actions */}
@@ -696,7 +784,7 @@ export function CreateAppointment() {
                 <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-primary/20">
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="w-6 h-6 text-primary" />
-                    Nueva Cita Médica
+                    {isEditMode ? "Editar Cita Médica" : "Nueva Cita Médica"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
@@ -1455,12 +1543,12 @@ export function CreateAppointment() {
                     {isSaving ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Guardando...
+                        {isEditMode ? "Actualizando..." : "Guardando..."}
                       </>
                     ) : (
                       <>
                         <Check className="w-5 h-5" />
-                        Registrar Cita
+                        {isEditMode ? "Actualizar Cita" : "Registrar Cita"}
                       </>
                     )}
                   </Button>

@@ -56,6 +56,22 @@ export class AppointmentRepository {
     };
   }
 
+  async getById(id: string): Promise<Appointment> {
+    const resp = await apiGet<ApiResponse<any>>(`/appointment/${id}`);
+    if (resp.error || !resp.data) {
+      throw new Error(resp.error || "Failed to fetch appointment");
+    }
+    const item = resp.data.data as any;
+    return {
+      ...item,
+      patientId: item.patientId?.id,
+      patient: item.patientId,
+      workerId: item.userId?.id,
+      worker: item.userId,
+      dateTime: item.createdAt,
+    } as Appointment;
+  }
+
   async create(data: any): Promise<Appointment> {
     const resp = await apiPost<ApiResponse<Appointment>>("/appointment", data);
     if (resp.error || !resp.data) {

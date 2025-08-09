@@ -297,16 +297,7 @@ export function Appointments() {
   };
 
   const openEditDialog = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setFormData({
-      patientId: appointment.patientId,
-      workerId: appointment.workerId,
-      dateTime: appointment.dateTime.slice(0, 16), // Para <input type="datetime-local" />
-      duration: appointment.duration,
-      treatmentNotes: appointment.treatmentNotes || "",
-      diagnosis: appointment.diagnosis || "",
-    });
-    setIsEditDialogOpen(true);
+    navigate(`/appointments/${appointment.id}/edit`);
   };
 
   const openViewDialog = (appointment: Appointment) => {
