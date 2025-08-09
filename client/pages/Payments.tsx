@@ -45,12 +45,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Payment, CreatePaymentRequest } from "@shared/api";
-import {
-  getMockPayments,
-  getMockAppointments,
-  getMockSales,
-} from "@/lib/mockData";
+import { Payment, CreatePaymentRequest, Appointment, Sale } from "@shared/api";
+import { getMockPayments, getMockAppointments, getMockSales } from "@/lib/mockData";
+import { AppointmentDetailStory } from "@/components/appointments/AppointmentDetailStory";
+import { apiGet, ApiResponse } from "@/lib/auth";
 import Layout from "@/components/Layout";
 import {
   Pagination,
@@ -132,6 +130,24 @@ const statusConfig = {
   },
 };
 
+const appointmentStatusConfig = {
+  registered: {
+    label: "Registrada",
+    icon: Clock,
+    className: "status-info",
+  },
+  paid: {
+    label: "Pagada",
+    icon: CheckCircle,
+    className: "status-success",
+  },
+  canceled: {
+    label: "Cancelada",
+    icon: XCircle,
+    className: "status-error",
+  },
+};
+
 export function Payments() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -142,8 +158,12 @@ export function Payments() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isAppointmentDialogOpen, setIsAppointmentDialogOpen] = useState(false);
+  const [isSaleDialogOpen, setIsSaleDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Pagination
@@ -219,10 +239,25 @@ export function Payments() {
   const loadPayments = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockPayments = getMockPayments();
-      setPayments(mockPayments);
+      const resp = await apiGet<
+        ApiResponse<{ data: any[]; total: number; page: number; limit: number }>
+      >("/payment");
+      if (!resp.error && resp.data) {
+        const raw = resp.data.data.data || [];
+        const items: Payment[] = raw.map((p: any) => ({
+          id: p.id,
+          amount: p.totalAmount,
+          method: p.paymentType,
+          status: p.status,
+          paidAt: p.date,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+          appointmentId:
+            p.referenceTable === "Appointment" ? p.referenceId : undefined,
+          saleId: p.referenceTable === "Sale" ? p.referenceId : undefined,
+        }));
+        setPayments(items);
+      }
     } catch (error) {
       console.error("Error loading payments:", error);
     } finally {
@@ -261,38 +296,43 @@ export function Payments() {
     });
   };
 
-  const openViewDialog = (payment: Payment) => {
-    setSelectedPayment(payment);
-    setIsViewDialogOpen(true);
+  const openViewDialog = async (payment: Payment) => {
+    try {
+      if (payment.appointmentId) {
+        const resp = await apiGet<ApiResponse<Appointment>>(
+          `/appointment/${payment.appointmentId}`,
+        );
+        if (!resp.error && resp.data) {
+          setSelectedAppointment(resp.data.data);
+          setIsAppointmentDialogOpen(true);
+          return;
+        }
+      } else if (payment.saleId) {
+        const resp = await apiGet<ApiResponse<Sale>>(
+          `/sale/${payment.saleId}`,
+        );
+        if (!resp.error && resp.data) {
+          setSelectedSale(resp.data.data);
+          setIsSaleDialogOpen(true);
+          return;
+        }
+      }
+      setSelectedPayment(payment);
+      setIsViewDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading detail:", error);
+      setSelectedPayment(payment);
+      setIsViewDialogOpen(true);
+    }
   };
 
   const getPaymentSource = (payment: Payment) => {
     if (payment.appointmentId) {
-      const appointment = appointments.find(
-        (a) => a.id === payment.appointmentId,
-      );
-      return {
-        type: "appointment" as const,
-        data: appointment,
-        label: appointment
-          ? `Cita con ${appointment.patient?.firstName} ${appointment.patient?.lastName}`
-          : "Cita eliminada",
-      };
+      return { type: "appointment" as const, label: "Cita" };
     } else if (payment.saleId) {
-      const sale = sales.find((s) => s.id === payment.saleId);
-      return {
-        type: "sale" as const,
-        data: sale,
-        label: sale
-          ? `Venta de productos (${sale.saleItems.length} items)`
-          : "Venta eliminada",
-      };
+      return { type: "sale" as const, label: "Venta" };
     }
-    return {
-      type: "other" as const,
-      data: null,
-      label: "Pago directo",
-    };
+    return { type: "other" as const, label: "Pago directo" };
   };
 
   // Calculate stats
@@ -885,6 +925,100 @@ export function Payments() {
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Registrar Pago
+              </Button>
+            </div>
+        </DialogContent>
+        </Dialog>
+
+        {/* View Appointment Dialog */}
+        <Dialog
+          open={isAppointmentDialogOpen}
+          onOpenChange={setIsAppointmentDialogOpen}
+        >
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                Detalle de la Cita
+              </DialogTitle>
+            </DialogHeader>
+            {selectedAppointment && (
+              <AppointmentDetailStory
+                appt={selectedAppointment}
+                statusConfig={appointmentStatusConfig}
+              />
+            )}
+            <div className="flex justify-end mt-4">
+              <Button
+                onClick={() => setIsAppointmentDialogOpen(false)}
+                className="btn-primary"
+              >
+                Cerrar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Sale Dialog */}
+        <Dialog open={isSaleDialogOpen} onOpenChange={setIsSaleDialogOpen}>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-primary" />
+                Detalle de la Venta
+              </DialogTitle>
+            </DialogHeader>
+            {selectedSale && (
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground text-sm">Fecha</Label>
+                    <p className="font-medium mt-1">
+                      {new Date(selectedSale.date).toLocaleString("es-PE")}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-sm">
+                      Método de Pago
+                    </Label>
+                    <p className="font-medium mt-1 capitalize">
+                      {selectedSale.paymentMethod || "—"}
+                    </p>
+                  </div>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Producto</TableHead>
+                      <TableHead className="text-right">Cantidad</TableHead>
+                      <TableHead className="text-right">Precio</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedSale.saleItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.product.name}</TableCell>
+                        <TableCell className="text-right">
+                          {item.quantity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          S/ {item.price.toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <div className="text-right font-bold">
+                  Total: S/ {selectedSale.totalAmount.toFixed(2)}
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end mt-4">
+              <Button
+                onClick={() => setIsSaleDialogOpen(false)}
+                className="btn-primary"
+              >
+                Cerrar
               </Button>
             </div>
           </DialogContent>
