@@ -166,7 +166,10 @@ export function Payments() {
   const [searchTerm, setSearchTerm] = useState("");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [amountMin, setAmountMin] = useState<string>("");
+  const [amountMax, setAmountMax] = useState<string>("");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -201,7 +204,19 @@ export function Payments() {
       return;
     }
     loadPayments();
-  }, [user, navigate]);
+  }, [
+    user,
+    navigate,
+    methodFilter,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    searchTerm,
+    amountMin,
+    amountMax,
+    pagination.currentPage,
+    pagination.pageSize,
+  ]);
 
   // Filter payments based on search and filters
   useEffect(() => {
@@ -226,12 +241,28 @@ export function Payments() {
       filtered = filtered.filter((payment) => payment.status === statusFilter);
     }
 
-    // Date filter
-    if (dateFilter) {
+    // Date range filter
+    if (dateFrom) {
       filtered = filtered.filter((payment) => {
         const paymentDate = payment.paidAt || payment.createdAt;
-        return paymentDate.startsWith(dateFilter);
+        return paymentDate >= dateFrom;
       });
+    }
+    if (dateTo) {
+      filtered = filtered.filter((payment) => {
+        const paymentDate = payment.paidAt || payment.createdAt;
+        return paymentDate <= dateTo + "T23:59:59";
+      });
+    }
+
+    // Amount range filter
+    if (amountMin) {
+      const min = parseFloat(amountMin);
+      filtered = filtered.filter((payment) => payment.amount >= min);
+    }
+    if (amountMax) {
+      const max = parseFloat(amountMax);
+      filtered = filtered.filter((payment) => payment.amount <= max);
     }
 
     setFilteredPayments(filtered);
@@ -242,16 +273,30 @@ export function Payments() {
     searchTerm,
     methodFilter,
     statusFilter,
-    dateFilter,
+    dateFrom,
+    dateTo,
+    amountMin,
+    amountMax,
     pagination,
   ]);
 
   const loadPayments = async () => {
     setIsLoading(true);
     try {
+      const params = new URLSearchParams();
+      params.set("page", pagination.currentPage.toString());
+      params.set("limit", pagination.pageSize.toString());
+      if (dateFrom) params.set("dateFrom", dateFrom);
+      if (dateTo) params.set("dateTo", dateTo);
+      if (methodFilter !== "all") params.set("paymentType", methodFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (searchTerm) params.set("q", searchTerm);
+      if (amountMin) params.set("amountMin", amountMin);
+      if (amountMax) params.set("amountMax", amountMax);
+
       const resp = await apiGet<
         ApiResponse<{ data: any[]; total: number; page: number; limit: number }>
-      >("/payment");
+      >(`/payment?${params.toString()}`);
       if (!resp.error && resp.data) {
         const raw = resp.data.data.data || [];
         const items: Payment[] = raw.map((p: any) => ({
@@ -387,10 +432,12 @@ export function Payments() {
 
   const getPaymentMethodLabel = (method: string) => {
     const labels = {
-      efectivo: "Efectivo",
+      cash: "Efectivo",
+      transfer: "Transferencia",
       yape: "Yape",
-      transferencia: "Transferencia",
       pos: "POS",
+      plin: "Plin",
+      balance: "Saldo",
     };
     return labels[method as keyof typeof labels] || method;
   };
@@ -539,8 +586,9 @@ export function Payments() {
                         {method === "cash" && "💵"}
                         {method === "yape" && "📱"}
                         {method === "plin" && "📲"}
-                        {method === "card" && "💳"}
-                        {method === "transfer" && "🏦"} {config.label}
+                        {method === "pos" && "💳"}
+                        {method === "transfer" && "🏦"}
+                        {method === "balance" && "💼"} {config.label}
                       </p>
                       <p className="text-lg font-bold text-foreground">
                         S/ {stats.amount.toFixed(2)}
@@ -559,7 +607,7 @@ export function Payments() {
         {/* Filters */}
         <Card className="card-modern">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
               <div className="relative">
                 <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -580,7 +628,8 @@ export function Payments() {
                   <SelectItem value="yape">Yape</SelectItem>
                   <SelectItem value="plin">Plin</SelectItem>
                   <SelectItem value="transfer">Transferencia</SelectItem>
-                  <SelectItem value="card">Tarjeta</SelectItem>
+                  <SelectItem value="pos">POS</SelectItem>
+                  <SelectItem value="balance">Saldo</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -598,9 +647,30 @@ export function Payments() {
 
               <Input
                 type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                placeholder="Filtrar por fecha"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                placeholder="Desde"
+              />
+
+              <Input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                placeholder="Hasta"
+              />
+
+              <Input
+                type="number"
+                value={amountMin}
+                onChange={(e) => setAmountMin(e.target.value)}
+                placeholder="Monto mín"
+              />
+
+              <Input
+                type="number"
+                value={amountMax}
+                onChange={(e) => setAmountMax(e.target.value)}
+                placeholder="Monto máx"
               />
 
               <Button
@@ -609,7 +679,10 @@ export function Payments() {
                   setSearchTerm("");
                   setMethodFilter("all");
                   setStatusFilter("all");
-                  setDateFilter("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setAmountMin("");
+                  setAmountMax("");
                 }}
               >
                 Limpiar Filtros
@@ -645,7 +718,10 @@ export function Payments() {
                   {searchTerm ||
                     methodFilter !== "all" ||
                     statusFilter !== "all" ||
-                    dateFilter
+                    dateFrom ||
+                    dateTo ||
+                    amountMin ||
+                    amountMax
                     ? "No se encontraron pagos con los filtros aplicados"
                     : "No hay pagos registrados"}
                 </p>
@@ -923,7 +999,8 @@ export function Payments() {
                       <SelectItem value="yape">Yape</SelectItem>
                       <SelectItem value="plin">Plin</SelectItem>
                       <SelectItem value="transfer">Transferencia</SelectItem>
-                      <SelectItem value="card">Tarjeta</SelectItem>
+                      <SelectItem value="pos">POS</SelectItem>
+                      <SelectItem value="balance">Saldo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

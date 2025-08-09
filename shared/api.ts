@@ -69,7 +69,7 @@ export interface UpdatePatientBalanceDto {
   amount: number;
   type: "credit" | "debit";
   description?: string;
-  paymentMethod: "efectivo" | "yape" | "transferencia" | "pos";
+  paymentMethod: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
   userId: string;
 }
 
@@ -170,7 +170,7 @@ export interface Payment {
   appointmentId?: string;
   saleId?: string;
   amount: number;
-  method: "cash" | "yape" | "plin" | "transfer" | "card";
+  method: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
   status: "pending" | "completed" | "failed";
   notes?: string;
   paidAt?: string;
@@ -182,7 +182,7 @@ export interface CreatePaymentRequest {
   appointmentId?: string;
   saleId?: string;
   amount: number;
-  method: "cash" | "yape" | "plin" | "transfer" | "card";
+  method: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
 }
 
 // Abonos (Partial Payments) Types
@@ -190,7 +190,7 @@ export interface Abono {
   id: string;
   patientId: string;
   amount: number;
-  method: "cash" | "yape" | "plin" | "transfer" | "card";
+  method: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
   notes?: string;
   registeredAt: string;
   usedAmount: number; // Amount already used from this abono
@@ -204,7 +204,7 @@ export interface Abono {
 export interface CreateAbonoRequest {
   patientId: string;
   amount: number;
-  method: "cash" | "yape" | "plin" | "transfer" | "card";
+  method: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
   notes?: string;
 }
 

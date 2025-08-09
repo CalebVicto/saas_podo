@@ -291,8 +291,8 @@ export function WorkerDetail() {
         bgColor: "bg-blue-50",
         iconBg: "bg-blue-100",
       },
-      card: {
-        label: "💳 Tarjeta",
+      pos: {
+        label: "💳 POS",
         icon: CreditCard,
         color: "text-indigo-600",
         bgColor: "bg-indigo-50",
@@ -304,6 +304,13 @@ export function WorkerDetail() {
         color: "text-orange-600",
         bgColor: "bg-orange-50",
         iconBg: "bg-orange-100",
+      },
+      balance: {
+        label: "🪙 Saldo",
+        icon: Wallet,
+        color: "text-yellow-600",
+        bgColor: "bg-yellow-50",
+        iconBg: "bg-yellow-100",
       },
       other: {
         label: "Otros",

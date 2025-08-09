@@ -4,7 +4,7 @@ import { Router, RequestHandler } from "express";
 interface AppointmentRecord {
   id: string;
   status: "registered" | "paid" | "canceled";
-  paymentMethod?: "cash" | "transfer" | "yape" | "pos";
+  paymentMethod?: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance";
   paidAt?: string;
   appointmentPrice: number;
   treatmentPrice?: number;
@@ -26,7 +26,7 @@ const requireAuth: RequestHandler = (req, res, next) => {
 router.put<"/:id/payment">("/:id/payment", requireAuth, (req, res) => {
   const { id } = req.params;
   const { paymentMethod } = req.body as { paymentMethod?: AppointmentRecord["paymentMethod"] };
-  const allowedMethods = ["cash", "transfer", "yape", "pos"] as const;
+  const allowedMethods = ["cash", "transfer", "yape", "pos", "plin", "balance"] as const;
 
   if (!paymentMethod || !allowedMethods.includes(paymentMethod)) {
     return res.status(400).json({ status: "error", message: "Invalid payment method" });

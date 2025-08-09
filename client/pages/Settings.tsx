@@ -31,10 +31,11 @@ export function Settings() {
 
   const [paymentMethods, setPaymentMethods] = useState({
     cash: true,
-    yape: true,
-    plin: true,
     transfer: true,
-    card: false,
+    yape: true,
+    pos: false,
+    plin: true,
+    balance: false,
   });
 
   const [currencySettings, setCurrencySettings] = useState({
@@ -304,15 +305,30 @@ export function Settings() {
 
               <div className="flex items-center justify-between p-3 border border-border rounded-lg">
                 <div>
-                  <Label className="font-medium">Tarjeta</Label>
+                  <Label className="font-medium">POS</Label>
                   <p className="text-sm text-muted-foreground">
-                    Tarjetas de crédito/débito
+                    Pagos con POS
                   </p>
                 </div>
                 <Switch
-                  checked={paymentMethods.card}
+                  checked={paymentMethods.pos}
                   onCheckedChange={(checked) =>
-                    setPaymentMethods({ ...paymentMethods, card: checked })
+                    setPaymentMethods({ ...paymentMethods, pos: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 border border-border rounded-lg">
+                <div>
+                  <Label className="font-medium">Saldo</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Uso de saldo disponible
+                  </p>
+                </div>
+                <Switch
+                  checked={paymentMethods.balance}
+                  onCheckedChange={(checked) =>
+                    setPaymentMethods({ ...paymentMethods, balance: checked })
                   }
                 />
               </div>

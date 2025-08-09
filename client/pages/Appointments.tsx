@@ -257,7 +257,7 @@ export function Appointments() {
   };
 
   // ⚠️ Requiere que tu AppointmentRepository tenga:
-  // async updatePayment(id: string, data: { paymentMethod: "cash" | "transfer" | "yape" | "pos"; tenantId?: string }) {
+  // async updatePayment(id: string, data: { paymentMethod: "cash" | "transfer" | "yape" | "pos" | "plin" | "balance"; tenantId?: string }) {
   //   return this.client.put(`/appointment/${id}/payment`, data);
   // }
   const handlePaymentSubmit = async () => {

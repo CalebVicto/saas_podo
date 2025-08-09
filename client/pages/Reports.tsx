@@ -332,10 +332,11 @@ export function Reports() {
   const getMethodLabel = (method: string) => {
     const labels = {
       cash: "Efectivo",
-      yape: "Yape",
-      plin: "Plin",
       transfer: "Transferencia",
-      card: "Tarjeta",
+      yape: "Yape",
+      pos: "POS",
+      plin: "Plin",
+      balance: "Saldo",
     };
     return labels[method as keyof typeof labels] || method;
   };
@@ -349,12 +350,26 @@ export function Reports() {
         bgColor: "bg-green-50",
         iconBg: "bg-green-100",
       },
+      transfer: {
+        label: "🏦 Transferencia",
+        icon: ArrowUpDown,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
+        iconBg: "bg-orange-100",
+      },
       yape: {
         label: "📱 Yape",
         icon: Smartphone,
         color: "text-purple-600",
         bgColor: "bg-purple-50",
         iconBg: "bg-purple-100",
+      },
+      pos: {
+        label: "💳 POS",
+        icon: CreditCard,
+        color: "text-indigo-600",
+        bgColor: "bg-indigo-50",
+        iconBg: "bg-indigo-100",
       },
       plin: {
         label: "📲 Plin",
@@ -363,19 +378,12 @@ export function Reports() {
         bgColor: "bg-blue-50",
         iconBg: "bg-blue-100",
       },
-      card: {
-        label: "💳 Tarjeta",
-        icon: CreditCard,
-        color: "text-indigo-600",
-        bgColor: "bg-indigo-50",
-        iconBg: "bg-indigo-100",
-      },
-      transfer: {
-        label: "🏦 Transferencia",
-        icon: ArrowUpDown,
-        color: "text-orange-600",
-        bgColor: "bg-orange-50",
-        iconBg: "bg-orange-100",
+      balance: {
+        label: "🪙 Saldo",
+        icon: Wallet,
+        color: "text-yellow-600",
+        bgColor: "bg-yellow-50",
+        iconBg: "bg-yellow-100",
       },
       other: {
         label: "Otros",
@@ -500,7 +508,8 @@ export function Reports() {
                     <SelectItem value="yape">Yape</SelectItem>
                     <SelectItem value="plin">Plin</SelectItem>
                     <SelectItem value="transfer">Transferencia</SelectItem>
-                    <SelectItem value="card">Tarjeta</SelectItem>
+                    <SelectItem value="pos">POS</SelectItem>
+                    <SelectItem value="balance">Saldo</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
