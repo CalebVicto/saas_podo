@@ -8,10 +8,11 @@ export interface HttpResponse<T = any> {
 }
 
 // Shape returned by the backend API
-export interface ApiResponse<T> {
+export interface ApiResponse<T, S = any> {
   state: string;
   message: string;
   data: T;
+  stats?: S;
 }
 
 export class AuthenticatedFetch {
