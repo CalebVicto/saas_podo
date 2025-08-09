@@ -1753,52 +1753,103 @@ export function Sales() {
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Eliminar Venta</DialogTitle>
+              <DialogTitle>
+                {saleToDelete?.appointment ? "Venta con cita" : "Eliminar Venta"}
+              </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                ¿Estás seguro que deseas eliminar esta venta? Esta acción no se puede deshacer.
-              </p>
+            {saleToDelete?.appointment ? (
+              <>
+                <div className="space-y-4 py-4">
+                  <p className="text-sm text-muted-foreground">
+                    Esta venta fue hecha con una cita, para eliminar esta venta se debe borrar esa cita.
+                  </p>
+                  <div className="bg-muted p-4 rounded-lg text-sm space-y-1">
+                    {saleToDelete.appointment.diagnosis && (
+                      <p>
+                        <span className="font-medium">Diagnóstico:</span>{" "}
+                        {saleToDelete.appointment.diagnosis}
+                      </p>
+                    )}
+                    {saleToDelete.appointment.treatment && (
+                      <p>
+                        <span className="font-medium">Tratamiento:</span>{" "}
+                        {saleToDelete.appointment.treatment}
+                      </p>
+                    )}
+                    {(() => {
+                      const dateTime =
+                        saleToDelete.appointment.dateTime ||
+                        saleToDelete.appointment.createdAt;
+                      if (dateTime) {
+                        const { date, time } = formatDateTime(dateTime);
+                        return (
+                          <p>
+                            <span className="font-medium">Fecha:</span>{" "}
+                            {date} {time}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button className="btn-primary" onClick={() => setIsDeleteDialogOpen(false)}>
+                    Cerrar
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-4 py-4">
+                  <p className="text-sm text-muted-foreground">
+                    ¿Estás seguro que deseas eliminar esta venta? Esta acción no se puede deshacer.
+                  </p>
 
-              <Input
-                placeholder="Motivo de eliminación"
-                value={deleteReason}
-                onChange={(e) => setDeleteReason(e.target.value)}
-              />
-            </div>
+                  <Input
+                    placeholder="Motivo de eliminación"
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                  />
+                </div>
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-                Cancelar
-              </Button>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                    Cancelar
+                  </Button>
 
-              <Button
-                className="btn-primary"
-                disabled={!deleteReason.trim()}
-                onClick={async () => {
-                  try {
-                    if (!saleToDelete) return;
-                    const res = await apiPost(`/sale/${saleToDelete.id}/anular`, {
-                      reason: deleteReason,
-                    });
-                    if (res.status) {
-                      await loadSalesData();
-                      setIsDeleteDialogOpen(false);
-                      setDeleteReason("");
-                      setSaleToDelete(null);
-                    } else {
-                      toast({ title: "Error al eliminar la venta.", variant: "destructive" });
-                    }
-                  } catch (err) {
-                    console.error(err);
-                    toast({ title: "Ocurrió un error al intentar eliminar la venta.", variant: "destructive" });
-                  }
-                }}
-              >
-                Confirmar Eliminación
-              </Button>
-            </div>
+                  <Button
+                    className="btn-primary"
+                    disabled={!deleteReason.trim()}
+                    onClick={async () => {
+                      try {
+                        if (!saleToDelete) return;
+                        const res = await apiPost(`/sale/${saleToDelete.id}/anular`, {
+                          reason: deleteReason,
+                        });
+                        if (res.status) {
+                          await loadSalesData();
+                          setIsDeleteDialogOpen(false);
+                          setDeleteReason("");
+                          setSaleToDelete(null);
+                        } else {
+                          toast({ title: "Error al eliminar la venta.", variant: "destructive" });
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        toast({
+                          title: "Ocurrió un error al intentar eliminar la venta.",
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  >
+                    Confirmar Eliminación
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
 
