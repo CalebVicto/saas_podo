@@ -131,6 +131,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/appointments/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <CreateAppointment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/appointments/schedule"
                 element={
                   <ProtectedRoute>
