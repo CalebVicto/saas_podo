@@ -3,6 +3,9 @@ import cors from "cors";
 import { handleDemo } from "./routes/demo";
 import { validateToken, refreshToken, logout } from "./routes/auth";
 import appointmentRouter from "./routes/appointment";
+import { TIME_ZONE } from "../shared/time";
+
+process.env.TZ = TIME_ZONE;
 
 export function createServer() {
   const app = express();

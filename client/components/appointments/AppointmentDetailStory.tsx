@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, User, UserCheck, CheckCircle, XCircle, Clock, DollarSign, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDate, formatTime } from "@shared/time";
 
 type AnyAppt = any;
 
@@ -13,21 +14,6 @@ const getQty = (p: any) => Number(p.quantity ?? p.qty ?? 1);
 // Normaliza paciente/worker con tu API (patient || patientId / worker || userId)
 const getPatient = (a: AnyAppt) => a.patient ?? a.patientId ?? {};
 const getWorker = (a: AnyAppt) => a.worker ?? a.userId ?? {};
-
-const formatDate = (iso?: string) =>
-  iso
-    ? new Date(iso).toLocaleDateString("es-PE", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-    : "—";
-
-const formatTime = (iso?: string) =>
-  iso
-    ? new Date(iso).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
-    : "—";
 
 const calcProductsTotal = (products: any[] = []) =>
   products.reduce((acc, p) => acc + Number(p.price || 0) * getQty(p), 0);

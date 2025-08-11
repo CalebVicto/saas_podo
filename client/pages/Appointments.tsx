@@ -48,6 +48,7 @@ import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
 
 // 🔗 APIs
 import { Appointment, CreateAppointmentRequest, Patient, PatientListItem } from "@shared/api";
+import { todayISODate } from "@shared/time";
 import { AppointmentRepository } from "@/lib/api/appointment";
 import { PatientRepository } from "@/lib/api/patient";
 import { WorkerRepository } from "@/lib/api/worker";
@@ -102,7 +103,7 @@ export function Appointments() {
   const appointmentRepository = useMemo(() => new AppointmentRepository(), []);
   const patientRepository = useMemo(() => new PatientRepository(), []);
   const workerRepository = useMemo(() => new WorkerRepository(), []);
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayISODate();
 
   /* =========================
    *  Filtros y estado UI
