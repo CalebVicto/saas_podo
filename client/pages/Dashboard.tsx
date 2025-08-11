@@ -137,10 +137,10 @@ const useAuth = () => {
   return { user };
 };
 
-export function Dashboard() {
+export function () {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>(defaultStats);
+  const [stats, setStats] = useState<Stats>(defaultStats);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
   const storedMode = localStorage.getItem("podocare_view_mode");
@@ -157,7 +157,7 @@ export function Dashboard() {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const response = await apiGet<DashboardResponse>("/api/dashboard");
+        const response = await apiGet<DashboardResponse>("/dashboard");
         const payload = response.data?.data;
         if (payload?.stats) {
           setStats({ ...defaultStats, ...payload.stats });
