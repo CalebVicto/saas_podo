@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Layout from "@/components/Layout";
+import { apiGet } from "@/lib/auth";
 
 interface User {
   id: string;
@@ -42,78 +43,25 @@ interface RecentActivity {
   amount?: number;
 }
 
-// Mock data - in a real app this would come from API
-const mockAdminStats: DashboardStats = {
-  totalPatients: 247,
-  todayAppointments: 12,
-  todayIncome: 1580,
-  lowStockAlerts: 3,
-  weeklyAppointments: 68,
-  monthlyIncome: 45200,
-  activeWorkers: 5,
-  completedAppointments: 8,
-};
+interface DashboardResponse {
+  success: boolean;
+  message: string;
+  data: {
+    stats: Partial<DashboardStats>;
+    recentActivity: RecentActivity[];
+  };
+}
 
-const mockWorkerStats: DashboardStats = {
-  totalPatients: 32,
-  todayAppointments: 5,
-  todayIncome: 320,
+const defaultStats: DashboardStats = {
+  totalPatients: 0,
+  todayAppointments: 0,
+  todayIncome: 0,
   lowStockAlerts: 0,
-  weeklyAppointments: 18,
-  monthlyIncome: 2400,
-  activeWorkers: 1,
-  completedAppointments: 3,
+  weeklyAppointments: 0,
+  monthlyIncome: 0,
+  activeWorkers: 0,
+  completedAppointments: 0,
 };
-
-const mockAdminActivity: RecentActivity[] = [
-  {
-    id: "1",
-    type: "appointment",
-    description: "Cita completada con María López",
-    time: "10:30 AM",
-  },
-  {
-    id: "2",
-    type: "payment",
-    description: "Pago recibido - Tratamiento de uñas",
-    time: "11:15 AM",
-    amount: 120,
-  },
-  {
-    id: "3",
-    type: "patient",
-    description: "Nuevo paciente registrado: Carlos Mendez",
-    time: "12:00 PM",
-  },
-  {
-    id: "4",
-    type: "appointment",
-    description: "Cita reagendada con Ana García",
-    time: "1:45 PM",
-  },
-];
-
-const mockWorkerActivity: RecentActivity[] = [
-  {
-    id: "1",
-    type: "appointment",
-    description: "Cita completada con Juan Pérez",
-    time: "09:00 AM",
-  },
-  {
-    id: "2",
-    type: "patient",
-    description: "Nuevo paciente: Luisa Fernanda",
-    time: "11:30 AM",
-  },
-  {
-    id: "3",
-    type: "payment",
-    description: "Pago recibido - Control mensual",
-    time: "12:15 PM",
-    amount: 80,
-  },
-];
 
 // useAuth moved to after imports
 
@@ -192,21 +140,36 @@ const useAuth = () => {
 export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState<DashboardStats>(defaultStats);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
   const storedMode = localStorage.getItem("podocare_view_mode");
   const viewMode: "admin" | "worker" = storedMode
     ? (() => {
-      try {
-        return JSON.parse(storedMode);
-      } catch {
-        return storedMode as "admin" | "worker";
-      }
-    })()
+        try {
+          return JSON.parse(storedMode);
+        } catch {
+          return storedMode as "admin" | "worker";
+        }
+      })()
     : user?.role || "worker";
 
-  const stats = viewMode === "admin" ? mockAdminStats : mockWorkerStats;
-  const recentActivity =
-    viewMode === "admin" ? mockAdminActivity : mockWorkerActivity;
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const response = await apiGet<DashboardResponse>("/api/dashboard");
+        const payload = response.data?.data;
+        if (payload?.stats) {
+          setStats({ ...defaultStats, ...payload.stats });
+          setRecentActivity(payload.recentActivity || []);
+        }
+      } catch (error) {
+        console.error("Error loading dashboard:", error);
+      }
+    };
+
+    loadDashboard();
+  }, []);
 
   return (
     <Layout title="Dashboard" subtitle="Resumen de tu clínica podológica">
