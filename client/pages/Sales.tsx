@@ -1218,7 +1218,7 @@ export function Sales() {
                         <TableBody>
                           {salesPagination.data.map((sale) => {
                             const { date, time } = formatDateTime(
-                              sale.date,
+                              sale.date || sale.createdAt,
                             );
 
                             const customer = sale.patient;

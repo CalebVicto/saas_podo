@@ -102,12 +102,13 @@ export function Appointments() {
   const appointmentRepository = useMemo(() => new AppointmentRepository(), []);
   const patientRepository = useMemo(() => new PatientRepository(), []);
   const workerRepository = useMemo(() => new WorkerRepository(), []);
+  const today = new Date().toISOString().split("T")[0];
 
   /* =========================
    *  Filtros y estado UI
    * ========================= */
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFilter, setDateFilter] = useState<string>("");
+  const [dateFilter, setDateFilter] = useState<string>(today);
   const [workerFilter, setWorkerFilter] = useState<string>("all");
 
   const [selectedAppointment, setSelectedAppointment] =
@@ -322,7 +323,6 @@ export function Appointments() {
   };
 
   // Para tarjetas de “Hoy”
-  const today = new Date().toISOString().split("T")[0];
   const appointments = pagination.data;
 
   if (!user) return null;
@@ -544,7 +544,9 @@ export function Appointments() {
                     </TableHeader>
                     <TableBody>
                       {pagination.data.map((appointment) => {
-                        const { date, time } = formatDateTime(appointment.dateTime);
+                        const { date, time } = formatDateTime(
+                          appointment.dateTime || appointment.createdAt,
+                        );
                         const statusInfo = statusConfig[appointment.status];
                         const StatusIcon = statusInfo?.icon || Clock;
 

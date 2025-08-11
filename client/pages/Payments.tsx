@@ -172,8 +172,23 @@ export function Payments() {
   const [searchTerm, setSearchTerm] = useState("");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo] = useState<string>("");
+  const currentDate = new Date();
+  const startOfMonth = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth(),
+    1,
+  )
+    .toISOString()
+    .split("T")[0];
+  const endOfMonth = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth() + 1,
+    0,
+  )
+    .toISOString()
+    .split("T")[0];
+  const [dateFrom, setDateFrom] = useState<string>(startOfMonth);
+  const [dateTo, setDateTo] = useState<string>(endOfMonth);
   const [amountMin, setAmountMin] = useState<string>("");
   const [amountMax, setAmountMax] = useState<string>("");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -933,7 +948,9 @@ export function Payments() {
                         {sales.map((sale) => (
                           <SelectItem key={sale.id} value={sale.id}>
                             Venta #{sale.id} - S/ {sale.totalAmount.toFixed(2)}{" "}
-                            - {new Date(sale.date).toLocaleDateString()}
+                            - {new Date(
+                              sale.date || sale.createdAt,
+                            ).toLocaleDateString()}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1089,7 +1106,9 @@ export function Payments() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">ID: {selectedSale.id}</Badge>
                   <Badge variant="outline">
-                    {new Date(selectedSale.date).toLocaleString("es-PE")}
+                    {new Date(
+                      selectedSale.date || selectedSale.createdAt,
+                    ).toLocaleString("es-PE")}
                   </Badge>
                   <Badge variant="outline" className="capitalize">
                     Estado: {selectedSale.state ?? "—"}
@@ -1107,7 +1126,9 @@ export function Payments() {
                       <div>
                         <Label className="text-muted-foreground text-sm">Fecha y Hora</Label>
                         <p className="font-medium">
-                          {new Date(selectedSale.date).toLocaleString("es-ES")}
+                          {new Date(
+                            selectedSale.date || selectedSale.createdAt,
+                          ).toLocaleString("es-ES")}
                         </p>
                       </div>
 
