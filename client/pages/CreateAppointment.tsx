@@ -1122,22 +1122,22 @@ export function CreateAppointment() {
                             filteredProducts.map((product) => (
                               <div
                                 key={product.id}
-                                className="border rounded-lg p-4 hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+                                className="border rounded-lg p-6 hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
-                                    <div className="flex items-start justify-between mb-2">
-                                      <h4 className="font-medium">
-                                        {product.name}
-                                      </h4>
+                                    <div className="flex flex-col items-start justify-between mb-2">
                                       {product.category && (
                                         <Badge
                                           variant="secondary"
-                                          className="text-xs"
+                                          className="text-xs mb-3"
                                         >
                                           {product.category.name}
                                         </Badge>
                                       )}
+                                      <h4 className="font-medium">
+                                        {product.name}
+                                      </h4>
                                     </div>
                                     {product.description && (
                                       <p className="text-sm text-muted-foreground mt-1">
