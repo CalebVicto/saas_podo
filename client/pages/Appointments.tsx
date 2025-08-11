@@ -203,8 +203,11 @@ export function Appointments() {
       filters.userId = user.id;
     }
 
+    // Actualiza los filtros y fuerza a que la carga use los más recientes
     pagination.setFilters(filters);
-    await pagination.loadData((params) => appointmentRepository.getAll(params));
+    await pagination.loadData((params) =>
+      appointmentRepository.getAll({ ...params, ...filters }),
+    );
   };
 
   /* =========================

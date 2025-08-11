@@ -1,4 +1,9 @@
-import type { Appointment, CreateAppointmentRequest } from "@shared/api";
+import type {
+  Appointment,
+  CreateAppointmentRequest,
+  PaginatedResponse,
+  PaginatedSearchParams,
+} from "@shared/api";
 import type { IAppointmentRepository } from "../interfaces";
 import { LocalStorageBaseRepository } from "./base";
 import { mockAppointments } from "../../mockData";
@@ -9,6 +14,47 @@ export class LocalAppointmentRepository
 {
   constructor() {
     super("podocare_appointments", mockAppointments);
+  }
+
+  async getAll(
+    params?: PaginatedSearchParams,
+  ): Promise<PaginatedResponse<Appointment>> {
+    await this.simulateNetworkDelay();
+    let appointments = this.loadFromStorage();
+
+    // Búsqueda general
+    if (params?.search) {
+      const searchQuery = params.search.toLowerCase();
+      appointments = appointments.filter((apt) =>
+        Object.values(apt).some(
+          (val) =>
+            typeof val === "string" &&
+            val.toLowerCase().includes(searchQuery),
+        ),
+      );
+    }
+
+    // Filtrado por estado
+    if (params?.status) {
+      appointments = appointments.filter((apt) => apt.status === params.status);
+    }
+
+    // Filtrado por trabajador
+    if (params?.userId) {
+      appointments = appointments.filter((apt) => apt.workerId === params.userId);
+    }
+
+    // Filtrado por fecha específica
+    if (params?.date) {
+      appointments = this.filterByDateRange(
+        appointments,
+        params.date,
+        params.date,
+        "dateTime",
+      );
+    }
+
+    return this.paginateResults(appointments, params);
   }
 
   async getByPatientId(patientId: string): Promise<Appointment[]> {

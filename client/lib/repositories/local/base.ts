@@ -171,6 +171,10 @@ export abstract class LocalStorageBaseRepository<
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    // Normalise boundaries to include the entire days
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
     return items.filter((item) => {
       const itemDate = new Date(item[dateField] as string);
       return itemDate >= start && itemDate <= end;
