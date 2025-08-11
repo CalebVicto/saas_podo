@@ -379,7 +379,9 @@ export default function Kardex() {
     const exportData = data.map((movement) => {
       const product = products.find((p) => p.id === movement.productId);
       return {
-        Fecha: new Date(movement.createdAt).toLocaleString("es-PE"),
+        Fecha: new Date(movement.date || movement.createdAt).toLocaleString(
+          "es-PE",
+        ),
         Producto: product?.name || "Desconocido",
         Tipo: movement.type,
         Cantidad: movement.quantity,
@@ -695,18 +697,17 @@ export default function Kardex() {
                   kardexPagination.data.
                     map((movement) => {
                       const product = products.find((p) => p.id === movement.productId);
+                      const movementDate = movement.date || movement.createdAt;
 
                       return (
                         <TableRow key={movement.id}>
                           <TableCell>
                             <div>
                               <p className="font-medium">
-                                {new Date(
-                                  movement.createdAt,
-                                ).toLocaleDateString()}
+                                {new Date(movementDate).toLocaleDateString()}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(movement.createdAt).toLocaleTimeString(
+                                {new Date(movementDate).toLocaleTimeString(
                                   "es-ES",
                                   {
                                     hour: "2-digit",

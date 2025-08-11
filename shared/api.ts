@@ -352,9 +352,10 @@ export interface Sale {
   totalAmount: number;
   patientId?: string;
   appointmentId?: string;
-  appointment?: Appointment; 
+  appointment?: Appointment;
   sellerId: string;
   date: string;
+  createdAt?: string;
   payment?: Payment;
   paymentMethod?: string;
   patient?: Patient;
