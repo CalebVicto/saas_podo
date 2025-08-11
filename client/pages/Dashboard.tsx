@@ -137,10 +137,10 @@ const useAuth = () => {
   return { user };
 };
 
-export function () {
+export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats>(defaultStats);
+  const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
 
   const storedMode = localStorage.getItem("podocare_view_mode");
