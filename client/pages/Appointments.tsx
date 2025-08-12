@@ -512,7 +512,7 @@ export function Appointments() {
                     : "No hay citas programadas"}
                 </p>
                 <Button
-                  onClick={() => setIsAddDialogOpen(true)}
+                  onClick={() => navigate("/appointments/new")}
                   className="btn-primary"
                 >
                   <Plus className="w-4 h-4 mr-2" />
