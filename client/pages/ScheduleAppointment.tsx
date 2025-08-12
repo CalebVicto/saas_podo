@@ -57,12 +57,11 @@ import { cn } from "@/lib/utils";
 import {
   Patient,
   Worker,
-  Appointment,
   ScheduleAppointmentRequest,
   ScheduledAppointment,
 } from "@shared/api";
-import { getMockPatients, getMockWorkers } from "@/lib/mockData";
-import { usePatientRepository } from "@/lib/repositories";
+import { usePatientRepository, useWorkerRepository } from "@/lib/repositories";
+import { FutureAppointmentRepository } from "@/lib/api/future-appointment";
 import Layout from "@/components/Layout";
 
 // Calendar imports
@@ -227,15 +226,15 @@ function SearchableSelect({
                             {item.email}
                           </p>
                         )}
-                        {"documentId" in item && (
+                        {"documentNumber" in item && (
                           <p className="text-sm text-muted-foreground">
-                            DNI: {item.documentId}
+                            DNI: {(item as any).documentNumber}
                           </p>
                         )}
                         {"phone" in item && (
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Phone className="w-3 h-3" />
-                            {item.phone}
+                            {(item as any).phone}
                           </p>
                         )}
                         {"specialization" in item && item.specialization && (
@@ -282,7 +281,7 @@ function CreatePatientModal({
   onPatientCreated: (patient: Patient) => void;
 }) {
   const patientRepo = usePatientRepository();
-  const [formData, setFormData] = useState<Patient>({
+  const [formData, setFormData] = useState<Patient & { clinicalNotes?: string }>({
     documentType: "dni",
     documentNumber: "",
     firstName: "",
@@ -292,6 +291,7 @@ function CreatePatientModal({
     phone: "",
     birthDate: "",
     balance: 0,
+    clinicalNotes: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -337,16 +337,17 @@ function CreatePatientModal({
 
       // Reset form
       setFormData({
-        documentType: "dni",
-        documentNumber: "",
-        firstName: "",
-        paternalSurname: "",
-        maternalSurname: "",
-        gender: "f",
-        phone: "",
-        birthDate: "",
-        balance: 0,
-      });
+          documentType: "dni",
+          documentNumber: "",
+          firstName: "",
+          paternalSurname: "",
+          maternalSurname: "",
+          gender: "f",
+          phone: "",
+          birthDate: "",
+          balance: 0,
+          clinicalNotes: "",
+        });
       setErrors({});
     } catch (error) {
       console.error("Error creating patient:", error);
@@ -388,36 +389,64 @@ function CreatePatientModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastName">Apellido *</Label>
+              <Label htmlFor="paternalSurname">Apellido Paterno *</Label>
               <Input
-                id="lastName"
-                value={formData.lastName}
+                id="paternalSurname"
+                value={formData.paternalSurname}
                 onChange={(e) =>
-                  setFormData({ ...formData, lastName: e.target.value })
+                  setFormData({ ...formData, paternalSurname: e.target.value })
                 }
-                className={cn(errors.lastName && "border-destructive")}
+                className={cn(errors.paternalSurname && "border-destructive")}
               />
-              {errors.lastName && (
-                <p className="text-sm text-destructive">{errors.lastName}</p>
+              {errors.paternalSurname && (
+                <p className="text-sm text-destructive">{errors.paternalSurname}</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="documentId">DNI *</Label>
+              <Label htmlFor="maternalSurname">Apellido Materno *</Label>
               <Input
-                id="documentId"
-                value={formData.documentId}
+                id="maternalSurname"
+                value={formData.maternalSurname}
                 onChange={(e) =>
-                  setFormData({ ...formData, documentId: e.target.value })
+                  setFormData({
+                    ...formData,
+                    maternalSurname: e.target.value,
+                  })
+                }
+                className={cn(errors.maternalSurname && "border-destructive")}
+              />
+              {errors.maternalSurname && (
+                <p className="text-sm text-destructive">
+                  {errors.maternalSurname}
+                </p>
+              )}
+            </div>
+
+            {/* Empty placeholder for layout alignment */}
+            <div></div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="documentNumber">DNI *</Label>
+              <Input
+                id="documentNumber"
+                value={formData.documentNumber}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    documentNumber: e.target.value,
+                  })
                 }
                 placeholder="12345678"
                 maxLength={8}
-                className={cn(errors.documentId && "border-destructive")}
+                className={cn(errors.documentNumber && "border-destructive")}
               />
-              {errors.documentId && (
-                <p className="text-sm text-destructive">{errors.documentId}</p>
+              {errors.documentNumber && (
+                <p className="text-sm text-destructive">{errors.documentNumber}</p>
               )}
             </div>
 
@@ -441,20 +470,19 @@ function CreatePatientModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="sex">Sexo</Label>
+              <Label htmlFor="gender">Sexo</Label>
               <Select
-                value={formData.sex}
-                onValueChange={(value: "male" | "female" | "other") =>
-                  setFormData({ ...formData, sex: value })
+                value={formData.gender}
+                onValueChange={(value: "m" | "f") =>
+                  setFormData({ ...formData, gender: value })
                 }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="female">Femenino</SelectItem>
-                  <SelectItem value="male">Masculino</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
+                  <SelectItem value="f">Femenino</SelectItem>
+                  <SelectItem value="m">Masculino</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -522,190 +550,6 @@ interface CalendarEvent {
   resource: ScheduledAppointment;
 }
 
-// Enhanced mock scheduled appointments data
-const mockScheduledAppointments: ScheduledAppointment[] = [
-  {
-    id: "1",
-    patientId: "patient_1",
-    workerId: "worker_1",
-    dateTime: "2024-01-25T10:00:00",
-    duration: 60,
-    status: "scheduled",
-    reason: "Revisión general podológica",
-    priority: "medium",
-    reminderEnabled: true,
-    reminderDays: 1,
-    createdAt: "2024-01-20T08:00:00",
-    updatedAt: "2024-01-20T08:00:00",
-    patient: {
-      id: "patient_1",
-      firstName: "María",
-      lastName: "González",
-      documentId: "12345678",
-      phone: "987654321",
-      sex: "female",
-      birthDate: "1985-05-15",
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-    worker: {
-      id: "worker_1",
-      firstName: "Dr. Carlos",
-      lastName: "Smith",
-      email: "carlos.smith@clinic.com",
-      phone: "987123456",
-      specialization: "Podólogo General",
-      isActive: true,
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-  },
-  {
-    id: "2",
-    patientId: "patient_2",
-    workerId: "worker_2",
-    dateTime: "2024-01-26T14:30:00",
-    duration: 90,
-    status: "scheduled",
-    reason: "Tratamiento de onicomicosis",
-    priority: "high",
-    reminderEnabled: true,
-    reminderDays: 2,
-    createdAt: "2024-01-21T10:00:00",
-    updatedAt: "2024-01-21T10:00:00",
-    patient: {
-      id: "patient_2",
-      firstName: "Carlos",
-      lastName: "Mendez",
-      documentId: "87654321",
-      phone: "987123654",
-      sex: "male",
-      birthDate: "1978-03-22",
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-    worker: {
-      id: "worker_2",
-      firstName: "Dra. Ana",
-      lastName: "Johnson",
-      email: "ana.johnson@clinic.com",
-      phone: "987456123",
-      specialization: "Podóloga Especialista",
-      isActive: true,
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-  },
-  {
-    id: "3",
-    patientId: "patient_3",
-    workerId: "worker_1",
-    dateTime: "2024-01-27T09:15:00",
-    duration: 45,
-    status: "scheduled",
-    reason: "Seguimiento post-tratamiento",
-    priority: "low",
-    reminderEnabled: false,
-    reminderDays: 0,
-    createdAt: "2024-01-22T11:30:00",
-    updatedAt: "2024-01-22T11:30:00",
-    patient: {
-      id: "patient_3",
-      firstName: "Ana",
-      lastName: "García",
-      documentId: "11223344",
-      phone: "987321654",
-      sex: "female",
-      birthDate: "1992-08-10",
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-    worker: {
-      id: "worker_1",
-      firstName: "Dr. Carlos",
-      lastName: "Smith",
-      email: "carlos.smith@clinic.com",
-      phone: "987123456",
-      specialization: "Podólogo General",
-      isActive: true,
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-  },
-  // Add more appointments for better calendar demonstration
-  {
-    id: "4",
-    patientId: "patient_4",
-    workerId: "worker_1",
-    dateTime: "2024-01-25T14:00:00",
-    duration: 60,
-    status: "completed",
-    reason: "Tratamiento de callos",
-    priority: "medium",
-    reminderEnabled: true,
-    reminderDays: 1,
-    createdAt: "2024-01-20T08:00:00",
-    updatedAt: "2024-01-25T15:00:00",
-    patient: {
-      id: "patient_4",
-      firstName: "Luis",
-      lastName: "Rodríguez",
-      documentId: "55667788",
-      phone: "987111222",
-      sex: "male",
-      birthDate: "1990-12-05",
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-    worker: {
-      id: "worker_1",
-      firstName: "Dr. Carlos",
-      lastName: "Smith",
-      email: "carlos.smith@clinic.com",
-      phone: "987123456",
-      specialization: "Podólogo General",
-      isActive: true,
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-  },
-  {
-    id: "5",
-    patientId: "patient_5",
-    workerId: "worker_2",
-    dateTime: "2024-01-29T11:30:00",
-    duration: 75,
-    status: "cancelled",
-    reason: "Cirugía menor",
-    priority: "high",
-    reminderEnabled: true,
-    reminderDays: 3,
-    createdAt: "2024-01-22T08:00:00",
-    updatedAt: "2024-01-28T10:00:00",
-    patient: {
-      id: "patient_5",
-      firstName: "Elena",
-      lastName: "Martínez",
-      documentId: "99887766",
-      phone: "987333444",
-      sex: "female",
-      birthDate: "1975-07-18",
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-    worker: {
-      id: "worker_2",
-      firstName: "Dra. Ana",
-      lastName: "Johnson",
-      email: "ana.johnson@clinic.com",
-      phone: "987456123",
-      specialization: "Podóloga Especialista",
-      isActive: true,
-      createdAt: "2024-01-01T00:00:00",
-      updatedAt: "2024-01-01T00:00:00",
-    },
-  },
-];
 
 // Get current user
 const useAuth = () => {
@@ -719,11 +563,14 @@ const useAuth = () => {
 export function ScheduleAppointment() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const patientRepo = usePatientRepository();
+  const workerRepo = useWorkerRepository();
+  const appointmentRepo = useMemo(() => new FutureAppointmentRepository(), []);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [scheduledAppointments, setScheduledAppointments] = useState<
     ScheduledAppointment[]
-  >(mockScheduledAppointments);
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showCreatePatient, setShowCreatePatient] = useState(false);
@@ -756,18 +603,29 @@ export function ScheduleAppointment() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [calendarDate]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const mockPatients = getMockPatients();
-      const mockWorkers = getMockWorkers();
-      setPatients(mockPatients);
-      setWorkers(mockWorkers);
+      const month = calendarDate.getMonth() + 1;
+      const year = calendarDate.getFullYear();
+      const [patientsResp, workersResp, appointmentsResp] = await Promise.all([
+        patientRepo.getAll({ page: 1, limit: 100 }),
+        workerRepo.getAll({ page: 1, limit: 100 }),
+        appointmentRepo.getMonthly(month, year),
+      ]);
+      setPatients(patientsResp.items);
+      setWorkers(workersResp.items);
+      const mapped = appointmentsResp.map((apt) => ({
+        ...apt,
+        patient: patientsResp.items.find((p) => p.id === apt.patientId),
+        worker: workersResp.items.find((w) => w.id === apt.workerId),
+      }));
+      setScheduledAppointments(mapped);
     } catch (error) {
       console.error("Error loading data:", error);
+      toast({ title: "Error al cargar datos", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -803,7 +661,7 @@ export function ScheduleAppointment() {
 
       return {
         id: appointment.id,
-        title: `${appointment.patient?.firstName} ${appointment.patient?.lastName}`,
+        title: `${appointment.patient?.firstName} ${appointment.patient?.paternalSurname} ${appointment.patient?.maternalSurname}`,
         start,
         end,
         resource: appointment,
@@ -857,44 +715,26 @@ export function ScheduleAppointment() {
 
     setIsSaving(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const patient = patients.find((p) => p.id === formData.patientId);
-      const worker = workers.find((w) => w.id === formData.workerId);
-
-      const newAppointment: ScheduledAppointment = {
-        id: `appointment_${Date.now()}`,
-        patientId: formData.patientId,
-        workerId: formData.workerId,
-        dateTime: formData.scheduledDateTime,
-        duration: formData.duration,
-        status: "scheduled",
-        reason: formData.reason,
-        treatmentNotes: formData.treatmentNotes,
-        observations: formData.observation,
-        priority: formData.priority,
-        reminderEnabled: formData.reminderEnabled,
-        reminderDays: formData.reminderDays,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        patient,
-        worker,
-      };
-
       if (editingAppointment) {
-        // Update existing appointment
+        const updated = await appointmentRepo.update(editingAppointment.id, formData);
+        const patient = patients.find((p) => p.id === updated.patientId);
+        const worker = workers.find((w) => w.id === updated.workerId);
         setScheduledAppointments(
           scheduledAppointments.map((apt) =>
             apt.id === editingAppointment.id
-              ? { ...newAppointment, id: editingAppointment.id }
+              ? { ...updated, patient, worker }
               : apt,
           ),
         );
         setEditingAppointment(null);
       } else {
-        // Add new appointment
-        setScheduledAppointments([newAppointment, ...scheduledAppointments]);
+        const created = await appointmentRepo.create(formData);
+        const patient = patients.find((p) => p.id === created.patientId);
+        const worker = workers.find((w) => w.id === created.workerId);
+        setScheduledAppointments([
+          { ...created, patient, worker },
+          ...scheduledAppointments,
+        ]);
       }
 
       // Reset form
@@ -932,7 +772,7 @@ export function ScheduleAppointment() {
       duration: appointment.duration,
       reason: appointment.reason,
       treatmentNotes: appointment.treatmentNotes || "",
-      observation: appointment.observations || "",
+      observation: appointment.observation || "",
       priority: appointment.priority,
       reminderEnabled: appointment.reminderEnabled,
       reminderDays: appointment.reminderDays,
@@ -956,22 +796,44 @@ export function ScheduleAppointment() {
     });
   };
 
-  const handleChangeStatus = (
+  const handleChangeStatus = async (
     appointmentId: string,
-    newStatus: "scheduled" | "cancelled" | "completed",
+    newStatus: "scheduled" | "canceled" | "completed",
   ) => {
-    setScheduledAppointments(
-      scheduledAppointments.map((apt) =>
-        apt.id === appointmentId ? { ...apt, status: newStatus } : apt,
-      ),
-    );
+    try {
+      const updated = await appointmentRepo.update(appointmentId, {
+        status: newStatus,
+      });
+      const patient = patients.find((p) => p.id === updated.patientId);
+      const worker = workers.find((w) => w.id === updated.workerId);
+      setScheduledAppointments(
+        scheduledAppointments.map((apt) =>
+          apt.id === appointmentId ? { ...updated, patient, worker } : apt,
+        ),
+      );
+    } catch (error) {
+      console.error("Error updating appointment status:", error);
+      toast({
+        title: "Error al actualizar el estado",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteAppointment = (appointmentId: string) => {
+  const handleDeleteAppointment = async (appointmentId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar esta cita?")) {
-      setScheduledAppointments(
-        scheduledAppointments.filter((apt) => apt.id !== appointmentId),
-      );
+      try {
+        await appointmentRepo.delete(appointmentId);
+        setScheduledAppointments(
+          scheduledAppointments.filter((apt) => apt.id !== appointmentId),
+        );
+      } catch (error) {
+        console.error("Error deleting appointment:", error);
+        toast({
+          title: "Error al eliminar la cita",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -1018,7 +880,7 @@ export function ScheduleAppointment() {
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "completed":
         return "bg-green-100 text-green-800 border-green-200";
-      case "cancelled":
+      case "canceled":
         return "bg-red-100 text-red-800 border-red-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
@@ -1031,7 +893,7 @@ export function ScheduleAppointment() {
         return <Clock className="w-4 h-4" />;
       case "completed":
         return <CheckCircle className="w-4 h-4" />;
-      case "cancelled":
+      case "canceled":
         return <XCircle className="w-4 h-4" />;
       default:
         return <AlertCircle className="w-4 h-4" />;
@@ -1053,7 +915,7 @@ export function ScheduleAppointment() {
         backgroundColor = "#16a34a";
         borderColor = "#15803d";
         break;
-      case "cancelled":
+      case "canceled":
         backgroundColor = "#dc2626";
         borderColor = "#b91c1c";
         break;
@@ -1090,7 +952,8 @@ export function ScheduleAppointment() {
     return (
       <div className="p-1">
         <div className="font-semibold text-xs truncate">
-          {appointment.patient?.firstName} {appointment.patient?.lastName}
+          {appointment.patient?.firstName} {appointment.patient?.paternalSurname}{" "}
+          {appointment.patient?.maternalSurname}
         </div>
         <div className="text-xs opacity-90 truncate">{appointment.reason}</div>
         {appointment.worker && (
@@ -1213,15 +1076,16 @@ export function ScheduleAppointment() {
                               placeholder="Seleccionar paciente"
                               displayField={(item) => {
                                 const patient = item as Patient;
-                                return `${patient.firstName} ${patient.lastName}`;
+                                return `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`;
                               }}
                               searchFields={(item) => {
                                 const patient = item as Patient;
                                 return [
                                   patient.firstName,
-                                  patient.lastName,
-                                  patient.documentId,
-                                  patient.phone,
+                                  patient.paternalSurname,
+                                  patient.maternalSurname,
+                                  patient.documentNumber,
+                                  patient.phone || "",
                                 ];
                               }}
                               emptyText="No se encontraron pacientes"
@@ -1544,7 +1408,7 @@ export function ScheduleAppointment() {
                                     (p) => p.id === formData.patientId,
                                   );
                                   return patient
-                                    ? `${patient.firstName} ${patient.lastName}`
+                                    ? `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`
                                     : "";
                                 })()}
                               </p>
@@ -1691,7 +1555,7 @@ export function ScheduleAppointment() {
                             <SelectItem value="completed">
                               Completadas
                             </SelectItem>
-                            <SelectItem value="cancelled">
+                            <SelectItem value="canceled">
                               Canceladas
                             </SelectItem>
                           </SelectContent>
@@ -1831,11 +1695,13 @@ export function ScheduleAppointment() {
                                   <div>
                                     <h4 className="font-semibold text-lg">
                                       {appointment.patient?.firstName}{" "}
-                                      {appointment.patient?.lastName}
+                                      {appointment.patient?.paternalSurname}{" "}
+                                      {appointment.patient?.maternalSurname}
                                     </h4>
                                     <p className="text-sm text-muted-foreground">
-                                      DNI: {appointment.patient?.documentId} •
-                                      Tel: {appointment.patient?.phone}
+                                      DNI: {appointment.patient?.documentNumber} • Tel: {
+                                        appointment.patient?.phone
+                                      }
                                     </p>
                                   </div>
                                   <div className="flex gap-2">
@@ -1947,10 +1813,11 @@ export function ScheduleAppointment() {
                                     <div className="flex-1">
                                       <h4 className="font-semibold text-lg">
                                         {appointment.patient?.firstName}{" "}
-                                        {appointment.patient?.lastName}
+                                        {appointment.patient?.paternalSurname}{" "}
+                                        {appointment.patient?.maternalSurname}
                                       </h4>
                                       <p className="text-sm text-muted-foreground">
-                                        DNI: {appointment.patient?.documentId} •{" "}
+                                        DNI: {appointment.patient?.documentNumber} • {" "}
                                         Tel: {appointment.patient?.phone}
                                       </p>
                                     </div>
@@ -2076,7 +1943,7 @@ export function ScheduleAppointment() {
                                         onClick={() =>
                                           handleChangeStatus(
                                             appointment.id,
-                                            "cancelled",
+                                            "canceled",
                                           )
                                         }
                                         size="sm"
@@ -2089,7 +1956,7 @@ export function ScheduleAppointment() {
                                     </>
                                   )}
 
-                                  {appointment.status === "cancelled" && (
+                                  {appointment.status === "canceled" && (
                                     <Button
                                       onClick={() =>
                                         handleChangeStatus(
@@ -2158,10 +2025,11 @@ export function ScheduleAppointment() {
                   <div className="p-3 bg-primary/5 rounded-lg">
                     <p className="font-medium">
                       {selectedAppointment.patient?.firstName}{" "}
-                      {selectedAppointment.patient?.lastName}
+                      {selectedAppointment.patient?.paternalSurname}{" "}
+                      {selectedAppointment.patient?.maternalSurname}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      DNI: {selectedAppointment.patient?.documentId}
+                      DNI: {selectedAppointment.patient?.documentNumber}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Tel: {selectedAppointment.patient?.phone}
@@ -2276,13 +2144,13 @@ export function ScheduleAppointment() {
                 </div>
               )}
 
-              {selectedAppointment.observations && (
+              {selectedAppointment.observation && (
                 <div className="space-y-2">
                   <Label className="font-medium text-purple-600">
                     Observaciones
                   </Label>
                   <div className="p-3 bg-purple-50 rounded-lg">
-                    <p>{selectedAppointment.observations}</p>
+                    <p>{selectedAppointment.observation}</p>
                   </div>
                 </div>
               )}
@@ -2313,7 +2181,7 @@ export function ScheduleAppointment() {
       )}
 
       {/* Calendar Styles */}
-      <style jsx global>{`
+      <style>{`
         .rbc-calendar {
           font-family: "Inter", system-ui, sans-serif;
         }
