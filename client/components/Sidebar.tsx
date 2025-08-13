@@ -137,7 +137,7 @@ export function Sidebar({
       items: [
         { icon: Users, label: "Pacientes", path: "/patients" },
         { icon: Calendar, label: "Citas", path: "/appointments" },
-        // { icon: CalendarPlus, label: "Programar Cita", path: "/appointments/schedule", },
+        { icon: CalendarPlus, label: "Programar Cita", path: "/appointments/schedule", },
       ],
     },
     {

@@ -2,19 +2,16 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   CalendarPlus,
   Clock,
   User,
   Users,
   FileText,
-  Save,
   ArrowLeft,
   Search,
   Check,
-  Plus,
   Edit3,
-  Trash2,
   X,
   UserPlus,
   Phone,
@@ -29,8 +26,6 @@ import {
   ChevronRight,
   Filter,
   CalendarDays,
-  List,
-  Grid3X3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,53 +55,278 @@ import {
   ScheduleAppointmentRequest,
   ScheduledAppointment,
 } from "@shared/api";
-import { usePatientRepository, useWorkerRepository } from "@/lib/repositories";
-import { FutureAppointmentRepository } from "@/lib/api/future-appointment";
 import Layout from "@/components/Layout";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
+import { Pagination } from "@/components/ui/pagination";
+import { WorkerRepository } from "@/lib/api/worker";
+import { PatientRepository } from "@/lib/api/patient";
+import { FutureAppointmentRepository } from "@/lib/api/future-appointment";
 
-// Calendar imports
+// Calendar (react-big-calendar)
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
   View,
   Views,
 } from "react-big-calendar";
-import {
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  addDays,
-  startOfDay,
-  endOfDay,
-  isSameDay,
-} from "date-fns";
+import { format, parse, startOfWeek, getDay, addDays, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-// Setup the localizer for react-big-calendar with date-fns
-const locales = {
-  es: es,
+// ======================
+// Calendar Localizer
+// ======================
+const locales = { es };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
+// ======================
+// Auth (simple localStorage)
+// ======================
+const useAuth = () => {
+  const [user] = useState(() => {
+    const stored = localStorage.getItem("podocare_user");
+    return stored ? JSON.parse(stored) : null;
+  });
+  return { user };
 };
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+// ======================
+// Date helpers (Lima)
+// ======================
+const LIMA_TZ = "America/Lima";
 
+// Convierte Date a ISO local con offset (no "Z")
+function toLocalISOWithTZ(d: Date) {
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hour = pad(d.getHours());
+  const minute = pad(d.getMinutes());
+  const second = pad(d.getSeconds());
+
+  // offset local en minutos
+  const tzOffsetMin = d.getTimezoneOffset();
+  const sign = tzOffsetMin > 0 ? "-" : "+";
+  const abs = Math.abs(tzOffsetMin);
+  const offH = pad(Math.floor(abs / 60));
+  const offM = pad(abs % 60);
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}${sign}${offH}:${offM}`;
+}
+
+// Redondea a próximo múltiplo de stepMin (p.ej. 15)
+function roundUpMinutes(date: Date, stepMin = 15) {
+  const d = new Date(date);
+  d.setSeconds(0, 0);
+  const mins = d.getMinutes();
+  const rounded = Math.ceil(mins / stepMin) * stepMin;
+  if (rounded === 60) {
+    d.setHours(d.getHours() + 1, 0, 0, 0);
+  } else {
+    d.setMinutes(rounded);
+  }
+  return d;
+}
+
+function isSameYMD(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
+
+const toYMD = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+// ======================
+// DateTimeField
+// ======================
+function DateTimeField({
+  value,
+  onChange,
+  minDate,
+  stepMinutes = 15,
+  businessStart = 8,
+  businessEnd = 20,
+  label = "Fecha y Hora *",
+  errorText,
+}: {
+  value: string;
+  onChange: (nextISO: string) => void;
+  minDate?: Date;
+  stepMinutes?: number;
+  businessStart?: number;
+  businessEnd?: number;
+  label?: string;
+  errorText?: string;
+}) {
+  const now = roundUpMinutes(new Date(), stepMinutes);
+  const parsed = value ? new Date(value) : now;
+
+  const [localDate, setLocalDate] = useState<string>(() => {
+    return `${parsed.getFullYear()}-${`${parsed.getMonth() + 1}`.padStart(2, "0")}-${`${parsed.getDate()}`.padStart(2, "0")}`;
+  });
+
+  const hoursOptions = useMemo(() => {
+    const options: string[] = [];
+    for (let h = businessStart; h <= businessEnd; h++) {
+      for (let m = 0; m < 60; m += stepMinutes) {
+        if (h === businessEnd && m > 0) break;
+        options.push(`${`${h}`.padStart(2, "0")}:${`${m}`.padStart(2, "0")}`);
+      }
+    }
+    return options;
+  }, [businessStart, businessEnd, stepMinutes]);
+
+  const [localTime, setLocalTime] = useState<string>(() => {
+    const hh = `${parsed.getHours()}`.padStart(2, "0");
+    const mm = `${parsed.getMinutes()}`.padStart(2, "0");
+    const candidate = `${hh}:${mm}`;
+    if (!hoursOptions.includes(candidate)) {
+      const rounded = roundUpMinutes(parsed, stepMinutes);
+      return `${`${rounded.getHours()}`.padStart(2, "0")}:${`${rounded.getMinutes()}`.padStart(2, "0")}`;
+    }
+    return candidate;
+  });
+
+  const emitISO = useCallback((dStr: string, tStr: string) => {
+    const [y, m, d] = dStr.split("-").map(Number);
+    const [hh, mm] = tStr.split(":").map(Number);
+    const compose = new Date(y, (m - 1), d, hh, mm, 0, 0);
+    if (minDate && isSameYMD(compose, minDate)) {
+      if (compose < minDate) {
+        const safe = roundUpMinutes(minDate, stepMinutes);
+        onChange(toLocalISOWithTZ(safe));
+        return;
+      }
+    }
+    onChange(toLocalISOWithTZ(compose));
+  }, [minDate, onChange, stepMinutes]);
+
+  useEffect(() => {
+    const [y, m, d] = localDate.split("-").map(Number);
+    const [hh, mm] = localTime.split(":").map(Number);
+    const candidate = new Date(y, m - 1, d, hh, mm, 0, 0);
+    const min = minDate ?? now;
+    if (isSameYMD(candidate, min) && candidate < min) {
+      const safe = roundUpMinutes(min, stepMinutes);
+      setLocalTime(`${`${safe.getHours()}`.padStart(2, "0")}:${`${safe.getMinutes()}`.padStart(2, "0")}`);
+      onChange(toLocalISOWithTZ(safe));
+    } else {
+      onChange(toLocalISOWithTZ(candidate));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localDate]);
+
+  return (
+    <div className="space-y-2 bg-inherit p-4 rounded-lg border border-border shadow-sm">
+      <div className="flex flex-col sm:flex-row gap-3 mb-1">
+        <Label>{label}</Label>
+        <p className="text-sm text-muted-foreground capitalize">
+          {(() => {
+            const d = new Date(value || new Date());
+            const dia = d.toLocaleDateString("es-PE", { weekday: "long" });
+            const fecha = d.toLocaleDateString("es-PE", { day: "2-digit", month: "long", year: "numeric" });
+            const hora = d.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+            return ` ${dia}, ${fecha} — ${hora} (hora local)`;
+          })()}
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            type="date"
+            value={localDate}
+            min={(() => {
+              const m = (minDate ?? now);
+              return `${m.getFullYear()}-${`${m.getMonth() + 1}`.padStart(2, "0")}-${`${m.getDate()}`.padStart(2, "0")}`;
+            })()}
+            onChange={(e) => setLocalDate(e.target.value)}
+          />
+          <Select
+            value={localTime}
+            onValueChange={(t) => {
+              setLocalTime(t);
+              emitISO(localDate, t);
+            }}
+          >
+            <SelectTrigger><SelectValue placeholder="Hora" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              {hoursOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 1);
+              d.setHours(9, 0, 0, 0);
+              setLocalDate(`${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, "0")}-${`${d.getDate()}`.padStart(2, "0")}`);
+              setLocalTime("09:00");
+              onChange(toLocalISOWithTZ(d));
+            }}
+          >
+            Mañana 09:00
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const d = new Date();
+              d.setDate(d.getDate() + 7);
+              d.setHours(9, 0, 0, 0);
+              setLocalDate(`${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, "0")}-${`${d.getDate()}`.padStart(2, "0")}`);
+              setLocalTime("09:00");
+              onChange(toLocalISOWithTZ(d));
+            }}
+          >
+            Próx. semana
+          </Button>
+        </div>
+      </div>
+      {errorText && <p className="text-sm text-destructive">{errorText}</p>}
+    </div>
+  );
+}
+
+// ======================
+// SearchableSelect
+// ======================
 interface SearchableSelectProps {
   items: (Patient | Worker)[];
   value: string;
   onValueChange: (value: string) => void;
   placeholder: string;
   displayField: (item: Patient | Worker) => string;
-  searchFields: (item: Patient | Worker) => string[];
+  searchFields?: (item: Patient | Worker) => string[];
   emptyText: string;
   onCreateNew?: () => void;
   createNewText?: string;
+  serverSearchTerm?: string;
+  onServerSearchChange?: (v: string) => void;
+  paginationProps?: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    pageSize: number;
+    onPageChange: (p: number) => void;
+    onPageSizeChange: (s: number) => void;
+    pageSizeOptions?: number[];
+  };
+  isLoading?: boolean;
+  dialogTitle?: string;
 }
 
 function SearchableSelect({
@@ -119,26 +339,35 @@ function SearchableSelect({
   emptyText,
   onCreateNew,
   createNewText,
+  serverSearchTerm,
+  onServerSearchChange,
+  paginationProps,
+  isLoading,
+  dialogTitle,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [localSearchTerm, setLocalSearchTerm] = useState("");
+
+  const usingServerSearch = typeof onServerSearchChange === "function";
 
   const filteredItems = useMemo(() => {
-    if (!searchTerm) return items;
+    if (usingServerSearch) return items;
+    if (!localSearchTerm) return items;
+    if (!searchFields) return items;
 
+    const q = localSearchTerm.toLowerCase();
     return items.filter((item) =>
-      searchFields(item).some((field) =>
-        field.toLowerCase().includes(searchTerm.toLowerCase()),
-      ),
+      searchFields(item).some((field) => (field || "").toLowerCase().includes(q)),
     );
-  }, [items, searchTerm, searchFields]);
+  }, [items, localSearchTerm, searchFields, usingServerSearch]);
 
   const selectedItem = items.find((item) => item.id === value);
 
   const handleSelect = (item: Patient | Worker) => {
     onValueChange(item.id);
     setIsOpen(false);
-    setSearchTerm("");
+    setLocalSearchTerm("");
+    if (usingServerSearch) onServerSearchChange?.("");
   };
 
   return (
@@ -156,56 +385,74 @@ function SearchableSelect({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>{placeholder}</DialogTitle>
+        <DialogContent
+          className="sm:max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="shrink-0">
+            <DialogTitle>{dialogTitle || placeholder}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                autoFocus
-              />
+          <div className="flex-1 min-h-0 flex flex-col gap-3">
+            <div className="space-y-3 shrink-0">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar..."
+                  value={usingServerSearch ? serverSearchTerm || "" : localSearchTerm}
+                  onChange={(e) => {
+                    if (usingServerSearch) onServerSearchChange?.(e.target.value);
+                    else setLocalSearchTerm(e.target.value);
+                  }}
+                  className="pl-10"
+                  autoComplete="off"
+                />
+              </div>
+
+              {onCreateNew && (
+                <Button
+                  onClick={() => {
+                    setIsOpen(false);
+                    onCreateNew();
+                  }}
+                  variant="outline"
+                  className="w-full flex items-center gap-2 border-dashed border-primary text-primary hover:bg-primary/5"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  {createNewText || "Crear nuevo"}
+                </Button>
+              )}
+
+              {paginationProps && paginationProps.totalItems > 0 && (
+                <div className="pt-1">
+                  <Pagination
+                    currentPage={paginationProps.currentPage}
+                    totalPages={paginationProps.totalPages}
+                    totalItems={paginationProps.totalItems}
+                    pageSize={paginationProps.pageSize}
+                    onPageChange={paginationProps.onPageChange}
+                    onPageSizeChange={paginationProps.onPageSizeChange}
+                    showPageSizeSelector={true}
+                    pageSizeOptions={paginationProps.pageSizeOptions || [10, 15, 25, 50]}
+                  />
+                </div>
+              )}
             </div>
 
-            {onCreateNew && (
-              <Button
-                onClick={() => {
-                  setIsOpen(false);
-                  onCreateNew();
-                }}
-                variant="outline"
-                className="w-full flex items-center gap-2 border-dashed border-primary text-primary hover:bg-primary/5"
-              >
-                <UserPlus className="w-4 h-4" />
-                {createNewText || "Crear nuevo"}
-              </Button>
-            )}
-
-            <div className="max-h-[300px] overflow-y-auto space-y-2">
-              {filteredItems.length === 0 ? (
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 py-1">
+              {isLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="p-3 rounded-lg border">
+                      <div className="loading-shimmer h-4 w-40 mb-2 rounded" />
+                      <div className="loading-shimmer h-3 w-64 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredItems.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <User className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>{emptyText}</p>
-                  {onCreateNew && (
-                    <p className="text-sm mt-2">
-                      ¿No encuentras lo que buscas?{" "}
-                      <button
-                        onClick={() => {
-                          setIsOpen(false);
-                          onCreateNew();
-                        }}
-                        className="text-primary hover:underline"
-                      >
-                        Crear nuevo
-                      </button>
-                    </p>
-                  )}
                 </div>
               ) : (
                 filteredItems.map((item) => (
@@ -223,7 +470,7 @@ function SearchableSelect({
                         {"email" in item && (
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Mail className="w-3 h-3" />
-                            {item.email}
+                            {(item as any).email || ""}
                           </p>
                         )}
                         {"documentNumber" in item && (
@@ -234,18 +481,16 @@ function SearchableSelect({
                         {"phone" in item && (
                           <p className="text-sm text-muted-foreground flex items-center gap-1">
                             <Phone className="w-3 h-3" />
-                            {(item as any).phone}
+                            {(item as any).phone || ""}
                           </p>
                         )}
-                        {"specialization" in item && item.specialization && (
+                        {"username" in item && (
                           <p className="text-sm text-muted-foreground">
-                            {item.specialization}
+                            Usuario: {(item as any).username}
                           </p>
                         )}
                       </div>
-                      {value === item.id && (
-                        <Check className="w-5 h-5 text-primary" />
-                      )}
+                      {value === item.id && <Check className="w-5 h-5 text-primary" />}
                     </div>
                   </div>
                 ))
@@ -253,12 +498,13 @@ function SearchableSelect({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2 border-t border-border shrink-0">
             <Button
               variant="outline"
               onClick={() => {
                 setIsOpen(false);
-                setSearchTerm("");
+                setLocalSearchTerm("");
+                if (usingServerSearch) onServerSearchChange?.("");
               }}
             >
               Cancelar
@@ -270,7 +516,9 @@ function SearchableSelect({
   );
 }
 
-// Create Patient Modal Component
+// ======================
+// CreatePatientModal
+// ======================
 function CreatePatientModal({
   isOpen,
   onClose,
@@ -280,7 +528,7 @@ function CreatePatientModal({
   onClose: () => void;
   onPatientCreated: (patient: Patient) => void;
 }) {
-  const patientRepo = usePatientRepository();
+  const patientRepo = useMemo(() => new PatientRepository(), []);
   const [formData, setFormData] = useState<Patient & { clinicalNotes?: string }>({
     documentType: "dni",
     documentNumber: "",
@@ -298,56 +546,37 @@ function CreatePatientModal({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "Nombre es requerido";
-    }
-    if (!formData.paternalSurname.trim()) {
-      newErrors.paternalSurname = "Apellido paterno es requerido";
-    }
-    if (!formData.maternalSurname.trim()) {
-      newErrors.maternalSurname = "Apellido materno es requerido";
-    }
-    if (!formData.documentNumber.trim()) {
-      newErrors.documentNumber = "DNI es requerido";
-    } else if (!/^\d{8}$/.test(formData.documentNumber)) {
-      newErrors.documentNumber = "DNI debe tener 8 dígitos";
-    }
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Teléfono es requerido";
-    } else if (!/^\d{9}$/.test(formData.phone)) {
-      newErrors.phone = "Teléfono debe tener 9 dígitos";
-    }
-    if (!formData.birthDate) {
-      newErrors.birthDate = "Fecha de nacimiento es requerida";
-    }
-
+    if (!formData.firstName.trim()) newErrors.firstName = "Nombre es requerido";
+    if (!formData.paternalSurname.trim()) newErrors.paternalSurname = "Apellido paterno es requerido";
+    if (!formData.maternalSurname.trim()) newErrors.maternalSurname = "Apellido materno es requerido";
+    if (!formData.documentNumber.trim()) newErrors.documentNumber = "DNI es requerido";
+    else if (!/^\d{8}$/.test(formData.documentNumber)) newErrors.documentNumber = "DNI debe tener 8 dígitos";
+    if (!formData.phone.trim()) newErrors.phone = "Teléfono es requerido";
+    else if (!/^\d{9}$/.test(formData.phone)) newErrors.phone = "Teléfono debe tener 9 dígitos";
+    if (!formData.birthDate) newErrors.birthDate = "Fecha de nacimiento es requerida";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
     if (!validateForm()) return;
-
     setIsSaving(true);
     try {
       const newPatient = await patientRepo.create(formData);
       onPatientCreated(newPatient);
       onClose();
-
-      // Reset form
       setFormData({
-          documentType: "dni",
-          documentNumber: "",
-          firstName: "",
-          paternalSurname: "",
-          maternalSurname: "",
-          gender: "f",
-          phone: "",
-          birthDate: "",
-          balance: 0,
-          clinicalNotes: "",
-        });
+        documentType: "dni",
+        documentNumber: "",
+        firstName: "",
+        paternalSurname: "",
+        maternalSurname: "",
+        gender: "f",
+        phone: "",
+        birthDate: "",
+        balance: 0,
+        clinicalNotes: "",
+      });
       setErrors({});
     } catch (error) {
       console.error("Error creating patient:", error);
@@ -366,8 +595,7 @@ function CreatePatientModal({
             Crear Nuevo Paciente
           </DialogTitle>
           <DialogDescription>
-            Completa la información básica del paciente para poder programar la
-            cita.
+            Completa la información básica del paciente para poder programar la cita.
           </DialogDescription>
         </DialogHeader>
 
@@ -378,14 +606,10 @@ function CreatePatientModal({
               <Input
                 id="firstName"
                 value={formData.firstName}
-                onChange={(e) =>
-                  setFormData({ ...formData, firstName: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 className={cn(errors.firstName && "border-destructive")}
               />
-              {errors.firstName && (
-                <p className="text-sm text-destructive">{errors.firstName}</p>
-              )}
+              {errors.firstName && <p className="text-sm text-destructive">{errors.firstName}</p>}
             </div>
 
             <div className="space-y-2">
@@ -393,14 +617,10 @@ function CreatePatientModal({
               <Input
                 id="paternalSurname"
                 value={formData.paternalSurname}
-                onChange={(e) =>
-                  setFormData({ ...formData, paternalSurname: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, paternalSurname: e.target.value })}
                 className={cn(errors.paternalSurname && "border-destructive")}
               />
-              {errors.paternalSurname && (
-                <p className="text-sm text-destructive">{errors.paternalSurname}</p>
-              )}
+              {errors.paternalSurname && <p className="text-sm text-destructive">{errors.paternalSurname}</p>}
             </div>
           </div>
 
@@ -410,22 +630,11 @@ function CreatePatientModal({
               <Input
                 id="maternalSurname"
                 value={formData.maternalSurname}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    maternalSurname: e.target.value,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, maternalSurname: e.target.value })}
                 className={cn(errors.maternalSurname && "border-destructive")}
               />
-              {errors.maternalSurname && (
-                <p className="text-sm text-destructive">
-                  {errors.maternalSurname}
-                </p>
-              )}
+              {errors.maternalSurname && <p className="text-sm text-destructive">{errors.maternalSurname}</p>}
             </div>
-
-            {/* Empty placeholder for layout alignment */}
             <div></div>
           </div>
 
@@ -435,19 +644,12 @@ function CreatePatientModal({
               <Input
                 id="documentNumber"
                 value={formData.documentNumber}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    documentNumber: e.target.value,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
                 placeholder="12345678"
                 maxLength={8}
                 className={cn(errors.documentNumber && "border-destructive")}
               />
-              {errors.documentNumber && (
-                <p className="text-sm text-destructive">{errors.documentNumber}</p>
-              )}
+              {errors.documentNumber && <p className="text-sm text-destructive">{errors.documentNumber}</p>}
             </div>
 
             <div className="space-y-2">
@@ -455,16 +657,12 @@ function CreatePatientModal({
               <Input
                 id="phone"
                 value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="987654321"
                 maxLength={9}
                 className={cn(errors.phone && "border-destructive")}
               />
-              {errors.phone && (
-                <p className="text-sm text-destructive">{errors.phone}</p>
-              )}
+              {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
             </div>
           </div>
 
@@ -473,9 +671,7 @@ function CreatePatientModal({
               <Label htmlFor="gender">Sexo</Label>
               <Select
                 value={formData.gender}
-                onValueChange={(value: "m" | "f") =>
-                  setFormData({ ...formData, gender: value })
-                }
+                onValueChange={(value: "m" | "f") => setFormData({ ...formData, gender: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -493,14 +689,10 @@ function CreatePatientModal({
                 id="birthDate"
                 type="date"
                 value={formData.birthDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, birthDate: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                 className={cn(errors.birthDate && "border-destructive")}
               />
-              {errors.birthDate && (
-                <p className="text-sm text-destructive">{errors.birthDate}</p>
-              )}
+              {errors.birthDate && <p className="text-sm text-destructive">{errors.birthDate}</p>}
             </div>
           </div>
 
@@ -509,9 +701,7 @@ function CreatePatientModal({
             <Textarea
               id="clinicalNotes"
               value={formData.clinicalNotes || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, clinicalNotes: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, clinicalNotes: e.target.value })}
               placeholder="Información médica relevante, alergias, etc."
               rows={3}
             />
@@ -541,7 +731,9 @@ function CreatePatientModal({
   );
 }
 
-// Calendar Event Interface
+// ======================
+// Local types
+// ======================
 interface CalendarEvent {
   id: string;
   title: string;
@@ -550,118 +742,144 @@ interface CalendarEvent {
   resource: ScheduledAppointment;
 }
 
-
-// Get current user
-const useAuth = () => {
-  const [user] = useState(() => {
-    const stored = localStorage.getItem("podocare_user");
-    return stored ? JSON.parse(stored) : null;
-  });
-  return { user };
-};
-
+// ======================
+// Main Component
+// ======================
 export function ScheduleAppointment() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const patientRepo = usePatientRepository();
-  const workerRepo = useWorkerRepository();
-  const appointmentRepo = useMemo(() => new FutureAppointmentRepository(), []);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [scheduledAppointments, setScheduledAppointments] = useState<
-    ScheduledAppointment[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [showCreatePatient, setShowCreatePatient] = useState(false);
-  const [editingAppointment, setEditingAppointment] =
-    useState<ScheduledAppointment | null>(null);
 
-  // Calendar state
+  // Repos
+  const patientRepository = useMemo(() => new PatientRepository(), []);
+  const workerRepo = useMemo(() => new WorkerRepository(), []);
+  const appointmentRepo = useMemo(() => new FutureAppointmentRepository(), []);
+
+  // Paginated lists
+  const patientPagination = useRepositoryPagination<Patient>({ initialPageSize: 15 });
+  const workerPagination = useRepositoryPagination<Worker>({ initialPageSize: 12 });
+
+  // State
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [rawAppointments, setRawAppointments] = useState<ScheduledAppointment[]>([]);
+  const [dailyAppointments, setDailyAppointments] = useState<ScheduledAppointment[]>([]);
+
   const [calendarView, setCalendarView] = useState<View>(Views.MONTH);
   const [calendarDate, setCalendarDate] = useState(new Date());
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<ScheduledAppointment | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<ScheduledAppointment | null>(null);
   const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
   const [workerFilter, setWorkerFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingAppointment, setEditingAppointment] = useState<ScheduledAppointment | null>(null);
 
+  // Form
+  const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<ScheduleAppointmentRequest>({
     patientId: "",
-    workerId: user?.id || "",
-    scheduledDateTime: "",
+    workerId: user?.role === "worker" ? user.id : "",
+    date: "",
     duration: 60,
     reason: "",
     treatmentNotes: "",
-    observation: "",
+    additionalObservations: "",
     priority: "medium",
     reminderEnabled: true,
     reminderDays: 1,
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
+  // Load patients
   useEffect(() => {
-    loadData();
-  }, [calendarDate]);
+    patientPagination.loadData((params) => patientRepository.getAll(params));
+  }, [
+    patientPagination.currentPage,
+    patientPagination.pageSize,
+    patientPagination.searchTerm,
+    patientPagination.filters,
+    patientRepository,
+  ]);
+  const patients = patientPagination.data;
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const month = calendarDate.getMonth() + 1;
-      const year = calendarDate.getFullYear();
-      const [patientsResp, workersResp, appointmentsResp] = await Promise.all([
-        patientRepo.getAll({ page: 1, limit: 100 }),
-        workerRepo.getAll({ page: 1, limit: 100 }),
-        appointmentRepo.getMonthly(month, year),
-      ]);
-      setPatients(patientsResp.items);
-      setWorkers(workersResp.items);
-      const mapped = appointmentsResp.map((apt) => ({
-        ...apt,
-        patient: patientsResp.items.find((p) => p.id === apt.patientId),
-        worker: workersResp.items.find((w) => w.id === apt.workerId),
-      }));
-      setScheduledAppointments(mapped);
-    } catch (error) {
-      console.error("Error loading data:", error);
-      toast({ title: "Error al cargar datos", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Load workers
+  useEffect(() => {
+    workerPagination.loadData((params) => workerRepo.getAll(params));
+  }, [
+    workerPagination.currentPage,
+    workerPagination.pageSize,
+    workerPagination.searchTerm,
+    workerPagination.filters,
+    workerRepo,
+  ]);
+  const workers = workerPagination.data;
 
-  // Filter appointments based on user role and filters
+  // Load monthly appointments
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const month = calendarDate.getMonth() + 1;
+        const year = calendarDate.getFullYear();
+        const monthly = await appointmentRepo.getMonthly(month, year);
+        if (alive) setRawAppointments(monthly);
+      } catch (error) {
+        console.error("Error loading monthly appointments:", error);
+        toast({ title: "Error al cargar citas del mes", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [calendarDate, appointmentRepo]);
+
+  // Load daily appointments (from endpoint /daily)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const ymd = toYMD(calendarDate);
+        const daily = await appointmentRepo.getDaily(ymd);
+        if (alive) setDailyAppointments(daily);
+      } catch (e) {
+        console.error("Error loading daily appointments:", e);
+      }
+    })();
+    return () => { alive = false; };
+  }, [calendarDate, appointmentRepo]);
+
+  // Helpers
+  const getWorkerById = useCallback(
+    (id: string | undefined) => workers.find((w) => w.id === id),
+    [workers],
+  );
+
+  // Attach patient/worker (monthly dataset for calendar)
+  const scheduledAppointments = useMemo(() => {
+    return rawAppointments.map((apt) => ({
+      ...apt,
+      patient: patients.find((p) => p.id === apt.patientId),
+      worker: getWorkerById(apt.workerId),
+    }));
+  }, [rawAppointments, patients, getWorkerById]);
+
+  // Filters
   const filteredAppointments = useMemo(() => {
     let filtered = scheduledAppointments;
-
-    // Role-based filtering
-    if (user?.role === "worker") {
-      filtered = filtered.filter((apt) => apt.workerId === user.id);
-    }
-
-    // Worker filter
-    if (workerFilter !== "all") {
-      filtered = filtered.filter((apt) => apt.workerId === workerFilter);
-    }
-
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((apt) => apt.status === statusFilter);
-    }
-
+    if (user?.role === "worker") filtered = filtered.filter((apt) => apt.workerId === user.id);
+    if (workerFilter !== "all") filtered = filtered.filter((apt) => apt.workerId === workerFilter);
+    if (statusFilter !== "all") filtered = filtered.filter((apt) => apt.status === statusFilter);
     return filtered;
   }, [scheduledAppointments, user, workerFilter, statusFilter]);
 
-  // Convert appointments to calendar events
+  // Calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return filteredAppointments.map((appointment) => {
       const start = new Date(appointment.dateTime);
       const end = new Date(start.getTime() + appointment.duration * 60000);
-
+      const patientName = `${appointment.patient?.firstName ?? ""} ${appointment.patient?.paternalSurname ?? ""} ${appointment.patient?.maternalSurname ?? ""}`.trim();
       return {
         id: appointment.id,
-        title: `${appointment.patient?.firstName} ${appointment.patient?.paternalSurname} ${appointment.patient?.maternalSurname}`,
+        title: patientName || appointment.reason,
         start,
         end,
         resource: appointment,
@@ -669,92 +887,61 @@ export function ScheduleAppointment() {
     });
   }, [filteredAppointments]);
 
-  // Get appointments for a specific day
+  // Daily agenda (use /daily data)
   const getDayAppointments = useCallback(
-    (date: Date) => {
-      return filteredAppointments
-        .filter((appointment) =>
-          isSameDay(new Date(appointment.dateTime), date),
-        )
-        .sort(
-          (a, b) =>
-            new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime(),
-        );
-    },
-    [filteredAppointments],
+    () =>
+      dailyAppointments
+        .map((apt) => ({
+          ...apt,
+          patient: patients.find((p) => p.id === apt.patientId),
+          worker: getWorkerById(apt.workerId),
+        }))
+        .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()),
+    [dailyAppointments, patients, getWorkerById],
   );
 
+  // Form validation & actions
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-
-    if (!formData.patientId) {
-      newErrors.patientId = "Selecciona un paciente";
-    }
-    if (!formData.workerId) {
-      newErrors.workerId = "Selecciona un trabajador";
-    }
-    if (!formData.scheduledDateTime) {
-      newErrors.scheduledDateTime = "Selecciona fecha y hora";
-    } else {
-      const appointmentDate = new Date(formData.scheduledDateTime);
+    if (!formData.patientId) newErrors.patientId = "Selecciona un paciente";
+    if (!formData.workerId) newErrors.workerId = "Selecciona un trabajador";
+    if (!formData.date) newErrors.scheduledDateTime = "Selecciona fecha y hora";
+    else {
+      const appointmentDate = new Date(formData.date);
       const now = new Date();
-      if (appointmentDate <= now) {
-        newErrors.scheduledDateTime = "La fecha debe ser en el futuro";
-      }
+      if (appointmentDate <= now) newErrors.scheduledDateTime = "La fecha debe ser en el futuro";
     }
-    if (!formData.reason?.trim()) {
-      newErrors.reason = "Describe el motivo de la cita";
-    }
-
+    if (!formData.reason?.trim()) newErrors.reason = "Describe el motivo de la cita";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSchedule = async () => {
     if (!validateForm()) return;
-
     setIsSaving(true);
     try {
       if (editingAppointment) {
         const updated = await appointmentRepo.update(editingAppointment.id, formData);
-        const patient = patients.find((p) => p.id === updated.patientId);
-        const worker = workers.find((w) => w.id === updated.workerId);
-        setScheduledAppointments(
-          scheduledAppointments.map((apt) =>
-            apt.id === editingAppointment.id
-              ? { ...updated, patient, worker }
-              : apt,
-          ),
-        );
+        setRawAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
         setEditingAppointment(null);
       } else {
         const created = await appointmentRepo.create(formData);
-        const patient = patients.find((p) => p.id === created.patientId);
-        const worker = workers.find((w) => w.id === created.workerId);
-        setScheduledAppointments([
-          { ...created, patient, worker },
-          ...scheduledAppointments,
-        ]);
+        setRawAppointments((prev) => [created, ...prev]);
       }
-
-      // Reset form
       setFormData({
         patientId: "",
-        workerId: user?.id || "",
-        scheduledDateTime: "",
+        workerId: user?.role === "worker" ? user.id : "",
+        date: "",
         duration: 60,
         reason: "",
         treatmentNotes: "",
-        observation: "",
+        additionalObservations: "",
         priority: "medium",
         reminderEnabled: true,
         reminderDays: 1,
       });
-
       toast({
-        title: editingAppointment
-          ? "Cita actualizada exitosamente"
-          : "Cita programada exitosamente",
+        title: editingAppointment ? "Cita actualizada exitosamente" : "Cita programada exitosamente",
       });
     } catch (error) {
       console.error("Error scheduling appointment:", error);
@@ -768,11 +955,11 @@ export function ScheduleAppointment() {
     setFormData({
       patientId: appointment.patientId,
       workerId: appointment.workerId,
-      scheduledDateTime: appointment.dateTime,
+      date: appointment.dateTime,
       duration: appointment.duration,
       reason: appointment.reason,
       treatmentNotes: appointment.treatmentNotes || "",
-      observation: appointment.observation || "",
+      additionalObservations: appointment.observation || "",
       priority: appointment.priority,
       reminderEnabled: appointment.reminderEnabled,
       reminderDays: appointment.reminderDays,
@@ -784,12 +971,12 @@ export function ScheduleAppointment() {
     setEditingAppointment(null);
     setFormData({
       patientId: "",
-      workerId: user?.id || "",
-      scheduledDateTime: "",
+      workerId: user?.role === "worker" ? user.id : "",
+      date: "",
       duration: 60,
       reason: "",
       treatmentNotes: "",
-      observation: "",
+      additionalObservations: "",
       priority: "medium",
       reminderEnabled: true,
       reminderDays: 1,
@@ -801,22 +988,11 @@ export function ScheduleAppointment() {
     newStatus: "scheduled" | "canceled" | "completed",
   ) => {
     try {
-      const updated = await appointmentRepo.update(appointmentId, {
-        status: newStatus,
-      });
-      const patient = patients.find((p) => p.id === updated.patientId);
-      const worker = workers.find((w) => w.id === updated.workerId);
-      setScheduledAppointments(
-        scheduledAppointments.map((apt) =>
-          apt.id === appointmentId ? { ...updated, patient, worker } : apt,
-        ),
-      );
+      const updated = await appointmentRepo.update(appointmentId, { status: newStatus });
+      setRawAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     } catch (error) {
       console.error("Error updating appointment status:", error);
-      toast({
-        title: "Error al actualizar el estado",
-        variant: "destructive",
-      });
+      toast({ title: "Error al actualizar el estado", variant: "destructive" });
     }
   };
 
@@ -824,42 +1000,21 @@ export function ScheduleAppointment() {
     if (confirm("¿Estás seguro de que quieres eliminar esta cita?")) {
       try {
         await appointmentRepo.delete(appointmentId);
-        setScheduledAppointments(
-          scheduledAppointments.filter((apt) => apt.id !== appointmentId),
-        );
+        setRawAppointments((prev) => prev.filter((a) => a.id !== appointmentId));
       } catch (error) {
         console.error("Error deleting appointment:", error);
-        toast({
-          title: "Error al eliminar la cita",
-          variant: "destructive",
-        });
+        toast({ title: "Error al eliminar la cita", variant: "destructive" });
       }
     }
   };
 
-  const handlePatientCreated = (newPatient: Patient) => {
-    setPatients([newPatient, ...patients]);
-    setFormData({ ...formData, patientId: newPatient.id });
-  };
-
+  // UI helpers
   const handleCalendarEventClick = (event: CalendarEvent) => {
     setSelectedAppointment(event.resource);
     setShowAppointmentDetail(true);
   };
-
-  const handleCalendarNavigate = (newDate: Date) => {
-    setCalendarDate(newDate);
-  };
-
-  const handleCalendarViewChange = (newView: View) => {
-    setCalendarView(newView);
-  };
-
-  const getMinDateTime = () => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    return now.toISOString().slice(0, 16);
-  };
+  const handleCalendarNavigate = (newDate: Date) => setCalendarDate(newDate);
+  const handleCalendarViewChange = (newView: View) => setCalendarView(newView);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -900,7 +1055,6 @@ export function ScheduleAppointment() {
     }
   };
 
-  // Custom event style function for calendar
   const eventStyleGetter = (event: CalendarEvent) => {
     const appointment = event.resource;
     let backgroundColor = "#3174ad";
@@ -946,8 +1100,7 @@ export function ScheduleAppointment() {
     };
   };
 
-  // Custom component for calendar events
-  const CalendarEvent = ({ event }: { event: CalendarEvent }) => {
+  const CalendarEventCell = ({ event }: { event: CalendarEvent }) => {
     const appointment = event.resource;
     return (
       <div className="p-1">
@@ -985,7 +1138,7 @@ export function ScheduleAppointment() {
     <Layout title="Programar Citas" subtitle="Gestión de citas futuras">
       <div className="h-full flex flex-col">
         <div className="p-6 flex-1 space-y-6">
-          {/* Header Actions */}
+          {/* Header */}
           <div className="flex items-center justify-between">
             <Button
               variant="outline"
@@ -995,12 +1148,9 @@ export function ScheduleAppointment() {
               <ArrowLeft className="w-4 h-4" />
               Volver a Citas
             </Button>
-
             {editingAppointment && (
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-blue-50">
-                  Editando cita
-                </Badge>
+                <Badge variant="outline" className="bg-blue-50">Editando cita</Badge>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1014,53 +1164,38 @@ export function ScheduleAppointment() {
             )}
           </div>
 
-          {/* Main Content with Tabs */}
+          {/* Main Content */}
           <div className="max-w-7xl mx-auto">
-            <Tabs defaultValue="schedule" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-6">
-                <TabsTrigger
-                  value="schedule"
-                  className="flex items-center gap-2"
-                >
-                  <CalendarPlus className="w-4 h-4" />
-                  {editingAppointment ? "Editar Cita" : "Programar Cita"}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="calendar"
-                  className="flex items-center gap-2"
-                >
-                  <Calendar className="w-4 h-4" />
-                  Vista Calendario
-                </TabsTrigger>
+            <Tabs defaultValue="agenda" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-6">
                 <TabsTrigger value="agenda" className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4" />
                   Agenda Diaria
                 </TabsTrigger>
-                <TabsTrigger
-                  value="upcoming"
-                  className="flex items-center gap-2"
-                >
-                  <List className="w-4 h-4" />
-                  Lista ({scheduledAppointments.length})
+                <TabsTrigger value="calendar" className="flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4" />
+                  Vista Calendario
+                </TabsTrigger>
+                <TabsTrigger value="schedule" className="flex items-center gap-2">
+                  <CalendarPlus className="w-4 h-4" />
+                  {editingAppointment ? "Editar Cita" : "Programar Cita"}
                 </TabsTrigger>
               </TabsList>
 
               {/* Schedule Tab */}
               <TabsContent value="schedule" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Scheduling Form */}
+                  {/* Form */}
                   <div className="lg:col-span-2">
                     <Card className="card-modern shadow-lg">
                       <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-primary/20">
                         <CardTitle className="flex items-center gap-2">
                           <CalendarPlus className="w-6 h-6 text-primary" />
-                          {editingAppointment
-                            ? "Editar Cita Programada"
-                            : "Programar Nueva Cita"}
+                          {editingAppointment ? "Editar Cita Programada" : "Programar Nueva Cita"}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-6 space-y-6">
-                        {/* Patient and Worker Selection */}
+                        {/* Patient & Worker */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
                             <Label>Paciente *</Label>
@@ -1069,33 +1204,30 @@ export function ScheduleAppointment() {
                               value={formData.patientId}
                               onValueChange={(value) => {
                                 setFormData({ ...formData, patientId: value });
-                                if (errors.patientId) {
-                                  setErrors({ ...errors, patientId: "" });
-                                }
+                                if (errors.patientId) setErrors({ ...errors, patientId: "" });
                               }}
                               placeholder="Seleccionar paciente"
+                              dialogTitle="Seleccionar paciente"
                               displayField={(item) => {
-                                const patient = item as Patient;
-                                return `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`;
+                                const p = item as Patient;
+                                return `${p.firstName} ${p.paternalSurname} ${p.maternalSurname}`;
                               }}
-                              searchFields={(item) => {
-                                const patient = item as Patient;
-                                return [
-                                  patient.firstName,
-                                  patient.paternalSurname,
-                                  patient.maternalSurname,
-                                  patient.documentNumber,
-                                  patient.phone || "",
-                                ];
+                              serverSearchTerm={patientPagination.searchTerm}
+                              onServerSearchChange={patientPagination.setSearchTerm}
+                              paginationProps={{
+                                currentPage: patientPagination.currentPage,
+                                totalPages: patientPagination.totalPages,
+                                totalItems: patientPagination.totalItems,
+                                pageSize: patientPagination.pageSize,
+                                onPageChange: patientPagination.goToPage,
+                                onPageSizeChange: patientPagination.setPageSize,
+                                pageSizeOptions: [10, 15, 25, 50],
                               }}
+                              isLoading={patientPagination.isLoading}
                               emptyText="No se encontraron pacientes"
-                              onCreateNew={() => setShowCreatePatient(true)}
-                              createNewText="Crear nuevo paciente"
                             />
                             {errors.patientId && (
-                              <p className="text-sm text-destructive">
-                                {errors.patientId}
-                              </p>
+                              <p className="text-sm text-destructive">{errors.patientId}</p>
                             )}
                           </div>
 
@@ -1106,83 +1238,57 @@ export function ScheduleAppointment() {
                               value={formData.workerId}
                               onValueChange={(value) => {
                                 setFormData({ ...formData, workerId: value });
-                                if (errors.workerId) {
-                                  setErrors({ ...errors, workerId: "" });
-                                }
+                                if (errors.workerId) setErrors({ ...errors, workerId: "" });
                               }}
                               placeholder="Seleccionar trabajador"
+                              dialogTitle="Seleccionar trabajador"
                               displayField={(item) => {
-                                const worker = item as Worker;
-                                return `${worker.firstName} ${worker.lastName}`;
+                                const w = item as Worker;
+                                return `${w.firstName} ${w.lastName}`;
                               }}
-                              searchFields={(item) => {
-                                const worker = item as Worker;
-                                return [
-                                  worker.firstName,
-                                  worker.lastName,
-                                  worker.email,
-                                  worker.specialization || "",
-                                ];
+                              serverSearchTerm={workerPagination.searchTerm}
+                              onServerSearchChange={workerPagination.setSearchTerm}
+                              paginationProps={{
+                                currentPage: workerPagination.currentPage,
+                                totalPages: workerPagination.totalPages,
+                                totalItems: workerPagination.totalItems,
+                                pageSize: workerPagination.pageSize,
+                                onPageChange: workerPagination.goToPage,
+                                onPageSizeChange: workerPagination.setPageSize,
+                                pageSizeOptions: [6, 9, 12, 18],
                               }}
+                              isLoading={workerPagination.isLoading}
                               emptyText="No se encontraron trabajadores"
                             />
                             {errors.workerId && (
-                              <p className="text-sm text-destructive">
-                                {errors.workerId}
-                              </p>
+                              <p className="text-sm text-destructive">{errors.workerId}</p>
                             )}
                           </div>
                         </div>
 
-                        {/* Date, Time and Duration */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="scheduledDateTime">
-                              Fecha y Hora *
-                            </Label>
-                            <Input
-                              id="scheduledDateTime"
-                              type="datetime-local"
-                              value={formData.scheduledDateTime}
-                              min={getMinDateTime()}
-                              onChange={(e) => {
-                                setFormData({
-                                  ...formData,
-                                  scheduledDateTime: e.target.value,
-                                });
-                                if (errors.scheduledDateTime) {
-                                  setErrors({
-                                    ...errors,
-                                    scheduledDateTime: "",
-                                  });
-                                }
-                              }}
-                              className={cn(
-                                errors.scheduledDateTime &&
-                                  "border-destructive",
-                              )}
-                            />
-                            {errors.scheduledDateTime && (
-                              <p className="text-sm text-destructive">
-                                {errors.scheduledDateTime}
-                              </p>
-                            )}
-                          </div>
+                        {/* Date & Duration */}
+                        <DateTimeField
+                          value={formData.date}
+                          onChange={(iso) => {
+                            setFormData({ ...formData, date: iso });
+                            if (errors.scheduledDateTime) setErrors({ ...errors, scheduledDateTime: "" });
+                          }}
+                          minDate={roundUpMinutes(new Date(), 15)}
+                          stepMinutes={15}
+                          businessStart={8}
+                          businessEnd={20}
+                          label="Fecha y Hora *"
+                          errorText={errors.scheduledDateTime}
+                        />
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="space-y-2">
                             <Label htmlFor="duration">Duración *</Label>
                             <Select
                               value={formData.duration.toString()}
-                              onValueChange={(value) =>
-                                setFormData({
-                                  ...formData,
-                                  duration: parseInt(value),
-                                })
-                              }
+                              onValueChange={(value) => setFormData({ ...formData, duration: parseInt(value) })}
                             >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="30">30 minutos</SelectItem>
                                 <SelectItem value="45">45 minutos</SelectItem>
@@ -1192,26 +1298,23 @@ export function ScheduleAppointment() {
                               </SelectContent>
                             </Select>
                           </div>
-                        </div>
 
-                        {/* Priority */}
-                        <div className="space-y-2">
-                          <Label htmlFor="priority">Prioridad</Label>
-                          <Select
-                            value={formData.priority}
-                            onValueChange={(value: "low" | "medium" | "high") =>
-                              setFormData({ ...formData, priority: value })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="low">Baja</SelectItem>
-                              <SelectItem value="medium">Media</SelectItem>
-                              <SelectItem value="high">Alta</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="space-y-2">
+                            <Label htmlFor="priority">Prioridad</Label>
+                            <Select
+                              value={formData.priority}
+                              onValueChange={(value: "low" | "medium" | "high") =>
+                                setFormData({ ...formData, priority: value })
+                              }
+                            >
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Baja</SelectItem>
+                                <SelectItem value="medium">Media</SelectItem>
+                                <SelectItem value="high">Alta</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
 
                         {/* Reason */}
@@ -1221,52 +1324,32 @@ export function ScheduleAppointment() {
                             id="reason"
                             value={formData.reason}
                             onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                reason: e.target.value,
-                              });
-                              if (errors.reason) {
-                                setErrors({ ...errors, reason: "" });
-                              }
+                              setFormData({ ...formData, reason: e.target.value });
+                              if (errors.reason) setErrors({ ...errors, reason: "" });
                             }}
                             placeholder="Ej: Revisión general, Seguimiento, Tratamiento específico..."
-                            className={cn(
-                              errors.reason && "border-destructive",
-                            )}
+                            className={cn(errors.reason && "border-destructive")}
                           />
-                          {errors.reason && (
-                            <p className="text-sm text-destructive">
-                              {errors.reason}
-                            </p>
-                          )}
+                          {errors.reason && <p className="text-sm text-destructive">{errors.reason}</p>}
                         </div>
 
                         {/* Treatment Notes */}
                         <div className="space-y-2">
-                          <Label htmlFor="treatmentNotes">
-                            Notas de Tratamiento
-                          </Label>
+                          <Label htmlFor="treatmentNotes">Notas de Tratamiento</Label>
                           <Textarea
                             id="treatmentNotes"
                             value={formData.treatmentNotes || ""}
-                            onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                treatmentNotes: e.target.value,
-                              });
-                            }}
+                            onChange={(e) => setFormData({ ...formData, treatmentNotes: e.target.value })}
                             placeholder="Tratamiento planificado, procedimientos específicos..."
                             rows={3}
                           />
                         </div>
 
-                        {/* Reminder Settings */}
+                        {/* Reminder */}
                         <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                           <div className="flex items-center gap-2">
                             <Bell className="w-5 h-5 text-blue-600" />
-                            <Label className="font-medium text-blue-800">
-                              Configuración de Recordatorio
-                            </Label>
+                            <Label className="font-medium text-blue-800">Configuración de Recordatorio</Label>
                           </div>
 
                           <div className="flex items-center space-x-2">
@@ -1274,47 +1357,27 @@ export function ScheduleAppointment() {
                               type="checkbox"
                               id="reminderEnabled"
                               checked={formData.reminderEnabled}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  reminderEnabled: e.target.checked,
-                                })
-                              }
+                              onChange={(e) => setFormData({ ...formData, reminderEnabled: e.target.checked })}
                               className="rounded"
                             />
-                            <Label htmlFor="reminderEnabled">
-                              Enviar recordatorio al paciente
-                            </Label>
+                            <Label htmlFor="reminderEnabled">Enviar recordatorio al paciente</Label>
                           </div>
 
                           {formData.reminderEnabled && (
                             <div className="space-y-2">
-                              <Label htmlFor="reminderDays">
-                                Días antes de la cita
-                              </Label>
+                              <Label htmlFor="reminderDays">Días antes de la cita</Label>
                               <Select
                                 value={formData.reminderDays.toString()}
                                 onValueChange={(value) =>
-                                  setFormData({
-                                    ...formData,
-                                    reminderDays: parseInt(value),
-                                  })
+                                  setFormData({ ...formData, reminderDays: parseInt(value) })
                                 }
                               >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="1">1 día antes</SelectItem>
-                                  <SelectItem value="2">
-                                    2 días antes
-                                  </SelectItem>
-                                  <SelectItem value="3">
-                                    3 días antes
-                                  </SelectItem>
-                                  <SelectItem value="7">
-                                    1 semana antes
-                                  </SelectItem>
+                                  <SelectItem value="2">2 días antes</SelectItem>
+                                  <SelectItem value="3">3 días antes</SelectItem>
+                                  <SelectItem value="7">1 semana antes</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -1323,24 +1386,17 @@ export function ScheduleAppointment() {
 
                         {/* Observations */}
                         <div className="space-y-2">
-                          <Label htmlFor="observations">
-                            Observaciones Adicionales
-                          </Label>
+                          <Label htmlFor="observations">Observaciones Adicionales</Label>
                           <Textarea
                             id="observations"
-                            value={formData.observation || ""}
-                            onChange={(e) => {
-                              setFormData({
-                                ...formData,
-                                observation: e.target.value,
-                              });
-                            }}
+                            value={formData.additionalObservations || ""}
+                            onChange={(e) => setFormData({ ...formData, additionalObservations: e.target.value })}
                             placeholder="Notas especiales, instrucciones, preparación requerida..."
                             rows={3}
                           />
                         </div>
 
-                        {/* Action Buttons */}
+                        {/* Actions */}
                         <div className="flex gap-3 pt-4">
                           <Button
                             onClick={handleSchedule}
@@ -1351,43 +1407,21 @@ export function ScheduleAppointment() {
                             {isSaving ? (
                               <>
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                {editingAppointment
-                                  ? "Actualizando..."
-                                  : "Programando..."}
+                                {editingAppointment ? "Actualizando..." : "Programando..."}
                               </>
                             ) : (
                               <>
-                                {editingAppointment ? (
-                                  <Check className="w-4 h-4" />
-                                ) : (
-                                  <CalendarPlus className="w-4 h-4" />
-                                )}
-                                {editingAppointment
-                                  ? "Actualizar Cita"
-                                  : "Programar Cita"}
+                                {editingAppointment ? <Check className="w-4 h-4" /> : <CalendarPlus className="w-4 h-4" />}
+                                {editingAppointment ? "Actualizar Cita" : "Programar Cita"}
                               </>
                             )}
-                          </Button>
-
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              console.log("Draft saved:", formData);
-                              toast({ title: "Borrador guardado exitosamente" });
-                            }}
-                            disabled={isSaving}
-                            size="lg"
-                            className="flex items-center gap-2"
-                          >
-                            <Save className="w-4 h-4" />
-                            Guardar Borrador
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Summary Sidebar */}
+                  {/* Resumen */}
                   <div className="lg:col-span-1">
                     <Card className="card-modern shadow-lg sticky top-6">
                       <CardHeader>
@@ -1404,9 +1438,7 @@ export function ScheduleAppointment() {
                               <p className="font-medium text-sm">Paciente</p>
                               <p className="text-sm text-muted-foreground">
                                 {(() => {
-                                  const patient = patients.find(
-                                    (p) => p.id === formData.patientId,
-                                  );
+                                  const patient = patients.find((p) => p.id === formData.patientId);
                                   return patient
                                     ? `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`
                                     : "";
@@ -1423,29 +1455,21 @@ export function ScheduleAppointment() {
                               <p className="font-medium text-sm">Trabajador</p>
                               <p className="text-sm text-muted-foreground">
                                 {(() => {
-                                  const worker = workers.find(
-                                    (w) => w.id === formData.workerId,
-                                  );
-                                  return worker
-                                    ? `${worker.firstName} ${worker.lastName}`
-                                    : "";
+                                  const worker = workers.find((w) => w.id === formData.workerId);
+                                  return worker ? `${worker.firstName} ${worker.lastName}` : "";
                                 })()}
                               </p>
                             </div>
                           </div>
                         )}
 
-                        {formData.scheduledDateTime && (
+                        {formData.date && (
                           <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-lg border border-accent/20">
                             <Clock className="w-5 h-5 text-accent" />
                             <div>
-                              <p className="font-medium text-sm">
-                                Fecha y Hora
-                              </p>
+                              <p className="font-medium text-sm">Fecha y Hora</p>
                               <p className="text-sm text-muted-foreground">
-                                {new Date(
-                                  formData.scheduledDateTime,
-                                ).toLocaleString("es-ES", {
+                                {new Date(formData.date).toLocaleString("es-ES", {
                                   weekday: "short",
                                   year: "numeric",
                                   month: "short",
@@ -1463,12 +1487,8 @@ export function ScheduleAppointment() {
                           <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                             <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
                             <div>
-                              <p className="font-medium text-blue-800">
-                                Motivo
-                              </p>
-                              <p className="text-sm text-blue-600">
-                                {formData.reason}
-                              </p>
+                              <p className="font-medium text-blue-800">Motivo</p>
+                              <p className="text-sm text-blue-600">{formData.reason}</p>
                             </div>
                           </div>
                         )}
@@ -1477,29 +1497,18 @@ export function ScheduleAppointment() {
                           <MapPin className="w-5 h-5 text-muted-foreground" />
                           <div>
                             <p className="font-medium text-sm">Prioridad</p>
-                            <Badge
-                              className={cn(
-                                "text-xs mt-1",
-                                getPriorityColor(formData.priority),
-                              )}
-                            >
-                              {formData.priority === "low"
-                                ? "Baja"
-                                : formData.priority === "medium"
-                                  ? "Media"
-                                  : "Alta"}
+                            <Badge className={cn("text-xs mt-1", getPriorityColor(formData.priority))}>
+                              {formData.priority === "low" ? "Baja" : formData.priority === "medium" ? "Media" : "Alta"}
                             </Badge>
                           </div>
                         </div>
 
-                        {!formData.patientId &&
-                          !formData.workerId &&
-                          !formData.scheduledDateTime && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>Completa los datos para ver el resumen</p>
-                            </div>
-                          )}
+                        {!formData.patientId && !formData.workerId && !formData.date && (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>Completa los datos para ver el resumen</p>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -1512,62 +1521,65 @@ export function ScheduleAppointment() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2">
-                        <Calendar className="w-6 h-6 text-primary" />
+                        <CalendarIcon className="w-6 h-6 text-primary" />
                         Vista Calendario
                       </CardTitle>
-                      <div className="flex items-center gap-3">
-                        {/* Filters */}
-                        {user?.role === "admin" && (
-                          <div className="flex items-center gap-2">
-                            <Filter className="w-4 h-4 text-muted-foreground" />
-                            <Select
-                              value={workerFilter}
-                              onValueChange={setWorkerFilter}
-                            >
-                              <SelectTrigger className="w-40">
-                                <SelectValue placeholder="Filtrar por trabajador" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">
-                                  Todos los trabajadores
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* Filtro trabajador */}
+                        <div className="flex items-center gap-2">
+                          <Filter className="w-4 h-4 text-muted-foreground" />
+                          <Select value={workerFilter} onValueChange={setWorkerFilter}>
+                            <SelectTrigger className="min-w-56">
+                              <SelectValue placeholder="Trabajador" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Todos los trabajadores</SelectItem>
+                              {workers.map((w) => (
+                                <SelectItem key={w.id} value={w.id}>
+                                  {w.firstName} {w.lastName}
                                 </SelectItem>
-                                {workers.map((worker) => (
-                                  <SelectItem key={worker.id} value={worker.id}>
-                                    {worker.firstName} {worker.lastName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        <Select
-                          value={statusFilter}
-                          onValueChange={setStatusFilter}
-                        >
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
                           <SelectTrigger className="w-36">
                             <SelectValue placeholder="Estado" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos</SelectItem>
-                            <SelectItem value="scheduled">
-                              Programadas
-                            </SelectItem>
-                            <SelectItem value="completed">
-                              Completadas
-                            </SelectItem>
-                            <SelectItem value="canceled">
-                              Canceladas
-                            </SelectItem>
+                            <SelectItem value="scheduled">Programadas</SelectItem>
+                            <SelectItem value="completed">Completadas</SelectItem>
+                            <SelectItem value="canceled">Canceladas</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        {/* Limpiar filtros */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          onClick={() => {
+                            setWorkerFilter("all");
+                            setStatusFilter("all");
+                            setCalendarDate(new Date());
+                            setCalendarView(Views.MONTH);
+                            workerPagination.setSearchTerm("");
+                            workerPagination.goToPage(1);
+                          }}
+                          title="Limpiar filtros"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Limpiar filtros
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
+
                   <CardContent>
-                    <div
-                      className="calendar-container"
-                      style={{ height: "600px" }}
-                    >
+                    <div className="calendar-container" style={{ height: "600px" }}>
                       <BigCalendar
                         localizer={localizer}
                         events={calendarEvents}
@@ -1579,9 +1591,7 @@ export function ScheduleAppointment() {
                         onNavigate={handleCalendarNavigate}
                         onSelectEvent={handleCalendarEventClick}
                         eventPropGetter={eventStyleGetter}
-                        components={{
-                          event: CalendarEvent,
-                        }}
+                        components={{ event: CalendarEventCell }}
                         messages={{
                           allDay: "Todo el día",
                           previous: "Anterior",
@@ -1594,8 +1604,7 @@ export function ScheduleAppointment() {
                           date: "Fecha",
                           time: "Hora",
                           event: "Evento",
-                          noEventsInRange:
-                            "No hay citas en este rango de fechas",
+                          noEventsInRange: "No hay citas en este rango de fechas",
                           showMore: (total) => `+ Ver ${total} más`,
                         }}
                         culture="es"
@@ -1616,34 +1625,16 @@ export function ScheduleAppointment() {
                         Agenda Diaria
                       </CardTitle>
                       <div className="flex items-center gap-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setCalendarDate(addDays(calendarDate, -1))
-                          }
-                        >
+                        <Button variant="outline" size="sm" onClick={() => setCalendarDate(addDays(calendarDate, -1))}>
                           <ChevronLeft className="w-4 h-4" />
                         </Button>
                         <span className="font-medium min-w-40 text-center">
-                          {format(calendarDate, "eeee, dd MMMM yyyy", {
-                            locale: es,
-                          })}
+                          {format(calendarDate, "eeee, dd MMMM yyyy", { locale: es })}
                         </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setCalendarDate(addDays(calendarDate, 1))
-                          }
-                        >
+                        <Button variant="outline" size="sm" onClick={() => setCalendarDate(addDays(calendarDate, 1))}>
                           <ChevronRight className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCalendarDate(new Date())}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => setCalendarDate(new Date())}>
                           Hoy
                         </Button>
                       </div>
@@ -1651,22 +1642,16 @@ export function ScheduleAppointment() {
                   </CardHeader>
                   <CardContent>
                     {(() => {
-                      const dayAppointments = getDayAppointments(calendarDate);
-
+                      const dayAppointments = getDayAppointments();
                       if (dayAppointments.length === 0) {
                         return (
                           <div className="text-center py-12 text-muted-foreground">
                             <CalendarDays className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                            <p className="text-lg font-medium">
-                              No hay citas programadas para esta fecha
-                            </p>
-                            <p className="text-sm">
-                              Selecciona otro día o programa una nueva cita.
-                            </p>
+                            <p className="text-lg font-medium">No hay citas programadas para esta fecha</p>
+                            <p className="text-sm">Selecciona otro día o programa una nueva cita.</p>
                           </div>
                         );
                       }
-
                       return (
                         <div className="space-y-4">
                           {dayAppointments.map((appointment) => (
@@ -1680,10 +1665,7 @@ export function ScheduleAppointment() {
                             >
                               <div className="flex flex-col items-center gap-1 min-w-16">
                                 <div className="text-lg font-bold text-primary">
-                                  {format(
-                                    new Date(appointment.dateTime),
-                                    "HH:mm",
-                                  )}
+                                  {format(new Date(appointment.dateTime), "HH:mm")}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {appointment.duration}min
@@ -1699,18 +1681,11 @@ export function ScheduleAppointment() {
                                       {appointment.patient?.maternalSurname}
                                     </h4>
                                     <p className="text-sm text-muted-foreground">
-                                      DNI: {appointment.patient?.documentNumber} • Tel: {
-                                        appointment.patient?.phone
-                                      }
+                                      DNI: {appointment.patient?.documentNumber} • Tel: {appointment.patient?.phone}
                                     </p>
                                   </div>
                                   <div className="flex gap-2">
-                                    <Badge
-                                      className={cn(
-                                        "text-xs flex items-center gap-1",
-                                        getStatusColor(appointment.status),
-                                      )}
-                                    >
+                                    <Badge className={cn("text-xs flex items-center gap-1", getStatusColor(appointment.status))}>
                                       {getStatusIcon(appointment.status)}
                                       {appointment.status === "scheduled"
                                         ? "Programada"
@@ -1718,49 +1693,31 @@ export function ScheduleAppointment() {
                                           ? "Completada"
                                           : "Cancelada"}
                                     </Badge>
-                                    <Badge
-                                      className={cn(
-                                        "text-xs",
-                                        getPriorityColor(appointment.priority),
-                                      )}
-                                    >
-                                      {appointment.priority === "low"
-                                        ? "Baja"
-                                        : appointment.priority === "medium"
-                                          ? "Media"
-                                          : "Alta"}
+                                    <Badge className={cn("text-xs", getPriorityColor(appointment.priority))}>
+                                      {appointment.priority === "low" ? "Baja" : appointment.priority === "medium" ? "Media" : "Alta"}
                                     </Badge>
                                   </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                   <div>
-                                    <p className="font-medium text-blue-800">
-                                      Motivo:
-                                    </p>
-                                    <p className="text-blue-600">
-                                      {appointment.reason}
-                                    </p>
+                                    <p className="font-medium text-blue-800">Motivo:</p>
+                                    <p className="text-blue-600">{appointment.reason}</p>
                                   </div>
                                   <div>
-                                    <p className="font-medium text-green-800">
-                                      Trabajador:
-                                    </p>
+                                    <p className="font-medium text-green-800">Trabajador:</p>
                                     <p className="text-green-600">
-                                      {appointment.worker?.firstName}{" "}
-                                      {appointment.worker?.lastName}
+                                      {appointment.worker
+                                        ? `${appointment.worker.firstName} ${appointment.worker.lastName}`
+                                        : "—"}
                                     </p>
                                   </div>
                                 </div>
 
                                 {appointment.treatmentNotes && (
                                   <div className="text-sm">
-                                    <p className="font-medium text-purple-800">
-                                      Notas de tratamiento:
-                                    </p>
-                                    <p className="text-purple-600">
-                                      {appointment.treatmentNotes}
-                                    </p>
+                                    <p className="font-medium text-purple-800">Notas de tratamiento:</p>
+                                    <p className="text-purple-600">{appointment.treatmentNotes}</p>
                                   </div>
                                 )}
                               </div>
@@ -1772,248 +1729,18 @@ export function ScheduleAppointment() {
                   </CardContent>
                 </Card>
               </TabsContent>
-
-              {/* Upcoming Appointments Tab */}
-              <TabsContent value="upcoming" className="space-y-6">
-                <Card className="card-modern shadow-lg">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <List className="w-6 h-6 text-primary" />
-                      Citas Programadas
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {scheduledAppointments.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Calendar className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium">
-                          No hay citas programadas
-                        </p>
-                        <p className="text-sm">
-                          Ve a la pestaña "Programar Cita" para crear la primera
-                          cita.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {scheduledAppointments
-                          .sort(
-                            (a, b) =>
-                              new Date(a.dateTime).getTime() -
-                              new Date(b.dateTime).getTime(),
-                          )
-                          .map((appointment) => (
-                            <div
-                              key={appointment.id}
-                              className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 space-y-2">
-                                  <div className="flex items-start gap-3">
-                                    <div className="flex-1">
-                                      <h4 className="font-semibold text-lg">
-                                        {appointment.patient?.firstName}{" "}
-                                        {appointment.patient?.paternalSurname}{" "}
-                                        {appointment.patient?.maternalSurname}
-                                      </h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        DNI: {appointment.patient?.documentNumber} • {" "}
-                                        Tel: {appointment.patient?.phone}
-                                      </p>
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Badge
-                                        className={cn(
-                                          "text-xs flex items-center gap-1",
-                                          getStatusColor(appointment.status),
-                                        )}
-                                      >
-                                        {getStatusIcon(appointment.status)}
-                                        {appointment.status === "scheduled"
-                                          ? "Programada"
-                                          : appointment.status === "completed"
-                                            ? "Completada"
-                                            : "Cancelada"}
-                                      </Badge>
-                                      <Badge
-                                        className={cn(
-                                          "text-xs",
-                                          getPriorityColor(
-                                            appointment.priority,
-                                          ),
-                                        )}
-                                      >
-                                        {appointment.priority === "low"
-                                          ? "Baja"
-                                          : appointment.priority === "medium"
-                                            ? "Media"
-                                            : "Alta"}
-                                      </Badge>
-                                    </div>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Clock className="w-4 h-4 text-muted-foreground" />
-                                      <span>
-                                        {new Date(
-                                          appointment.dateTime,
-                                        ).toLocaleString("es-ES", {
-                                          weekday: "short",
-                                          month: "short",
-                                          day: "numeric",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Users className="w-4 h-4 text-muted-foreground" />
-                                      <span>
-                                        {appointment.worker?.firstName}{" "}
-                                        {appointment.worker?.lastName}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <FileText className="w-4 h-4 text-muted-foreground" />
-                                      <span>{appointment.duration} min</span>
-                                    </div>
-                                  </div>
-
-                                  <div className="text-sm">
-                                    <p className="font-medium text-blue-800">
-                                      Motivo:
-                                    </p>
-                                    <p className="text-blue-600">
-                                      {appointment.reason}
-                                    </p>
-                                  </div>
-
-                                  {appointment.treatmentNotes && (
-                                    <div className="text-sm">
-                                      <p className="font-medium text-green-800">
-                                        Notas de tratamiento:
-                                      </p>
-                                      <p className="text-green-600">
-                                        {appointment.treatmentNotes}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {appointment.reminderEnabled && (
-                                    <div className="flex items-center gap-2 text-sm text-amber-600">
-                                      <Bell className="w-4 h-4" />
-                                      <span>
-                                        Recordatorio {appointment.reminderDays}{" "}
-                                        día(s) antes
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="flex flex-col gap-2 ml-4">
-                                  {appointment.status === "scheduled" && (
-                                    <>
-                                      <Button
-                                        onClick={() =>
-                                          handleEditAppointment(appointment)
-                                        }
-                                        size="sm"
-                                        variant="outline"
-                                        className="flex items-center gap-1"
-                                      >
-                                        <Edit3 className="w-3 h-3" />
-                                        Editar
-                                      </Button>
-                                      <Button
-                                        onClick={() =>
-                                          handleChangeStatus(
-                                            appointment.id,
-                                            "completed",
-                                          )
-                                        }
-                                        size="sm"
-                                        variant="outline"
-                                        className="flex items-center gap-1 text-green-600 border-green-600 hover:bg-green-50"
-                                      >
-                                        <CheckCircle className="w-3 h-3" />
-                                        Completar
-                                      </Button>
-                                      <Button
-                                        onClick={() =>
-                                          handleChangeStatus(
-                                            appointment.id,
-                                            "canceled",
-                                          )
-                                        }
-                                        size="sm"
-                                        variant="outline"
-                                        className="flex items-center gap-1 text-red-600 border-red-600 hover:bg-red-50"
-                                      >
-                                        <XCircle className="w-3 h-3" />
-                                        Cancelar
-                                      </Button>
-                                    </>
-                                  )}
-
-                                  {appointment.status === "canceled" && (
-                                    <Button
-                                      onClick={() =>
-                                        handleChangeStatus(
-                                          appointment.id,
-                                          "scheduled",
-                                        )
-                                      }
-                                      size="sm"
-                                      variant="outline"
-                                      className="flex items-center gap-1 text-blue-600 border-blue-600 hover:bg-blue-50"
-                                    >
-                                      <RotateCcw className="w-3 h-3" />
-                                      Reactivar
-                                    </Button>
-                                  )}
-
-                                  <Button
-                                    onClick={() =>
-                                      handleDeleteAppointment(appointment.id)
-                                    }
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-red-600 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
             </Tabs>
           </div>
         </div>
       </div>
 
-      {/* Create Patient Modal */}
-      <CreatePatientModal
-        isOpen={showCreatePatient}
-        onClose={() => setShowCreatePatient(false)}
-        onPatientCreated={handlePatientCreated}
-      />
-
       {/* Appointment Detail Modal */}
       {selectedAppointment && (
-        <Dialog
-          open={showAppointmentDetail}
-          onOpenChange={setShowAppointmentDetail}
-        >
+        <Dialog open={showAppointmentDetail} onOpenChange={setShowAppointmentDetail}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
+                <CalendarIcon className="w-5 h-5 text-primary" />
                 Detalles de la Cita
               </DialogTitle>
             </DialogHeader>
@@ -2038,19 +1765,17 @@ export function ScheduleAppointment() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="font-medium text-secondary">
-                    Trabajador
-                  </Label>
+                  <Label className="font-medium text-secondary">Trabajador</Label>
                   <div className="p-3 bg-secondary/5 rounded-lg">
                     <p className="font-medium">
-                      {selectedAppointment.worker?.firstName}{" "}
-                      {selectedAppointment.worker?.lastName}
+                      {getWorkerById(selectedAppointment.workerId)?.firstName}{" "}
+                      {getWorkerById(selectedAppointment.workerId)?.lastName}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {selectedAppointment.worker?.specialization}
+                      {getWorkerById(selectedAppointment.workerId)?.specialization}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {selectedAppointment.worker?.email}
+                      {getWorkerById(selectedAppointment.workerId)?.email}
                     </p>
                   </div>
                 </div>
@@ -2058,14 +1783,10 @@ export function ScheduleAppointment() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-medium text-accent">
-                    Fecha y Hora
-                  </Label>
+                  <Label className="font-medium text-accent">Fecha y Hora</Label>
                   <div className="p-3 bg-accent/5 rounded-lg">
                     <p className="font-medium">
-                      {new Date(
-                        selectedAppointment.dateTime,
-                      ).toLocaleDateString("es-ES", {
+                      {new Date(selectedAppointment.dateTime).toLocaleDateString("es-ES", {
                         weekday: "long",
                         year: "numeric",
                         month: "long",
@@ -2073,9 +1794,7 @@ export function ScheduleAppointment() {
                       })}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(
-                        selectedAppointment.dateTime,
-                      ).toLocaleTimeString("es-ES", {
+                      {new Date(selectedAppointment.dateTime).toLocaleTimeString("es-ES", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}{" "}
@@ -2088,12 +1807,7 @@ export function ScheduleAppointment() {
                   <Label className="font-medium">Estado y Prioridad</Label>
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <div className="flex gap-2 mb-2">
-                      <Badge
-                        className={cn(
-                          "text-xs flex items-center gap-1",
-                          getStatusColor(selectedAppointment.status),
-                        )}
-                      >
+                      <Badge className={cn("text-xs flex items-center gap-1", getStatusColor(selectedAppointment.status))}>
                         {getStatusIcon(selectedAppointment.status)}
                         {selectedAppointment.status === "scheduled"
                           ? "Programada"
@@ -2101,23 +1815,13 @@ export function ScheduleAppointment() {
                             ? "Completada"
                             : "Cancelada"}
                       </Badge>
-                      <Badge
-                        className={cn(
-                          "text-xs",
-                          getPriorityColor(selectedAppointment.priority),
-                        )}
-                      >
-                        {selectedAppointment.priority === "low"
-                          ? "Baja"
-                          : selectedAppointment.priority === "medium"
-                            ? "Media"
-                            : "Alta"}
+                      <Badge className={cn("text-xs", getPriorityColor(selectedAppointment.priority))}>
+                        {selectedAppointment.priority === "low" ? "Baja" : selectedAppointment.priority === "medium" ? "Media" : "Alta"}
                       </Badge>
                     </div>
                     {selectedAppointment.reminderEnabled && (
                       <p className="text-xs text-muted-foreground">
-                        Recordatorio: {selectedAppointment.reminderDays} día(s)
-                        antes
+                        Recordatorio: {selectedAppointment.reminderDays} día(s) antes
                       </p>
                     )}
                   </div>
@@ -2125,9 +1829,7 @@ export function ScheduleAppointment() {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-medium text-blue-600">
-                  Motivo de la Cita
-                </Label>
+                <Label className="font-medium text-blue-600">Motivo de la Cita</Label>
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <p>{selectedAppointment.reason}</p>
                 </div>
@@ -2135,9 +1837,7 @@ export function ScheduleAppointment() {
 
               {selectedAppointment.treatmentNotes && (
                 <div className="space-y-2">
-                  <Label className="font-medium text-green-600">
-                    Notas de Tratamiento
-                  </Label>
+                  <Label className="font-medium text-green-600">Notas de Tratamiento</Label>
                   <div className="p-3 bg-green-50 rounded-lg">
                     <p>{selectedAppointment.treatmentNotes}</p>
                   </div>
@@ -2146,9 +1846,7 @@ export function ScheduleAppointment() {
 
               {selectedAppointment.observation && (
                 <div className="space-y-2">
-                  <Label className="font-medium text-purple-600">
-                    Observaciones
-                  </Label>
+                  <Label className="font-medium text-purple-600">Observaciones</Label>
                   <div className="p-3 bg-purple-50 rounded-lg">
                     <p>{selectedAppointment.observation}</p>
                   </div>
@@ -2157,10 +1855,7 @@ export function ScheduleAppointment() {
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowAppointmentDetail(false)}
-              >
+              <Button variant="outline" onClick={() => setShowAppointmentDetail(false)}>
                 Cerrar
               </Button>
               {selectedAppointment.status === "scheduled" && (
@@ -2182,10 +1877,7 @@ export function ScheduleAppointment() {
 
       {/* Calendar Styles */}
       <style>{`
-        .rbc-calendar {
-          font-family: "Inter", system-ui, sans-serif;
-        }
-
+        .rbc-calendar { font-family: "Inter", system-ui, sans-serif; }
         .rbc-header {
           background-color: hsl(var(--primary) / 0.1);
           border-bottom: 1px solid hsl(var(--border));
@@ -2193,45 +1885,13 @@ export function ScheduleAppointment() {
           font-weight: 600;
           color: hsl(var(--primary));
         }
-
-        .rbc-month-view {
-          border: 1px solid hsl(var(--border));
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
-        .rbc-date-cell {
-          padding: 4px 8px;
-          font-size: 14px;
-          color: hsl(var(--foreground));
-        }
-
-        .rbc-date-cell.rbc-off-range {
-          color: hsl(var(--muted-foreground));
-        }
-
-        .rbc-today {
-          background-color: hsl(var(--primary) / 0.1);
-        }
-
-        .rbc-event {
-          border-radius: 4px;
-          border: none;
-          padding: 2px 4px;
-          font-size: 11px;
-          font-weight: 500;
-        }
-
-        .rbc-event:focus {
-          outline: 2px solid hsl(var(--ring));
-          outline-offset: 2px;
-        }
-
-        .rbc-toolbar {
-          margin-bottom: 16px;
-          padding: 0 8px;
-        }
-
+        .rbc-month-view { border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; }
+        .rbc-date-cell { padding: 4px 8px; font-size: 14px; color: hsl(var(--foreground)); }
+        .rbc-date-cell.rbc-off-range { color: hsl(var(--muted-foreground)); }
+        .rbc-today { background-color: hsl(var(--primary) / 0.1); }
+        .rbc-event { border-radius: 4px; border: none; padding: 2px 4px; font-size: 11px; font-weight: 500; }
+        .rbc-event:focus { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+        .rbc-toolbar { margin-bottom: 16px; padding: 0 8px; }
         .rbc-toolbar button {
           background: hsl(var(--background));
           border: 1px solid hsl(var(--border));
@@ -2241,56 +1901,23 @@ export function ScheduleAppointment() {
           color: hsl(var(--foreground));
           transition: all 0.2s;
         }
-
-        .rbc-toolbar button:hover {
-          background: hsl(var(--muted));
-          border-color: hsl(var(--border));
-        }
-
+        .rbc-toolbar button:hover { background: hsl(var(--muted)); border-color: hsl(var(--border)); }
         .rbc-toolbar button.rbc-active {
           background: hsl(var(--primary));
           color: hsl(var(--primary-foreground));
           border-color: hsl(var(--primary));
         }
-
         .rbc-toolbar .rbc-toolbar-label {
-          font-size: 18px;
-          font-weight: 600;
-          color: hsl(var(--foreground));
-          margin: 0 16px;
+          font-size: 18px; font-weight: 600; color: hsl(var(--foreground)); margin: 0 16px;
         }
-
-        .rbc-time-view .rbc-time-header {
-          border-bottom: 1px solid hsl(var(--border));
-        }
-
-        .rbc-time-view .rbc-time-content {
-          border-left: 1px solid hsl(var(--border));
-        }
-
-        .rbc-time-slot {
-          border-top: 1px solid hsl(var(--border));
-          color: hsl(var(--muted-foreground));
-        }
-
-        .rbc-current-time-indicator {
-          background-color: hsl(var(--destructive));
-          height: 2px;
-        }
-
-        .rbc-agenda-view table {
-          border: 1px solid hsl(var(--border));
-          border-radius: 8px;
-          overflow: hidden;
-        }
-
+        .rbc-time-view .rbc-time-header { border-bottom: 1px solid hsl(var(--border)); }
+        .rbc-time-view .rbc-time-content { border-left: 1px solid hsl(var(--border)); }
+        .rbc-time-slot { border-top: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)); }
+        .rbc-current-time-indicator { background-color: hsl(var(--destructive)); height: 2px; }
+        .rbc-agenda-view table { border: 1px solid hsl(var(--border)); border-radius: 8px; overflow: hidden; }
         .rbc-agenda-view .rbc-agenda-date-cell,
         .rbc-agenda-view .rbc-agenda-time-cell,
-        .rbc-agenda-view .rbc-agenda-event-cell {
-          padding: 12px;
-          border-right: 1px solid hsl(var(--border));
-        }
-
+        .rbc-agenda-view .rbc-agenda-event-cell { padding: 12px; border-right: 1px solid hsl(var(--border)); }
         .rbc-show-more {
           background: hsl(var(--muted));
           color: hsl(var(--muted-foreground));
@@ -2300,10 +1927,7 @@ export function ScheduleAppointment() {
           font-size: 11px;
           cursor: pointer;
         }
-
-        .rbc-show-more:hover {
-          background: hsl(var(--muted) / 0.8);
-        }
+        .rbc-show-more:hover { background: hsl(var(--muted) / 0.8); }
       `}</style>
     </Layout>
   );

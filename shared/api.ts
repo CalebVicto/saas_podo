@@ -139,11 +139,11 @@ export interface CreateAppointmentRequest {
 export interface ScheduleAppointmentRequest {
   patientId: string;
   workerId: string;
-  scheduledDateTime: string;
+  date: string;
   duration: number;
   reason: string;
   treatmentNotes?: string;
-  observation?: string;
+  additionalObservations?: string;
   priority: "low" | "medium" | "high";
   reminderEnabled: boolean;
   reminderDays: number;
