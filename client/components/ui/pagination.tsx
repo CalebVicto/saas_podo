@@ -99,16 +99,15 @@ export function Pagination({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row items-center justify-between gap-4",
+        "w-full flex flex-col md:flex-row items-center justify-between gap-4",
         className,
       )}
     >
-      {/* Page info and page size selector */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 text-sm text-muted-foreground">
+      {/* Desktop: info y selector */}
+      <div className="hidden md:flex flex-col md:flex-row items-center gap-4 text-sm text-muted-foreground">
         <div>
           Mostrando {startItem}-{endItem} de {totalItems} elementos
         </div>
-
         {showPageSizeSelector && onPageSizeChange && (
           <div className="flex items-center gap-2">
             <span>Elementos por página:</span>
@@ -131,10 +130,77 @@ export function Pagination({
         )}
       </div>
 
-      {/* Pagination controls */}
+      {/* Mobile: paginador minimalista */}
+      <div className="w-full flex md:hidden justify-center items-center">
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2 w-full justify-center py-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToFirstPage}
+              disabled={currentPage === 1}
+              className="rounded-full p-0 h-8 w-8 text-gray-400"
+              title="Primera página"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className="rounded-full p-0 h-8 w-8 text-gray-400"
+              title="Página anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {pageNumbers.map((page, index) => (
+              <React.Fragment key={index}>
+                {page === "..." ? (
+                  <span className="px-2 text-gray-400">...</span>
+                ) : (
+                  <button
+                    onClick={() => onPageChange(page as number)}
+                    className={cn(
+                      "rounded-full h-8 w-8 flex items-center justify-center font-semibold transition",
+                      currentPage === page
+                        ? "bg-[#5dc4bf] text-white shadow"
+                        : "bg-transparent text-gray-500 hover:bg-gray-100"
+                    )}
+                    style={{ minWidth: 32 }}
+                  >
+                    {page}
+                  </button>
+                )}
+              </React.Fragment>
+            ))}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className="rounded-full p-0 h-8 w-8 text-gray-400"
+              title="Página siguiente"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToLastPage}
+              disabled={currentPage === totalPages}
+              className="rounded-full p-0 h-8 w-8 text-gray-400"
+              title="Última página"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: paginador clásico */}
       {totalPages > 1 && (
-        <div className="flex items-center gap-1">
-          {/* First page button */}
+        <div className="hidden md:flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
@@ -145,8 +211,6 @@ export function Pagination({
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
-
-          {/* Previous page button */}
           <Button
             variant="outline"
             size="sm"
@@ -157,8 +221,6 @@ export function Pagination({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-
-          {/* Page number buttons */}
           <div className="flex items-center gap-1">
             {pageNumbers.map((page, index) => (
               <React.Fragment key={index}>
@@ -184,8 +246,6 @@ export function Pagination({
               </React.Fragment>
             ))}
           </div>
-
-          {/* Next page button */}
           <Button
             variant="outline"
             size="sm"
@@ -196,8 +256,6 @@ export function Pagination({
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-
-          {/* Last page button */}
           <Button
             variant="outline"
             size="sm"

@@ -452,13 +452,13 @@ export default function Packages() {
 
         {/* Packages Table */}
         <Card className="card-modern">
-          <CardHeader>
+          <CardHeader className="hidden md:block">
             <CardTitle>Paquetes Disponibles</CardTitle>
           </CardHeader>
           <CardContent>
 
             {/* Paginador */}
-            <div className="">
+            <div className="w-full mb-4 mt-6 md:mt-0">
               <Pagination
                 currentPage={pagination.currentPage}
                 totalPages={pagination.totalPages}
@@ -469,75 +469,122 @@ export default function Packages() {
               />
             </div>
 
-            <Table className="mt-4">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Sesiones</TableHead>
-                  <TableHead>Precio</TableHead>
-                  {/* <TableHead>Pacientes</TableHead> */}
-                  {/* <TableHead>Ingresos</TableHead> */}
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pagination.data.map((pkg) => {
-                  const usage = getPackageUsage(pkg.id);
-                  return (
-                    <TableRow key={pkg.id}>
-                      <TableCell>
+            {/* Vista responsiva: cards en móvil, tabla en desktop */}
+            <div className="block md:hidden">
+              <div className="space-y-4">
+                {pagination.data.map((pkg) => (
+                  <Card key={pkg.id} className="card-modern">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <PackageIcon className="w-6 h-6 text-primary" />
                         <div>
-                          <p className="font-medium">{pkg.name}</p>
+                          <p className="font-bold text-lg">{pkg.name}</p>
                           {pkg.description && (
-                            <p className="text-sm text-muted-foreground truncate max-w-xs">
+                            <p className="text-sm text-muted-foreground">
                               {pkg.description}
                             </p>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {pkg.sessions} sesiones
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        S/ {pkg.price?.toFixed(2)}
-                      </TableCell>
-                      {/* <TableCell>{usage.patientPackagesCount}</TableCell> */}
-                      {/* <TableCell>
-                        S/ {usage.totalRevenue.toFixed(2)}
-                      </TableCell> */}
-                      <TableCell>
-                        <Badge
-                          variant={pkg.status === "active" ? "default" : "secondary"}
-                        >
+                      </div>
+                      <div className="flex flex-wrap gap-4 mb-2">
+                        <Badge variant="outline">{pkg.sessions} sesiones</Badge>
+                        <Badge variant="outline">S/ {pkg.price?.toFixed(2)}</Badge>
+                        <Badge variant={pkg.status === "active" ? "default" : "secondary"}>
                           {pkg.status === "active" ? "Activo" : "Inactivo"}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => openViewPackageDialog(pkg)}
-                            variant="outline"
-                            size="sm"
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          onClick={() => openViewPackageDialog(pkg)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => openEditPackageDialog(pkg)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+            <div className="hidden md:block">
+              <Table className="mt-4">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Sesiones</TableHead>
+                    <TableHead>Precio</TableHead>
+                    {/* <TableHead>Pacientes</TableHead> */}
+                    {/* <TableHead>Ingresos</TableHead> */}
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagination.data.map((pkg) => {
+                    const usage = getPackageUsage(pkg.id);
+                    return (
+                      <TableRow key={pkg.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{pkg.name}</p>
+                            {pkg.description && (
+                              <p className="text-sm text-muted-foreground truncate max-w-xs">
+                                {pkg.description}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {pkg.sessions} sesiones
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          S/ {pkg.price?.toFixed(2)}
+                        </TableCell>
+                        {/* <TableCell>{usage.patientPackagesCount}</TableCell> */}
+                        {/* <TableCell>
+                          S/ {usage.totalRevenue.toFixed(2)}
+                        </TableCell> */}
+                        <TableCell>
+                          <Badge
+                            variant={pkg.status === "active" ? "default" : "secondary"}
                           >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => openEditPackageDialog(pkg)}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                            {pkg.status === "active" ? "Activo" : "Inactivo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => openViewPackageDialog(pkg)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              onClick={() => openEditPackageDialog(pkg)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
           </CardContent>
         </Card>
