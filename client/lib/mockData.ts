@@ -791,8 +791,8 @@ export const mockPackages: Package[] = [
   {
     id: "1",
     name: "Podology Starter Pack",
-    numberOfSessions: 3,
-    totalPrice: 120.0,
+    sessions: 3,
+    price: 120.0,
     notes:
       "Paquete inicial de podología con evaluación completa y tratamiento básico",
     isActive: true,
@@ -802,8 +802,8 @@ export const mockPackages: Package[] = [
   {
     id: "2",
     name: "Advanced Therapy",
-    numberOfSessions: 6,
-    totalPrice: 200.0,
+    sessions: 6,
+    price: 200.0,
     notes: "Terapia avanzada para tratamientos especializados y complejos",
     isActive: true,
     createdAt: "2024-01-01T08:00:00Z",
@@ -812,8 +812,8 @@ export const mockPackages: Package[] = [
   {
     id: "3",
     name: "Foot Massage Combo",
-    numberOfSessions: 5,
-    totalPrice: 150.0,
+    sessions: 5,
+    price: 150.0,
     notes: "Combinación de masajes terapéuticos y tratamientos relajantes",
     isActive: true,
     createdAt: "2024-01-01T08:00:00Z",

@@ -1,3 +1,4 @@
+import { Pagination } from "@/components/ui/pagination";
 import React, { useState, useEffect } from "react";
 import {
   Package as PackageIcon,
@@ -16,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +47,9 @@ import {
   mockPatients,
 } from "@/lib/mockData";
 import Layout from "@/components/Layout";
+import { apiGet, apiPost, apiPut, type ApiResponse } from "@/lib/auth";
+import { useRepositoryPagination } from "@/hooks/use-repository-pagination";
+import { toast } from "@/hooks/use-toast";
 
 interface CreatePackageRequest {
   name: string;
@@ -54,6 +59,7 @@ interface CreatePackageRequest {
 }
 
 export default function Packages() {
+  const [showStats, setShowStats] = useState(false);
   const [packages, setPackages] = useState<Package[]>([]);
   const [patientPackages, setPatientPackages] = useState<PatientPackage[]>([]);
   const [packageSessions, setPackageSessions] = useState<PackageSession[]>([]);
@@ -71,23 +77,60 @@ export default function Packages() {
     useState(false);
 
   // Form state
-  const [packageFormData, setPackageFormData] = useState<CreatePackageRequest>({
+  const [packageFormData, setPackageFormData] = useState<CreatePackageRequest & { status: boolean }>({
     name: "",
     numberOfSessions: 1,
     totalPrice: 0,
     notes: "",
+    status: true,
   });
+  <div className="space-y-2">
+    <Label htmlFor="editPackageStatus">Estado</Label>
+    <div className="flex items-center gap-2">
+      <span className="text-muted-foreground">Inactivo</span>
+      <Switch
+        id="editPackageStatus"
+        checked={packageFormData.status}
+        onCheckedChange={(checked) => setPackageFormData({ ...packageFormData, status: checked })}
+      />
+      <span className="text-muted-foreground">Activo</span>
+    </div>
+  </div>
 
+  // Paginación estilo Products
+  const pagination = useRepositoryPagination<any>({ initialPageSize: 10 });
+
+  // Cargar paquetes desde la API con paginación
   useEffect(() => {
-    // Load mock data
-    try {
-      setPackages(mockPackages);
-      setPatientPackages(mockPatientPackages);
-      setPackageSessions(mockPackageSessions);
-    } catch (error) {
-      console.error("Error loading packages:", error);
-    }
-  }, []);
+    pagination.loadData(async (params) => {
+      const resp = await apiGet<ApiResponse<any>>(
+        `/package?page=${params.page}&limit=${params.limit}&search=${encodeURIComponent(pagination.searchTerm)}`,
+        undefined
+      );
+      if (resp.error || resp.data?.state === "error") {
+        toast({
+          title: "Error al cargar paquetes",
+          description: resp.data?.message || resp.error || "Ocurrió un error inesperado.",
+          variant: "destructive",
+        });
+        return {
+          items: [],
+          total: 0,
+          page: params.page,
+          limit: params.limit,
+          totalPages: 1,
+        };
+      }
+      const apiData = resp.data?.data;
+      return {
+        items: apiData?.data || [],
+        total: apiData?.total || 0,
+        page: apiData?.page || params.page,
+        limit: apiData?.limit || params.limit,
+        totalPages: Math.ceil((apiData?.total || 0) / (apiData?.limit || params.limit)),
+      };
+    });
+  }, [pagination.currentPage, pagination.pageSize, pagination.searchTerm]);
 
   // Filter packages based on search
   useEffect(() => {
@@ -110,47 +153,154 @@ export default function Packages() {
       numberOfSessions: 1,
       totalPrice: 0,
       notes: "",
+      status: true,
     });
   };
 
-  const handleAddPackage = () => {
-    const newPackage: Package = {
-      id: (packages.length + 1).toString(),
-      ...packageFormData,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  // Crear paquete usando la API
+  const handleAddPackage = async () => {
+    try {
+      const resp = await apiPost<ApiResponse<Package>>("/package", {
+        name: packageFormData.name,
+        description: packageFormData.notes || "",
+        price: packageFormData.totalPrice,
+        sessions: packageFormData.numberOfSessions,
+      });
 
-    setPackages([...packages, newPackage]);
-    setIsAddPackageDialogOpen(false);
-    resetPackageForm();
+      // Si la API responde con error (por ejemplo, nombre duplicado)
+      if (resp.error || (resp.data && resp.data.state === "error")) {
+        toast({
+          title: "Error al crear paquete",
+          description:
+            resp.data?.message || resp.error || "Ocurrió un error inesperado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Paquete creado",
+        description: `El paquete "${packageFormData.name}" fue creado exitosamente.`,
+        variant: "default",
+      });
+      setIsAddPackageDialogOpen(false);
+      resetPackageForm();
+      // Recargar la lista de paquetes
+      pagination.loadData(async (params) => {
+        const resp = await apiGet<ApiResponse<any>>(
+          `/package?page=${params.page}&limit=${params.limit}&search=${encodeURIComponent(pagination.searchTerm)}`,
+          undefined
+        );
+        if (resp.error || resp.data?.state === "error") {
+          toast({
+            title: "Error al cargar paquetes",
+            description: resp.data?.message || resp.error || "Ocurrió un error inesperado.",
+            variant: "destructive",
+          });
+          return {
+            items: [],
+            total: 0,
+            page: params.page,
+            limit: params.limit,
+            totalPages: 1,
+          };
+        }
+        const apiData = resp.data?.data;
+        return {
+          items: apiData?.data || [],
+          total: apiData?.total || 0,
+          page: apiData?.page || params.page,
+          limit: apiData?.limit || params.limit,
+          totalPages: Math.ceil((apiData?.total || 0) / (apiData?.limit || params.limit)),
+        };
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error de red",
+        description: error?.message || "No se pudo conectar con el servidor.",
+        variant: "destructive",
+      });
+      console.error("Error creando paquete:", error);
+    }
   };
 
-  const handleEditPackage = () => {
+  const handleEditPackage = async () => {
     if (!selectedPackage) return;
-
-    const updatedPackage: Package = {
-      ...selectedPackage,
-      ...packageFormData,
-      updatedAt: new Date().toISOString(),
-    };
-
-    setPackages(
-      packages.map((p) => (p.id === selectedPackage.id ? updatedPackage : p)),
-    );
-    setIsEditPackageDialogOpen(false);
-    resetPackageForm();
-    setSelectedPackage(null);
+    try {
+      const resp = await apiPut<ApiResponse<Package>>(
+        `/package/${selectedPackage.id}`,
+        {
+          name: packageFormData.name,
+          description: packageFormData.notes || "",
+          price: packageFormData.totalPrice,
+          sessions: packageFormData.numberOfSessions,
+          status: packageFormData.status ? "active" : "inactive",
+        }
+      );
+      if (resp.error || (resp.data && resp.data.state === "error")) {
+        toast({
+          title: "Error al editar paquete",
+          description:
+            resp.data?.message || resp.error || "Ocurrió un error inesperado.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "Paquete actualizado",
+        description: resp.data?.message || "El paquete fue editado exitosamente.",
+        variant: "default",
+      });
+      setIsEditPackageDialogOpen(false);
+      resetPackageForm();
+      setSelectedPackage(null);
+      // Recargar la lista de paquetes
+      pagination.loadData(async (params) => {
+        const resp = await apiGet<ApiResponse<any>>(
+          `/package?page=${params.page}&limit=${params.limit}&search=${encodeURIComponent(pagination.searchTerm)}`,
+          undefined
+        );
+        if (resp.error || resp.data?.state === "error") {
+          toast({
+            title: "Error al cargar paquetes",
+            description: resp.data?.message || resp.error || "Ocurrió un error inesperado.",
+            variant: "destructive",
+          });
+          return {
+            items: [],
+            total: 0,
+            page: params.page,
+            limit: params.limit,
+            totalPages: 1,
+          };
+        }
+        const apiData = resp.data?.data;
+        return {
+          items: apiData?.data || [],
+          total: apiData?.total || 0,
+          page: apiData?.page || params.page,
+          limit: apiData?.limit || params.limit,
+          totalPages: Math.ceil((apiData?.total || 0) / (apiData?.limit || params.limit)),
+        };
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error de red",
+        description: error?.message || "No se pudo conectar con el servidor.",
+        variant: "destructive",
+      });
+      console.error("Error editando paquete:", error);
+    }
   };
 
   const openEditPackageDialog = (pkg: Package) => {
     setSelectedPackage(pkg);
     setPackageFormData({
-      name: pkg.name,
-      numberOfSessions: pkg.numberOfSessions,
-      totalPrice: pkg.totalPrice,
-      notes: pkg.notes || "",
+      name: pkg.name || "",
+      numberOfSessions: pkg.sessions || 1,
+      totalPrice: pkg.price || 0,
+      notes: pkg.description || "",
+      status: pkg.status === "active",
     });
     setIsEditPackageDialogOpen(true);
   };
@@ -171,7 +321,7 @@ export default function Packages() {
     ).length;
     const totalRevenue = patientPackages
       .filter((pp) => pp.packageId === packageId)
-      .reduce((sum, pp) => sum + (pp.package?.totalPrice || 0), 0);
+      .reduce((sum, pp) => sum + (pp.package?.price || 0), 0);
 
     return { patientPackagesCount, totalRevenue };
   };
@@ -184,15 +334,15 @@ export default function Packages() {
 
   const activePackages = packages.filter((p) => p.isActive);
   const totalRevenue = patientPackages.reduce(
-    (sum, pp) => sum + (pp.package?.totalPrice || 0),
+    (sum, pp) => sum + (pp.package?.price || 0),
     0,
   );
   const activePatientPackages = patientPackages.filter((pp) => pp.isActive);
 
   return (
     <Layout
-      title="Paquetes y Sesiones"
-      subtitle="Gestiona paquetes de tratamiento y seguimiento de sesiones"
+      title="Paquetes"
+      subtitle="Gestiona paquetes de tratamiento"
     >
       <div className="p-6 space-y-6">
         {/* Header */}
@@ -202,12 +352,6 @@ export default function Packages() {
               <PackageIcon className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Paquetes de Tratamiento
-              </h1>
-              <p className="text-muted-foreground">
-                Gestiona paquetes y sesiones de tratamiento
-              </p>
             </div>
           </div>
 
@@ -221,308 +365,182 @@ export default function Packages() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <PackageIcon className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Paquetes Activos
-                  </p>
-                  <p className="font-semibold">{activePackages.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-secondary/10 rounded-lg">
-                  <Users className="w-5 h-5 text-secondary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Pacientes con Paquetes
-                  </p>
-                  <p className="font-semibold">
-                    {activePatientPackages.length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-accent/10 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Ingresos por Paquetes
-                  </p>
-                  <p className="font-semibold">S/ {totalRevenue.toFixed(0)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning/10 rounded-lg">
-                  <Calendar className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Sesiones Usadas
-                  </p>
-                  <p className="font-semibold">{packageSessions.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="packages" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="packages">Paquetes de Tratamiento</TabsTrigger>
-            <TabsTrigger value="patient-packages">
-              Paquetes de Pacientes
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="packages" className="space-y-4">
-            {/* Search */}
+        {showStats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="card-modern">
-              <CardContent className="p-6">
-                <div className="relative">
-                  <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar paquete..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <PackageIcon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Paquetes Activos
+                    </p>
+                    <p className="font-semibold">{activePackages.length}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Packages Table */}
             <Card className="card-modern">
-              <CardHeader>
-                <CardTitle>Paquetes Disponibles</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Sesiones</TableHead>
-                      <TableHead>Precio</TableHead>
-                      <TableHead>Pacientes</TableHead>
-                      <TableHead>Ingresos</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Acciones</TableHead>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-secondary/10 rounded-lg">
+                    <Users className="w-5 h-5 text-secondary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Pacientes con Paquetes
+                    </p>
+                    <p className="font-semibold">
+                      {activePatientPackages.length}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-modern">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-accent/10 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Ingresos por Paquetes
+                    </p>
+                    <p className="font-semibold">S/ {totalRevenue.toFixed(0)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-modern">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-warning/10 rounded-lg">
+                    <Calendar className="w-5 h-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Sesiones Usadas
+                    </p>
+                    <p className="font-semibold">{packageSessions.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Search */}
+        <Card className="card-modern">
+          <CardContent className="p-6">
+            <div className="relative">
+              <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar paquete..."
+                value={pagination.searchTerm}
+                onChange={(e) => pagination.setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Packages Table */}
+        <Card className="card-modern">
+          <CardHeader>
+            <CardTitle>Paquetes Disponibles</CardTitle>
+          </CardHeader>
+          <CardContent>
+
+            {/* Paginador */}
+            <div className="">
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                pageSize={pagination.pageSize}
+                totalItems={pagination.totalItems}
+                onPageChange={pagination.goToPage}
+                onPageSizeChange={pagination.setPageSize}
+              />
+            </div>
+
+            <Table className="mt-4">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Sesiones</TableHead>
+                  <TableHead>Precio</TableHead>
+                  {/* <TableHead>Pacientes</TableHead> */}
+                  {/* <TableHead>Ingresos</TableHead> */}
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagination.data.map((pkg) => {
+                  const usage = getPackageUsage(pkg.id);
+                  return (
+                    <TableRow key={pkg.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{pkg.name}</p>
+                          {pkg.description && (
+                            <p className="text-sm text-muted-foreground truncate max-w-xs">
+                              {pkg.description}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {pkg.sessions} sesiones
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        S/ {pkg.price?.toFixed(2)}
+                      </TableCell>
+                      {/* <TableCell>{usage.patientPackagesCount}</TableCell> */}
+                      {/* <TableCell>
+                        S/ {usage.totalRevenue.toFixed(2)}
+                      </TableCell> */}
+                      <TableCell>
+                        <Badge
+                          variant={pkg.status === "active" ? "default" : "secondary"}
+                        >
+                          {pkg.status === "active" ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => openViewPackageDialog(pkg)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => openEditPackageDialog(pkg)}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPackages.map((pkg) => {
-                      const usage = getPackageUsage(pkg.id);
-                      return (
-                        <TableRow key={pkg.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{pkg.name}</p>
-                              {pkg.notes && (
-                                <p className="text-sm text-muted-foreground truncate max-w-xs">
-                                  {pkg.notes}
-                                </p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">
-                              {pkg.numberOfSessions} sesiones
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            S/ {pkg.totalPrice.toFixed(2)}
-                          </TableCell>
-                          <TableCell>{usage.patientPackagesCount}</TableCell>
-                          <TableCell>
-                            S/ {usage.totalRevenue.toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={pkg.isActive ? "default" : "secondary"}
-                            >
-                              {pkg.isActive ? "Activo" : "Inactivo"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => openViewPackageDialog(pkg)}
-                                variant="outline"
-                                size="sm"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                onClick={() => openEditPackageDialog(pkg)}
-                                variant="outline"
-                                size="sm"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  );
+                })}
+              </TableBody>
+            </Table>
 
-          <TabsContent value="patient-packages" className="space-y-4">
-            {/* Patient Packages Table */}
-            <Card className="card-modern">
-              <CardHeader>
-                <CardTitle>Paquetes de Pacientes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Paciente</TableHead>
-                      <TableHead>Paquete</TableHead>
-                      <TableHead>Sesiones Restantes</TableHead>
-                      <TableHead>Sesiones Usadas</TableHead>
-                      <TableHead>Fecha de Compra</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {patientPackages.map((patientPkg) => {
-                      const sessionsUsed = getSessionsUsed(patientPkg.id);
-                      const totalSessions =
-                        patientPkg.package?.numberOfSessions || 0;
-                      const progress =
-                        totalSessions > 0
-                          ? ((totalSessions - patientPkg.remainingSessions) /
-                              totalSessions) *
-                            100
-                          : 0;
-
-                      return (
-                        <TableRow key={patientPkg.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">
-                                {patientPkg.patient?.firstName}{" "}
-                                {patientPkg.patient?.lastName}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                DNI: {patientPkg.patient?.documentId}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">
-                                {patientPkg.package?.name}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                S/ {patientPkg.package?.totalPrice.toFixed(2)}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={cn(
-                                  "font-medium",
-                                  patientPkg.remainingSessions === 0
-                                    ? "text-destructive"
-                                    : patientPkg.remainingSessions <= 2
-                                      ? "text-warning"
-                                      : "text-foreground",
-                                )}
-                              >
-                                {patientPkg.remainingSessions}
-                              </span>
-                              {patientPkg.remainingSessions === 0 && (
-                                <CheckCircle className="w-4 h-4 text-green-600" />
-                              )}
-                              {patientPkg.remainingSessions <= 2 &&
-                                patientPkg.remainingSessions > 0 && (
-                                  <AlertCircle className="w-4 h-4 text-warning" />
-                                )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span>{sessionsUsed}</span>
-                              <div className="w-20 h-2 bg-muted rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-primary rounded-full transition-all"
-                                  style={{ width: `${progress}%` }}
-                                />
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {new Date(
-                              patientPkg.purchasedAt,
-                            ).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                patientPkg.remainingSessions === 0
-                                  ? "default"
-                                  : patientPkg.isActive
-                                    ? "secondary"
-                                    : "outline"
-                              }
-                            >
-                              {patientPkg.remainingSessions === 0
-                                ? "Completado"
-                                : patientPkg.isActive
-                                  ? "Activo"
-                                  : "Inactivo"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              onClick={() =>
-                                openViewPatientPackageDialog(patientPkg)
-                              }
-                              variant="outline"
-                              size="sm"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
 
         {/* Add Package Dialog */}
         <Dialog
@@ -592,7 +610,7 @@ export default function Packages() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="packageNotes">Notas</Label>
+                <Label htmlFor="packageNotes">Descripción</Label>
                 <Textarea
                   id="packageNotes"
                   value={packageFormData.notes}
@@ -703,7 +721,7 @@ export default function Packages() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="editPackageNotes">Notas</Label>
+                <Label htmlFor="editPackageNotes">Descripción</Label>
                 <Textarea
                   id="editPackageNotes"
                   value={packageFormData.notes}
@@ -765,8 +783,8 @@ export default function Packages() {
                     {selectedPackage.name}
                   </h3>
                   <p className="text-muted-foreground">
-                    {selectedPackage.numberOfSessions} sesiones por S/{" "}
-                    {selectedPackage.totalPrice.toFixed(2)}
+                    {selectedPackage.sessions} sesiones por S/{" "}
+                    {selectedPackage.price.toFixed(2)}
                   </p>
                 </div>
 
@@ -776,7 +794,7 @@ export default function Packages() {
                       Número de Sesiones
                     </Label>
                     <p className="font-medium text-lg">
-                      {selectedPackage.numberOfSessions}
+                      {selectedPackage.sessions}
                     </p>
                   </div>
                   <div>
@@ -784,7 +802,7 @@ export default function Packages() {
                       Precio Total
                     </Label>
                     <p className="font-medium text-lg">
-                      S/ {selectedPackage.totalPrice.toFixed(2)}
+                      S/ {selectedPackage.price.toFixed(2)}
                     </p>
                   </div>
                   <div>
@@ -794,8 +812,8 @@ export default function Packages() {
                     <p className="font-medium text-lg">
                       S/{" "}
                       {(
-                        selectedPackage.totalPrice /
-                        selectedPackage.numberOfSessions
+                        selectedPackage.price /
+                        selectedPackage.sessions
                       ).toFixed(2)}
                     </p>
                   </div>
@@ -816,7 +834,7 @@ export default function Packages() {
                 {selectedPackage.notes && (
                   <div>
                     <Label className="text-muted-foreground text-sm">
-                      Notas
+                      Descripción
                     </Label>
                     <div className="bg-muted/30 p-4 rounded-lg mt-2">
                       <p className="text-sm">{selectedPackage.notes}</p>
@@ -889,7 +907,7 @@ export default function Packages() {
                 <div className="text-center">
                   <h3 className="text-2xl font-bold text-foreground">
                     {selectedPatientPackage.patient?.firstName}{" "}
-                    {selectedPatientPackage.patient?.lastName}
+                    {selectedPatientPackage.patient?.paternalSurname}
                   </h3>
                   <p className="text-muted-foreground">
                     {selectedPatientPackage.package?.name}
@@ -910,7 +928,7 @@ export default function Packages() {
                       Total de Sesiones
                     </Label>
                     <p className="font-medium text-lg">
-                      {selectedPatientPackage.package?.numberOfSessions}
+                      {selectedPatientPackage.package?.sessions}
                     </p>
                   </div>
                   <div>
@@ -918,7 +936,7 @@ export default function Packages() {
                       Precio Pagado
                     </Label>
                     <p className="font-medium text-lg">
-                      S/ {selectedPatientPackage.package?.totalPrice.toFixed(2)}
+                      S/ {selectedPatientPackage.package?.price.toFixed(2)}
                     </p>
                   </div>
                   <div>

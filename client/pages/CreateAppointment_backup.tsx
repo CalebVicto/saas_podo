@@ -972,7 +972,7 @@ export function CreateAppointment() {
                                       </p>
                                       <p className="text-sm text-muted-foreground">
                                         Total del paquete: S/{" "}
-                                        {patientPackage.package?.totalPrice.toFixed(
+                                        {patientPackage.package?.price.toFixed(
                                           2,
                                         )}
                                       </p>

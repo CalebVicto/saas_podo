@@ -71,8 +71,8 @@ const mockPackages: PackageType[] = [
   {
     id: "package_1",
     name: "Tratamiento Básico Podológico",
-    numberOfSessions: 4,
-    totalPrice: 200,
+    sessions: 4,
+    price: 200,
     notes: "Incluye cuidado básico de uñas y pies",
     isActive: true,
     createdAt: "2024-01-01T00:00:00",
@@ -81,8 +81,8 @@ const mockPackages: PackageType[] = [
   {
     id: "package_2",
     name: "Tratamiento Completo de Onicomicosis",
-    numberOfSessions: 8,
-    totalPrice: 480,
+    sessions: 8,
+    price: 480,
     notes: "Tratamiento especializado para hongos en uñas",
     isActive: true,
     createdAt: "2024-01-02T00:00:00",
@@ -91,8 +91,8 @@ const mockPackages: PackageType[] = [
   {
     id: "package_3",
     name: "Rehabilitación Post-Cirugía",
-    numberOfSessions: 6,
-    totalPrice: 360,
+    sessions: 6,
+    price: 360,
     notes: "Cuidados especializados después de cirugía podológica",
     isActive: true,
     createdAt: "2024-01-03T00:00:00",
@@ -101,8 +101,8 @@ const mockPackages: PackageType[] = [
   {
     id: "package_4",
     name: "Mantenimiento Diabético",
-    numberOfSessions: 12,
-    totalPrice: 600,
+    sessions: 12,
+    price: 600,
     notes: "Cuidado especializado para pies diabéticos",
     isActive: false,
     createdAt: "2024-01-04T00:00:00",
@@ -268,8 +268,8 @@ export function ServicePackages() {
       const newPackage: PackageType = {
         id: `package_${Date.now()}`,
         name: packageFormData.name,
-        numberOfSessions: packageFormData.numberOfSessions,
-        totalPrice: packageFormData.totalPrice,
+        sessions: packageFormData.numberOfSessions,
+        price: packageFormData.totalPrice,
         notes: packageFormData.notes,
         isActive: packageFormData.isActive,
         createdAt: new Date().toISOString(),
@@ -296,8 +296,8 @@ export function ServicePackages() {
       const updatedPackage: PackageType = {
         ...selectedPackage,
         name: packageFormData.name,
-        numberOfSessions: packageFormData.numberOfSessions,
-        totalPrice: packageFormData.totalPrice,
+        sessions: packageFormData.numberOfSessions,
+        price: packageFormData.totalPrice,
         notes: packageFormData.notes,
         isActive: packageFormData.isActive,
         updatedAt: new Date().toISOString(),
@@ -369,8 +369,8 @@ export function ServicePackages() {
     setSelectedPackage(pkg);
     setPackageFormData({
       name: pkg.name,
-      numberOfSessions: pkg.numberOfSessions,
-      totalPrice: pkg.totalPrice,
+      numberOfSessions: pkg.sessions,
+      totalPrice: pkg.price,
       notes: pkg.notes || "",
       isActive: pkg.isActive,
     });
@@ -619,7 +619,7 @@ export function ServicePackages() {
                             (pp) => pp.packageId === pkg.id,
                           ).length;
                           const pricePerSession = (
-                            pkg.totalPrice / pkg.numberOfSessions
+                            pkg.price / pkg.sessions
                           ).toFixed(2);
 
                           return (
@@ -639,12 +639,12 @@ export function ServicePackages() {
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="text-xs">
-                                  {pkg.numberOfSessions} sesiones
+                                  {pkg.sessions} sesiones
                                 </Badge>
                               </TableCell>
                               <TableCell>
                                 <div className="font-medium">
-                                  S/ {pkg.totalPrice.toFixed(2)}
+                                  S/ {pkg.price.toFixed(2)}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -778,7 +778,7 @@ export function ServicePackages() {
                             patientPackage.id,
                           );
                           const totalSessions =
-                            patientPackage.package?.numberOfSessions || 0;
+                            patientPackage.package?.sessions || 0;
                           const lastSession = packageSessions
                             .filter(
                               (s) => s.patientPackageId === patientPackage.id,
@@ -859,7 +859,7 @@ export function ServicePackages() {
                               <TableCell className="text-right">
                                 <div className="font-medium">
                                   S/{" "}
-                                  {patientPackage.package?.totalPrice.toFixed(
+                                  {patientPackage.package?.price.toFixed(
                                     2,
                                   )}
                                 </div>

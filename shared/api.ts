@@ -313,14 +313,16 @@ export interface KardexMovement {
 
 // Package & Session Types
 export interface Package {
-  id: string;
-  name: string;
-  numberOfSessions: number;
-  totalPrice: number;
+  id?: string;
+  name?: string;
+  description?: string;
+  price?: number;
+  sessions?: number;
+  status?: "active" | "inactive";
   notes?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PatientPackage {

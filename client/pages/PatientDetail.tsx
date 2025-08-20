@@ -995,7 +995,7 @@ export function PatientDetail() {
                       )
                       .map((patientPackage) => {
                         const totalSessions =
-                          patientPackage.package?.numberOfSessions || 0;
+                          patientPackage.package?.sessions || 0;
                         const usedSessions =
                           totalSessions - patientPackage.remainingSessions;
                         const progressPercentage =
@@ -1040,7 +1040,7 @@ export function PatientDetail() {
                                     </p>
                                     <p className="font-bold text-lg">
                                       {formatCurrency(
-                                        patientPackage.package?.totalPrice || 0,
+                                        patientPackage.package?.price || 0,
                                       )}
                                     </p>
                                   </div>

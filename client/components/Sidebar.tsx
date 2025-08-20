@@ -89,7 +89,7 @@ export function Sidebar({
         { icon: ShoppingBag, label: "Productos", path: "/products" },
         { icon: Tag, label: "Categorías", path: "/categories" },
         { icon: BarChart, label: "Kardex", path: "/kardex" },
-        // { icon: FolderOpen, label: "Paquetes", path: "/packages" },
+        { icon: FolderOpen, label: "Paquetes", path: "/packages" },
       ],
     },
     {
