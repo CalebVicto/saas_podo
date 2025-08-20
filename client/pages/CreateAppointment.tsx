@@ -12,7 +12,7 @@ import {
   Search,
   Check,
   CheckCircle,
-  Package,
+  Package as PackageIcon,
   ShoppingBag,
   Plus,
   Minus,
@@ -55,15 +55,17 @@ import {
   PackageSession,
   Abono,
   ApiResponse,
+  Package,
 } from "@shared/api";
 import { apiGet } from "@/lib/auth";
 import { AppointmentRepository } from "@/lib/api/appointment";
 import { PatientRepository } from "@/lib/api/patient";
 import { WorkerRepository } from "@/lib/api/worker";
 import Layout from "@/components/Layout";
+import { Pagination } from "@/components/ui/pagination";
 
 // Feature flag to toggle package and payment sections
-const SHOW_PACKAGE_PAYMENT = false;
+const SHOW_PACKAGE_PAYMENT = true;
 
 // Predefined diagnosis options
 const PREDEFINED_DIAGNOSES = [
@@ -362,6 +364,7 @@ export function CreateAppointment() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [patientPackages, setPatientPackages] = useState<PatientPackage[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]); // Estado para los paquetes
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -393,9 +396,7 @@ export function CreateAppointment() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Package state
-  const [selectedPackage, setSelectedPackage] = useState<PatientPackage | null>(
-    null,
-  );
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [usePackageSession, setUsePackageSession] = useState(false);
 
   // Abonos state
@@ -406,7 +407,23 @@ export function CreateAppointment() {
 
   useEffect(() => {
     loadData();
+    loadPackages();
   }, []);
+  // Cargar paquetes usando apiGet igual que Packages.tsx
+  const loadPackages = async () => {
+    try {
+      const resp = await apiGet<ApiResponse<{ data: Package[]; total: number; page: number; limit: number }>>("/package?page=1&limit=10&search=");
+      if (resp.error) {
+        setPackages([]);
+        return;
+      }
+      const apiData = resp.data?.data;
+      setPackages(apiData?.data || []);
+    } catch (error) {
+      console.error("Error cargando paquetes:", error);
+      setPackages([]);
+    }
+  };
 
   useEffect(() => {
     if (isEditMode && id) {
@@ -714,7 +731,8 @@ export function CreateAppointment() {
       (sum, sp) => sum + sp.product.price * sp.quantity,
       0,
     );
-    return treatmentCost + productsCost;
+    const packageCost = selectedPackage && usePackageSession ? selectedPackage.price || 0 : 0;
+    return treatmentCost + productsCost + packageCost;
   };
 
   const getRemainingBalance = () => {
@@ -1170,7 +1188,7 @@ export function CreateAppointment() {
                             ))
                           ) : (
                             <div className="col-span-2 text-center py-8 text-muted-foreground">
-                              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
                               <p>No se encontraron productos</p>
                               <p className="text-sm">
                                 Intenta ajustar tu búsqueda o filtro
@@ -1192,71 +1210,19 @@ export function CreateAppointment() {
                           </Label>
 
                           {(() => {
-                            const availablePackages = getAvailablePackages();
-
-                            if (!formData.patientId) {
+                            if (packages.length === 0) {
                               return (
                                 <div className="text-center py-8 text-muted-foreground">
-                                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                  <p>
-                                    Selecciona un paciente para ver sus paquetes
-                                  </p>
-                                </div>
-                              );
-                            }
-
-                            if (availablePackages.length === 0) {
-                              return (
-                                <div className="text-center py-8 text-muted-foreground">
-                                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                  <p>Este paciente no tiene paquetes activos</p>
+                                  <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                  <p>No hay paquetes disponibles</p>
                                 </div>
                               );
                             }
 
                             return (
-                              <div className="space-y-4">
-                                {availablePackages.map((patientPackage) => (
-                                  <div
-                                    key={patientPackage.id}
-                                    className={cn(
-                                      "border rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
-                                      selectedPackage?.id === patientPackage.id
-                                        ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md scale-[1.02]"
-                                        : "hover:bg-muted/30",
-                                    )}
-                                    onClick={() =>
-                                      handlePackageSelection(patientPackage)
-                                    }
-                                  >
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex-1">
-                                        <h4 className="font-medium">
-                                          {patientPackage.package?.name}
-                                        </h4>
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                          Sesiones restantes:{" "}
-                                          {patientPackage.remainingSessions}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                          Total del paquete: S/{" "}
-                                          {patientPackage.package?.price.toFixed(
-                                            2,
-                                          )}
-                                        </p>
-                                      </div>
-                                      {selectedPackage?.id ===
-                                        patientPackage.id && (
-                                          <Badge variant="default">
-                                            Seleccionado
-                                          </Badge>
-                                        )}
-                                    </div>
-                                  </div>
-                                ))}
-
+                              <div>
                                 {selectedPackage && usePackageSession && (
-                                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500">
+                                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500 mt-4">
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-2">
                                         <Check className="w-5 h-5 text-green-600" />
@@ -1274,13 +1240,54 @@ export function CreateAppointment() {
                                       </Button>
                                     </div>
                                     <p className="text-sm text-green-700">
-                                      Esta cita utilizará 1 sesión del paquete "
-                                      {selectedPackage.package?.name}". Sesiones
-                                      restantes después de esta cita:{" "}
-                                      {selectedPackage.remainingSessions - 1}
+                                      Esta cita utilizará 1 sesión del paquete "{selectedPackage.name}".<br />
+                                      Precio del paquete: <span className="font-bold text-primary">S/ {selectedPackage.price?.toFixed(2)}</span><br />
+                                      Sesiones restantes después de esta cita: {typeof selectedPackage.sessions === 'number' ? selectedPackage.sessions - 1 : 0}
                                     </p>
                                   </div>
                                 )}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {packages.map((pkg) => (
+                                    <div
+                                      key={pkg.id}
+                                      className={cn(
+                                        "border rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
+                                        selectedPackage?.id === pkg.id
+                                          ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md scale-[1.02]"
+                                          : "hover:bg-muted/30",
+                                      )}
+                                      onClick={() => {
+                                        if (selectedPackage?.id === pkg.id) {
+                                          setSelectedPackage(null);
+                                          setUsePackageSession(false);
+                                        } else {
+                                          setSelectedPackage(pkg);
+                                          setUsePackageSession(true);
+                                        }
+                                      }}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <h4 className="font-medium mb-2">{pkg.name}</h4>
+                                          <p className="text-sm text-muted-foreground mb-1">
+                                            Sesiones: {pkg.sessions}
+                                          </p>
+                                          <p className="text-lg font-bold text-primary mb-1">
+                                            S/ {pkg.price?.toFixed(2)}
+                                          </p>
+                                          {pkg.description && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              {pkg.description}
+                                            </p>
+                                          )}
+                                        </div>
+                                        {selectedPackage?.id === pkg.id && (
+                                          <Badge variant="default">Seleccionado</Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
                             );
                           })()}
@@ -1616,7 +1623,7 @@ export function CreateAppointment() {
                               value="package"
                               className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
                             >
-                              <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <PackageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="hidden sm:inline">Paquete</span>
                               <span className="sm:hidden">Paq</span>
                               {selectedPackage && usePackageSession && (
@@ -1911,12 +1918,12 @@ export function CreateAppointment() {
                               <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                                 <div className="flex justify-between items-start mb-2">
                                   <div>
-                                    <h4 className="font-medium text-green-800">
-                                      {selectedPackage.package?.name}
+                                    <h4 className="font-medium text-green-800 border-b border-green-200 mb-1">
+                                      {selectedPackage.name}
                                     </h4>
                                     <p className="text-sm text-green-600">
                                       Sesiones restantes:{" "}
-                                      {selectedPackage.remainingSessions - 1}
+                                      {selectedPackage.sessions - 1}
                                     </p>
                                   </div>
                                   <Button
@@ -1946,7 +1953,7 @@ export function CreateAppointment() {
                             </div>
                           ) : (
                             <div className="text-center py-8 text-muted-foreground">
-                              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
                               <p>No hay paquete seleccionado</p>
                               <p className="text-sm">
                                 Ve a la pestaña "Paquete" para asignar
@@ -2097,7 +2104,7 @@ export function CreateAppointment() {
                               <div className="flex justify-between">
                                 <span className="text-sm">Total paquete:</span>
                                 <span className="text-sm font-medium text-green-600">
-                                  S/ 0.00 (Incluido)
+                                  S/ {selectedPackage.price?.toFixed(2)}
                                 </span>
                               </div>
                             )}
@@ -2106,15 +2113,7 @@ export function CreateAppointment() {
                                 Total estimado:
                               </span>
                               <span className="font-bold text-xl text-green-800">
-                                S/{" "}
-                                {(
-                                  (formData.treatmentPrice || 0) +
-                                  selectedProducts.reduce(
-                                    (sum, sp) =>
-                                      sum + sp.product.price * sp.quantity,
-                                    0,
-                                  )
-                                ).toFixed(2)}
+                                S/ {getTotalCost().toFixed(2)}
                               </span>
                             </div>
                           </div>
