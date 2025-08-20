@@ -65,9 +65,6 @@ import { WorkerRepository } from "@/lib/api/worker";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
 
-// Feature flag to toggle package and payment sections
-const SHOW_PACKAGE_PAYMENT = true;
-
 // Predefined diagnosis options
 const PREDEFINED_DIAGNOSES = [
   "Onicomicosis",
@@ -405,6 +402,20 @@ export function CreateAppointment() {
   >([]);
   const [availableAbonos, setAvailableAbonos] = useState<Abono[]>([]);
 
+  // Estado para paginación de productos y paquetes
+  const [productPage, setProductPage] = useState(1);
+  const [packagePage, setPackagePage] = useState(1);
+  const PRODUCTS_PER_PAGE = 8;
+  const PACKAGES_PER_PAGE = 8;
+
+  // Estado para paginación real
+  const [productApiPage, setProductApiPage] = useState(1);
+  const [packageApiPage, setPackageApiPage] = useState(1);
+  const PRODUCTS_API_LIMIT = 10;
+  const PACKAGES_API_LIMIT = 10;
+  const [productsApiTotal, setProductsApiTotal] = useState(0);
+  const [packagesApiTotal, setPackagesApiTotal] = useState(0);
+
   useEffect(() => {
     loadData();
     loadPackages();
@@ -739,6 +750,40 @@ export function CreateAppointment() {
     return matchesSearch && matchesCategory && product.status === "active";
   });
 
+  // Productos paginados
+  const paginatedProducts = filteredProducts.slice(
+    (productPage - 1) * PRODUCTS_PER_PAGE,
+    productPage * PRODUCTS_PER_PAGE
+  );
+  const totalProductPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
+
+  // Paquetes paginados
+  const paginatedPackages = packages.slice(
+    (packagePage - 1) * PACKAGES_PER_PAGE,
+    packagePage * PACKAGES_PER_PAGE
+  );
+  const totalPackagePages = Math.ceil(packages.length / PACKAGES_PER_PAGE);
+
+  // Cargar productos paginados del API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const resp = await apiGet<ApiResponse<{ data: Product[]; total: number; page: number; limit: number }>>(`/product?page=${productApiPage}&limit=${PRODUCTS_API_LIMIT}`);
+      setProducts(resp.data?.data.data || []);
+      setProductsApiTotal(resp.data?.data.total || 0);
+    };
+    fetchProducts();
+  }, [productApiPage]);
+
+  // Cargar paquetes paginados del API
+  useEffect(() => {
+    const fetchPackages = async () => {
+      const resp = await apiGet<ApiResponse<{ data: Package[]; total: number; page: number; limit: number }>>(`/package?page=${packageApiPage}&limit=${PACKAGES_API_LIMIT}`);
+      setPackages(resp.data?.data.data || []);
+      setPackagesApiTotal(resp.data?.data.total || 0);
+    };
+    fetchPackages();
+  }, [packageApiPage]);
+
   if (isLoading) {
     return (
       <Layout
@@ -823,32 +868,28 @@ export function CreateAppointment() {
                             <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
                           )}
                         </TabsTrigger>
-                        {SHOW_PACKAGE_PAYMENT && (
-                          <TabsTrigger
-                            value="package"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
-                          >
-                            <PackageOpen className="w-4 h-4" />
-                            <span className="hidden sm:inline">Paquete</span>
-                            <span className="sm:hidden">Paq</span>
-                            {selectedPackages.length > 0 && (
-                              <span className="ml-1 w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                            )}
-                          </TabsTrigger>
-                        )}
-                        {SHOW_PACKAGE_PAYMENT && (
-                          <TabsTrigger
-                            value="payment"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
-                          >
-                            <Wallet className="w-4 h-4" />
-                            <span className="hidden sm:inline">Pago</span>
-                            <span className="sm:hidden">Pag</span>
-                            {selectedAbonos.length > 0 && (
-                              <span className="ml-1 w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>
-                            )}
-                          </TabsTrigger>
-                        )}
+                        <TabsTrigger
+                          value="package"
+                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                        >
+                          <PackageOpen className="w-4 h-4" />
+                          <span className="hidden sm:inline">Paquete</span>
+                          <span className="sm:hidden">Paq</span>
+                          {selectedPackages.length > 0 && (
+                            <span className="ml-1 w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                          )}
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="payment"
+                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          <span className="hidden sm:inline">Pago</span>
+                          <span className="sm:hidden">Pag</span>
+                          {selectedAbonos.length > 0 && (
+                            <span className="ml-1 w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>
+                          )}
+                        </TabsTrigger>
                       </TabsList>
                     </div>
 
@@ -1133,8 +1174,8 @@ export function CreateAppointment() {
 
                         {/* Product Selection Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {filteredProducts.length > 0 ? (
-                            filteredProducts.map((product) => (
+                          {products.length > 0 ? (
+                            products.map((product) => (
                               <div
                                 key={product.id}
                                 className="border rounded-lg p-6 hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
@@ -1193,48 +1234,70 @@ export function CreateAppointment() {
                             </div>
                           )}
                         </div>
+                        {totalProductPages > 1 && (
+                          <div className="flex justify-center mt-4 gap-2">
+                            <Button size="sm" variant="outline" disabled={productPage === 1} onClick={() => setProductPage(productPage - 1)}>
+                              &lt;
+                            </Button>
+                            {Array.from({ length: totalProductPages }).map((_, i) => (
+                              <Button
+                                key={i}
+                                size="sm"
+                                variant={productPage === i + 1 ? "default" : "ghost"}
+                                onClick={() => setProductPage(i + 1)}
+                                className={productPage === i + 1 ? "bg-pink-400 text-white" : ""}
+                              >
+                                {i + 1}
+                              </Button>
+                            ))}
+                            <Button size="sm" variant="outline" disabled={productPage === totalProductPages} onClick={() => setProductPage(productPage + 1)}>
+                              &gt;
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </TabsContent>
 
-                    {SHOW_PACKAGE_PAYMENT && (
-                      <TabsContent
-                        value="package"
-                        className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
-                      >
-                        <div className="space-y-4">
-                          <Label className="text-base font-semibold">
-                            Paquetes Disponibles para este Paciente
-                          </Label>
-                          {packages.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>No hay paquetes disponibles</p>
-                            </div>
-                          ) : (
-                            <>
-                              {/* Resumen de paquetes seleccionados */}
-                              {selectedPackages.length > 0 && (
-                                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500 mt-4">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Check className="w-5 h-5 text-green-600" />
-                                    <span className="font-medium text-green-800">
-                                      {selectedPackages.length} paquete{selectedPackages.length > 1 ? 's' : ''} seleccionado{selectedPackages.length > 1 ? 's' : ''} —
-                                      Total: <span className="font-bold text-primary">S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price * pkg.sessions || 0), 0).toFixed(2)}</span>
-                                    </span>
-                                    <Button
-                                      onClick={() => setSelectedPackages([])}
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 ml-auto"
-                                    >
-                                      <Trash className="w-4 h-4" />
-                                    </Button>
-                                  </div>
+                    {/* Package Tab */}
+                    <TabsContent
+                      value="package"
+                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                    >
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold">
+                          Paquetes Disponibles para este Paciente
+                        </Label>
+                        {packages.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No hay paquetes disponibles</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Resumen de paquetes seleccionados */}
+                            {selectedPackages.length > 0 && (
+                              <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500 mt-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Check className="w-5 h-5 text-green-600" />
+                                  <span className="font-medium text-green-800">
+                                    {selectedPackages.length} paquete{selectedPackages.length > 1 ? 's' : ''} seleccionado{selectedPackages.length > 1 ? 's' : ''} —
+                                    Total: <span className="font-bold text-primary">S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price * pkg.sessions || 0), 0).toFixed(2)}</span>
+                                  </span>
+                                  <Button
+                                    onClick={() => setSelectedPackages([])}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 ml-auto"
+                                  >
+                                    <Trash className="w-4 h-4" />
+                                  </Button>
                                 </div>
-                              )}
-                              {/* Grid de selección múltiple de paquetes */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {packages.map((pkg) => {
+                              </div>
+                            )}
+                            {/* Grid de selección múltiple de paquetes */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {packages.length > 0 ? (
+                                packages.map((pkg) => {
                                   const isSelected = selectedPackages.some(p => p.id === pkg.id);
                                   return (
                                     <div
@@ -1274,13 +1337,89 @@ export function CreateAppointment() {
                                       </div>
                                     </div>
                                   );
-                                })}
+                                })
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                                  <p>No hay paquetes disponibles</p>
+                                  <p className="text-sm">
+                                    Intenta ajustar tu búsqueda o filtro
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            {totalPackagePages > 1 && (
+                              <div className="flex justify-center mt-4 gap-2">
+                                <Button size="sm" variant="outline" disabled={packagePage === 1} onClick={() => setPackagePage(packagePage - 1)}>
+                                  &lt;
+                                </Button>
+                                {Array.from({ length: totalPackagePages }).map((_, i) => (
+                                  <Button
+                                    key={i}
+                                    size="sm"
+                                    variant={packagePage === i + 1 ? "default" : "ghost"}
+                                    onClick={() => setPackagePage(i + 1)}
+                                    className={packagePage === i + 1 ? "bg-pink-400 text-white" : ""}
+                                  >
+                                    {i + 1}
+                                  </Button>
+                                ))}
+                                <Button size="sm" variant="outline" disabled={packagePage === totalPackagePages} onClick={() => setPackagePage(packagePage + 1)}>
+                                  &gt;
+                                </Button>
                               </div>
-                            </>
-                          )}
-                        </div>
-                      </TabsContent>
-                    )}
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    {/* Payment Tab */}
+                    <TabsContent
+                      value="payment"
+                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                    >
+                      <div className="space-y-4">
+                        <Label className="text-base font-semibold">
+                          Resumen de Pago
+                        </Label>
+                        {selectedAbonos.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No hay abonos seleccionados</p>
+                            <p className="text-sm">
+                              Ve a la pestaña "Abonos" para agregar
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {selectedAbonos.map(({ abono, amountToUse }) => (
+                              <div
+                                key={abono.id}
+                                className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium text-green-800">
+                                      {abono.method.toUpperCase()}
+                                    </p>
+                                    <p className="text-xs text-green-600">
+                                      Disponible: S/{" "}
+                                      {abono.remainingAmount.toFixed(2)}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-bold text-green-800">
+                                      S/ {amountToUse.toFixed(2)}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>
@@ -1361,42 +1500,38 @@ export function CreateAppointment() {
                               </Badge>
                             )}
                           </TabsTrigger>
-                          {SHOW_PACKAGE_PAYMENT && (
-                            <TabsTrigger
-                              value="package"
-                              className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
-                            >
-                              <PackageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                              <span className="hidden sm:inline">Paquete</span>
-                              <span className="sm:hidden">Paq</span>
-                              {selectedPackages.length > 0 && (
-                                <Badge
-                                  variant="secondary"
-                                  className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
-                                >
-                                  {selectedPackages.length}
-                                </Badge>
-                              )}
-                            </TabsTrigger>
-                          )}
-                          {SHOW_PACKAGE_PAYMENT && (
-                            <TabsTrigger
-                              value="payment"
-                              className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
-                            >
-                              <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
-                              <span className="hidden sm:inline">Pago</span>
-                              <span className="sm:hidden">Pag</span>
-                              {selectedAbonos.length > 0 && (
-                                <Badge
-                                  variant="secondary"
-                                  className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
-                                >
-                                  {selectedAbonos.length}
-                                </Badge>
-                              )}
-                            </TabsTrigger>
-                          )}
+                          <TabsTrigger
+                            value="package"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                          >
+                            <PackageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">Paquete</span>
+                            <span className="sm:hidden">Paq</span>
+                            {selectedPackages.length > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                              >
+                                {selectedPackages.length}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value="payment"
+                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                          >
+                            <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span className="hidden sm:inline">Pago</span>
+                            <span className="sm:hidden">Pag</span>
+                            {selectedAbonos.length > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                              >
+                                {selectedAbonos.length}
+                              </Badge>
+                            )}
+                          </TabsTrigger>
                         </TabsList>
                       </div>
 
@@ -1644,178 +1779,176 @@ export function CreateAppointment() {
                         )}
                       </TabsContent>
 
-                      {SHOW_PACKAGE_PAYMENT && (
-                        <TabsContent
-                          value="package"
-                          className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
-                        >
-                          {selectedPackages.length > 0 ? (
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-medium">
-                                  Paquetes Seleccionados
-                                </h3>
-                                <Badge variant="outline">
-                                  {selectedPackages.length} paquetes
-                                </Badge>
-                              </div>
+                      {/* Package Tab */}
+                      <TabsContent
+                        value="package"
+                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                      >
+                        {selectedPackages.length > 0 ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-medium">
+                                Paquetes Seleccionados
+                              </h3>
+                              <Badge variant="outline">
+                                {selectedPackages.length} paquetes
+                              </Badge>
+                            </div>
 
-                              <div className="space-y-2">
-                                {selectedPackages.map((pkg) => (
-                                  <div
-                                    key={pkg.id}
-                                    className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm"
-                                  >
-                                    <div className="flex justify-between items-start mb-2">
-                                      <div>
-                                        <h4 className="font-medium">{pkg.name}</h4>
-                                        <p className="text-sm text-muted-foreground">
-                                          Sesiones: {pkg.sessions}
-                                        </p>
-                                      </div>
-                                      <Button
-                                        onClick={() =>
-                                          setSelectedPackages(
-                                            selectedPackages.filter(
-                                              (p) => p.id !== pkg.id,
-                                            ),
-                                          )
-                                        }
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
-                                      >
-                                        <Trash className="w-4 h-4" />
-                                      </Button>
+                            <div className="space-y-2">
+                              {selectedPackages.map((pkg) => (
+                                <div
+                                  key={pkg.id}
+                                  className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm"
+                                >
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                      <h4 className="font-medium">{pkg.name}</h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        Sesiones: {pkg.sessions}
+                                      </p>
                                     </div>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-sm font-medium text-primary">
-                                        S/ {pkg.price?.toFixed(2)}
-                                      </span>
-                                    </div>
+                                    <Button
+                                      onClick={() =>
+                                        setSelectedPackages(
+                                          selectedPackages.filter(
+                                            (p) => p.id !== pkg.id,
+                                          ),
+                                        )
+                                      }
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash className="w-4 h-4" />
+                                    </Button>
                                   </div>
-                                ))}
-                              </div>
-
-                              <div className="pt-3 border-t">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-bold">
-                                    Total paquetes:
-                                  </span>
-                                  <span className="font-bold text-lg text-primary">
-                                    S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0).toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>No hay paquetes seleccionados</p>
-                              <p className="text-sm">
-                                Ve a la pestaña "Paquete" para asignar
-                              </p>
-                            </div>
-                          )}
-                        </TabsContent>
-                      )}
-
-                      {SHOW_PACKAGE_PAYMENT && (
-                        <TabsContent
-                          value="payment"
-                          className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
-                        >
-                          {getTotalCost() > 0 ? (
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-medium">Resumen de Pago</h3>
-                              </div>
-
-                              {/* Cost Breakdown */}
-                              <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                <div className="flex justify-between text-sm">
-                                  <span>Costo total:</span>
-                                  <span className="font-medium">
-                                    S/ {getTotalCost().toFixed(2)}
-                                  </span>
-                                </div>
-                                {getTotalAbonoAmount() > 0 && (
-                                  <div className="flex justify-between text-sm text-green-600">
-                                    <span>Abonos aplicados:</span>
-                                    <span className="font-medium">
-                                      -S/ {getTotalAbonoAmount().toFixed(2)}
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-primary">
+                                      S/ {pkg.price?.toFixed(2)}
                                     </span>
                                   </div>
-                                )}
-                                <div className="flex justify-between pt-2 border-t border-blue-300">
-                                  <span className="font-bold">
-                                    Saldo restante:
-                                  </span>
-                                  <span className="font-bold text-lg text-blue-800">
-                                    S/ {getRemainingBalance().toFixed(2)}
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="pt-3 border-t">
+                              <div className="flex justify-between items-center">
+                                <span className="font-bold">
+                                  Total paquetes:
+                                </span>
+                                <span className="font-bold text-lg text-primary">
+                                  S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No hay paquetes seleccionados</p>
+                            <p className="text-sm">
+                              Ve a la pestaña "Paquete" para asignar
+                            </p>
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      {/* Payment Tab */}
+                      <TabsContent
+                        value="payment"
+                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                      >
+                        {getTotalCost() > 0 ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h3 className="font-medium">Resumen de Pago</h3>
+                            </div>
+
+                            {/* Cost Breakdown */}
+                            <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <div className="flex justify-between text-sm">
+                                <span>Costo total:</span>
+                                <span className="font-medium">
+                                  S/ {getTotalCost().toFixed(2)}
+                                </span>
+                              </div>
+                              {getTotalAbonoAmount() > 0 && (
+                                <div className="flex justify-between text-sm text-green-600">
+                                  <span>Abonos aplicados:</span>
+                                  <span className="font-medium">
+                                    -S/ {getTotalAbonoAmount().toFixed(2)}
                                   </span>
                                 </div>
+                              )}
+                              <div className="flex justify-between pt-2 border-t border-blue-300">
+                                <span className="font-bold">
+                                  Saldo restante:
+                                </span>
+                                <span className="font-bold text-lg text-blue-800">
+                                  S/ {getRemainingBalance().toFixed(2)}
+                                </span>
                               </div>
+                            </div>
 
-                              {/* Selected Abonos */}
-                              {selectedAbonos.length > 0 && (
-                                <div className="space-y-2">
-                                  <h4 className="font-medium text-green-800">
-                                    Abonos a Usar:
-                                  </h4>
-                                  {selectedAbonos.map(
-                                    ({ abono, amountToUse }) => (
-                                      <div
-                                        key={abono.id}
-                                        className="p-3 bg-green-50 rounded-lg border border-green-200"
-                                      >
-                                        <div className="flex justify-between items-start">
-                                          <div>
-                                            <p className="font-medium text-green-800">
-                                              {abono.method.toUpperCase()}
-                                            </p>
-                                            <p className="text-xs text-green-600">
-                                              Disponible: S/{" "}
-                                              {abono.remainingAmount.toFixed(2)}
-                                            </p>
-                                          </div>
-                                          <div className="text-right">
-                                            <p className="font-bold text-green-800">
-                                              S/ {amountToUse.toFixed(2)}
-                                            </p>
-                                          </div>
+                            {/* Selected Abonos */}
+                            {selectedAbonos.length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-green-800">
+                                  Abonos a Usar:
+                                </h4>
+                                {selectedAbonos.map(
+                                  ({ abono, amountToUse }) => (
+                                    <div
+                                      key={abono.id}
+                                      className="p-3 bg-green-50 rounded-lg border border-green-200"
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="font-medium text-green-800">
+                                            {abono.method.toUpperCase()}
+                                          </p>
+                                          <p className="text-xs text-green-600">
+                                            Disponible: S/{" "}
+                                            {abono.remainingAmount.toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="font-bold text-green-800">
+                                            S/ {amountToUse.toFixed(2)}
+                                          </p>
                                         </div>
                                       </div>
-                                    ),
-                                  )}
-                                </div>
-                              )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
 
-                              {/* Payment Methods Suggestion */}
-                              {getRemainingBalance() > 0 && (
-                                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                                  <p className="text-sm text-amber-800">
-                                    <strong>Saldo pendiente:</strong> S/{" "}
-                                    {getRemainingBalance().toFixed(2)}
-                                  </p>
-                                  <p className="text-xs text-amber-600 mt-1">
-                                    Deberá ser pagado con efectivo, tarjeta u otro
-                                    método al momento de la cita.
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>No hay costos que mostrar</p>
-                              <p className="text-sm">
-                                Agrega productos o precio de tratamiento
-                              </p>
-                            </div>
-                          )}
-                        </TabsContent>
-                      )}
+                            {/* Payment Methods Suggestion */}
+                            {getRemainingBalance() > 0 && (
+                              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                <p className="text-sm text-amber-800">
+                                  <strong>Saldo pendiente:</strong> S/{" "}
+                                  {getRemainingBalance().toFixed(2)}
+                                </p>
+                                <p className="text-xs text-amber-600 mt-1">
+                                  Deberá ser pagado con efectivo, tarjeta u otro
+                                  método al momento de la cita.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>No hay costos que mostrar</p>
+                            <p className="text-sm">
+                              Agrega productos o precio de tratamiento
+                            </p>
+                          </div>
+                        )}
+                      </TabsContent>
                     </Tabs>
 
                     {/* Total Cost Summary - Always at bottom */}
