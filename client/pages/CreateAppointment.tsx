@@ -23,6 +23,7 @@ import {
   DollarSign,
   FileEdit,
   Wallet,
+  Trash,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -396,8 +397,7 @@ export function CreateAppointment() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Package state
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
-  const [usePackageSession, setUsePackageSession] = useState(false);
+  const [selectedPackages, setSelectedPackages] = useState<Package[]>([]);
 
   // Abonos state
   const [selectedAbonos, setSelectedAbonos] = useState<
@@ -674,22 +674,6 @@ export function CreateAppointment() {
     );
   };
 
-  const handlePackageSelection = (patientPackage: PatientPackage) => {
-    if (selectedPackage?.id === patientPackage.id) {
-      // If clicking the same package, deselect it
-      setSelectedPackage(null);
-      setUsePackageSession(false);
-    } else {
-      setSelectedPackage(patientPackage);
-      setUsePackageSession(true);
-    }
-  };
-
-  const clearPackageSelection = () => {
-    setSelectedPackage(null);
-    setUsePackageSession(false);
-  };
-
   // Abono functions
   const addAbonoToPayment = (abono: Abono) => {
     const existingAbono = selectedAbonos.find((sa) => sa.abono.id === abono.id);
@@ -731,7 +715,7 @@ export function CreateAppointment() {
       (sum, sp) => sum + sp.product.price * sp.quantity,
       0,
     );
-    const packageCost = selectedPackage && usePackageSession ? selectedPackage.price || 0 : 0;
+    const packageCost = selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0);
     return treatmentCost + productsCost + packageCost;
   };
 
@@ -823,6 +807,10 @@ export function CreateAppointment() {
                           <Stethoscope className="w-4 h-4" />
                           <span className="hidden sm:inline">General</span>
                           <span className="sm:hidden">Gen</span>
+                          {/* Punto indicador si hay datos principales llenos */}
+                          {(formData.patientId || formData.workerId || formData.dateTime) && (
+                            <span className="ml-1 w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                          )}
                         </TabsTrigger>
                         <TabsTrigger
                           value="products"
@@ -831,6 +819,9 @@ export function CreateAppointment() {
                           <Pill className="w-4 h-4" />
                           <span className="hidden sm:inline">Productos</span>
                           <span className="sm:hidden">Prod</span>
+                          {selectedProducts.length > 0 && (
+                            <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                          )}
                         </TabsTrigger>
                         {SHOW_PACKAGE_PAYMENT && (
                           <TabsTrigger
@@ -840,6 +831,9 @@ export function CreateAppointment() {
                             <PackageOpen className="w-4 h-4" />
                             <span className="hidden sm:inline">Paquete</span>
                             <span className="sm:hidden">Paq</span>
+                            {selectedPackages.length > 0 && (
+                              <span className="ml-1 w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                            )}
                           </TabsTrigger>
                         )}
                         {SHOW_PACKAGE_PAYMENT && (
@@ -850,6 +844,9 @@ export function CreateAppointment() {
                             <Wallet className="w-4 h-4" />
                             <span className="hidden sm:inline">Pago</span>
                             <span className="sm:hidden">Pag</span>
+                            {selectedAbonos.length > 0 && (
+                              <span className="ml-1 w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>
+                            )}
                           </TabsTrigger>
                         )}
                       </TabsList>
@@ -1208,61 +1205,51 @@ export function CreateAppointment() {
                           <Label className="text-base font-semibold">
                             Paquetes Disponibles para este Paciente
                           </Label>
-
-                          {(() => {
-                            if (packages.length === 0) {
-                              return (
-                                <div className="text-center py-8 text-muted-foreground">
-                                  <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                  <p>No hay paquetes disponibles</p>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div>
-                                {selectedPackage && usePackageSession && (
-                                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500 mt-4">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <div className="flex items-center gap-2">
-                                        <Check className="w-5 h-5 text-green-600" />
-                                        <span className="font-medium text-green-800">
-                                          Usando sesión del paquete
-                                        </span>
-                                      </div>
-                                      <Button
-                                        onClick={clearPackageSelection}
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </Button>
-                                    </div>
-                                    <p className="text-sm text-green-700">
-                                      Esta cita utilizará 1 sesión del paquete "{selectedPackage.name}".<br />
-                                      Precio del paquete: <span className="font-bold text-primary">S/ {selectedPackage.price?.toFixed(2)}</span><br />
-                                      Sesiones restantes después de esta cita: {typeof selectedPackage.sessions === 'number' ? selectedPackage.sessions - 1 : 0}
-                                    </p>
+                          {packages.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                              <p>No hay paquetes disponibles</p>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Resumen de paquetes seleccionados */}
+                              {selectedPackages.length > 0 && (
+                                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500 mt-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Check className="w-5 h-5 text-green-600" />
+                                    <span className="font-medium text-green-800">
+                                      {selectedPackages.length} paquete{selectedPackages.length > 1 ? 's' : ''} seleccionado{selectedPackages.length > 1 ? 's' : ''} —
+                                      Total: <span className="font-bold text-primary">S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price * pkg.sessions || 0), 0).toFixed(2)}</span>
+                                    </span>
+                                    <Button
+                                      onClick={() => setSelectedPackages([])}
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 ml-auto"
+                                    >
+                                      <Trash className="w-4 h-4" />
+                                    </Button>
                                   </div>
-                                )}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {packages.map((pkg) => (
+                                </div>
+                              )}
+                              {/* Grid de selección múltiple de paquetes */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {packages.map((pkg) => {
+                                  const isSelected = selectedPackages.some(p => p.id === pkg.id);
+                                  return (
                                     <div
                                       key={pkg.id}
                                       className={cn(
                                         "border rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
-                                        selectedPackage?.id === pkg.id
+                                        isSelected
                                           ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md scale-[1.02]"
                                           : "hover:bg-muted/30",
                                       )}
                                       onClick={() => {
-                                        if (selectedPackage?.id === pkg.id) {
-                                          setSelectedPackage(null);
-                                          setUsePackageSession(false);
+                                        if (isSelected) {
+                                          setSelectedPackages(selectedPackages.filter(p => p.id !== pkg.id));
                                         } else {
-                                          setSelectedPackage(pkg);
-                                          setUsePackageSession(true);
+                                          setSelectedPackages([...selectedPackages, pkg]);
                                         }
                                       }}
                                     >
@@ -1281,260 +1268,16 @@ export function CreateAppointment() {
                                             </p>
                                           )}
                                         </div>
-                                        {selectedPackage?.id === pkg.id && (
+                                        {isSelected && (
                                           <Badge variant="default">Seleccionado</Badge>
                                         )}
                                       </div>
                                     </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </TabsContent>
-                    )}
-
-                    {SHOW_PACKAGE_PAYMENT && (
-                      <TabsContent
-                        value="payment"
-                        className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
-                      >
-                        <div className="space-y-4">
-                          <Label className="text-base font-semibold">
-                            Opciones de Pago
-                          </Label>
-
-                          {/* Cost Summary */}
-                          <Card className="border-blue-200 bg-blue-50">
-                            <CardContent className="p-4">
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm">Costo total:</span>
-                                  <span className="font-bold text-lg">
-                                    S/ {getTotalCost().toFixed(2)}
-                                  </span>
-                                </div>
-                                {getTotalAbonoAmount() > 0 && (
-                                  <>
-                                    <div className="flex justify-between items-center text-green-600">
-                                      <span className="text-sm">
-                                        Abonos aplicados:
-                                      </span>
-                                      <span className="font-medium">
-                                        -S/ {getTotalAbonoAmount().toFixed(2)}
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-2 border-t border-blue-300">
-                                      <span className="font-medium">
-                                        Saldo restante:
-                                      </span>
-                                      <span className="font-bold text-xl text-blue-800">
-                                        S/ {getRemainingBalance().toFixed(2)}
-                                      </span>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-
-                          {/* Available Abonos */}
-                          <div className="space-y-3">
-                            <Label className="text-sm font-medium">
-                              Abonos Disponibles del Paciente
-                            </Label>
-
-                            {!formData.patientId ? (
-                              <div className="text-center py-8 text-muted-foreground">
-                                <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <p>Selecciona un paciente para ver sus abonos</p>
-                              </div>
-                            ) : availableAbonos.length === 0 ? (
-                              <div className="text-center py-8 text-muted-foreground">
-                                <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                <p>Este paciente no tiene abonos disponibles</p>
-                              </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {availableAbonos.map((abono) => {
-                                  const isSelected = selectedAbonos.some(
-                                    (sa) => sa.abono.id === abono.id,
-                                  );
-                                  const selectedAbono = selectedAbonos.find(
-                                    (sa) => sa.abono.id === abono.id,
-                                  );
-
-                                  return (
-                                    <div
-                                      key={abono.id}
-                                      className={cn(
-                                        "border rounded-lg p-4 transition-all duration-300",
-                                        isSelected
-                                          ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-md"
-                                          : "hover:bg-muted/30 hover:shadow-sm",
-                                      )}
-                                    >
-                                      <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <h4 className="font-medium">
-                                              Abono {abono.method.toUpperCase()}
-                                            </h4>
-                                            <Badge variant="secondary">
-                                              S/{" "}
-                                              {abono.remainingAmount.toFixed(2)}{" "}
-                                              disponible
-                                            </Badge>
-                                          </div>
-                                          <p className="text-sm text-muted-foreground">
-                                            Registrado:{" "}
-                                            {new Date(
-                                              abono.registeredAt,
-                                            ).toLocaleDateString()}
-                                          </p>
-                                          {abono.notes && (
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                              {abono.notes}
-                                            </p>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          {!isSelected ? (
-                                            <Button
-                                              onClick={() =>
-                                                addAbonoToPayment(abono)
-                                              }
-                                              size="sm"
-                                              variant="outline"
-                                              className="text-green-600 border-green-600 hover:bg-green-50"
-                                            >
-                                              <Plus className="w-4 h-4 mr-1" />
-                                              Usar
-                                            </Button>
-                                          ) : (
-                                            <Button
-                                              onClick={() =>
-                                                removeAbonoFromPayment(abono.id)
-                                              }
-                                              size="sm"
-                                              variant="ghost"
-                                              className="text-red-600 hover:bg-red-50"
-                                            >
-                                              <X className="w-4 h-4" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      {isSelected && selectedAbono && (
-                                        <div className="mt-3 pt-3 border-t border-green-200">
-                                          <div className="flex items-center gap-3">
-                                            <Label className="text-sm font-medium text-green-800">
-                                              Monto a usar:
-                                            </Label>
-                                            <div className="flex items-center gap-2">
-                                              <Button
-                                                onClick={() =>
-                                                  updateAbonoAmount(
-                                                    abono.id,
-                                                    selectedAbono.amountToUse - 5,
-                                                  )
-                                                }
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-6 w-6 p-0"
-                                                disabled={
-                                                  selectedAbono.amountToUse <= 5
-                                                }
-                                              >
-                                                <Minus className="w-3 h-3" />
-                                              </Button>
-                                              <div className="relative">
-                                                <DollarSign className="w-3 h-3 absolute left-2 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                                                <Input
-                                                  type="number"
-                                                  step="0.01"
-                                                  min="0"
-                                                  max={abono.remainingAmount}
-                                                  value={
-                                                    selectedAbono.amountToUse
-                                                  }
-                                                  onChange={(e) =>
-                                                    updateAbonoAmount(
-                                                      abono.id,
-                                                      parseFloat(
-                                                        e.target.value,
-                                                      ) || 0,
-                                                    )
-                                                  }
-                                                  className="w-24 h-8 pl-6 text-sm"
-                                                />
-                                              </div>
-                                              <Button
-                                                onClick={() =>
-                                                  updateAbonoAmount(
-                                                    abono.id,
-                                                    selectedAbono.amountToUse + 5,
-                                                  )
-                                                }
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-6 w-6 p-0"
-                                                disabled={
-                                                  selectedAbono.amountToUse >=
-                                                  abono.remainingAmount
-                                                }
-                                              >
-                                                <Plus className="w-3 h-3" />
-                                              </Button>
-                                            </div>
-                                            <Button
-                                              onClick={() =>
-                                                updateAbonoAmount(
-                                                  abono.id,
-                                                  Math.min(
-                                                    abono.remainingAmount,
-                                                    getRemainingBalance() +
-                                                    selectedAbono.amountToUse,
-                                                  ),
-                                                )
-                                              }
-                                              size="sm"
-                                              variant="ghost"
-                                              className="text-xs text-green-600 hover:bg-green-50"
-                                            >
-                                              Usar máximo
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
                                   );
                                 })}
-
-                                {selectedAbonos.length > 0 && (
-                                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <CheckCircle className="w-5 h-5 text-green-600" />
-                                        <span className="font-medium text-green-800">
-                                          Abonos seleccionados
-                                        </span>
-                                      </div>
-                                      <span className="font-bold text-green-800">
-                                        S/ {getTotalAbonoAmount().toFixed(2)}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm text-green-700 mt-1">
-                                      Se aplicarán automáticamente al confirmar la
-                                      cita
-                                    </p>
-                                  </div>
-                                )}
                               </div>
-                            )}
-                          </div>
+                            </>
+                          )}
                         </div>
                       </TabsContent>
                     )}
@@ -1626,12 +1369,12 @@ export function CreateAppointment() {
                               <PackageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
                               <span className="hidden sm:inline">Paquete</span>
                               <span className="sm:hidden">Paq</span>
-                              {selectedPackage && usePackageSession && (
+                              {selectedPackages.length > 0 && (
                                 <Badge
                                   variant="secondary"
                                   className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
                                 >
-                                  1
+                                  {selectedPackages.length}
                                 </Badge>
                               )}
                             </TabsTrigger>
@@ -1829,7 +1572,7 @@ export function CreateAppointment() {
                                       variant="ghost"
                                       className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
                                     >
-                                      <X className="w-3 h-3" />
+                                      <Trash className="w-4 h-4" />
                                     </Button>
                                   </div>
                                   <div className="flex items-center justify-between">
@@ -1906,47 +1649,61 @@ export function CreateAppointment() {
                           value="package"
                           className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
                         >
-                          {selectedPackage && usePackageSession ? (
+                          {selectedPackages.length > 0 ? (
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
-                                <h3 className="font-medium text-green-800">
-                                  Paquete Asignado
+                                <h3 className="font-medium">
+                                  Paquetes Seleccionados
                                 </h3>
-                                <Badge variant="secondary">1 sesión</Badge>
+                                <Badge variant="outline">
+                                  {selectedPackages.length} paquetes
+                                </Badge>
                               </div>
 
-                              <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                                <div className="flex justify-between items-start mb-2">
-                                  <div>
-                                    <h4 className="font-medium text-green-800 border-b border-green-200 mb-1">
-                                      {selectedPackage.name}
-                                    </h4>
-                                    <p className="text-sm text-green-600">
-                                      Sesiones restantes:{" "}
-                                      {selectedPackage.sessions - 1}
-                                    </p>
-                                  </div>
-                                  <Button
-                                    onClick={clearPackageSelection}
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                              <div className="space-y-2">
+                                {selectedPackages.map((pkg) => (
+                                  <div
+                                    key={pkg.id}
+                                    className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm"
                                   >
-                                    <X className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                                <p className="text-xs text-green-500">
-                                  Se usará 1 sesión de este paquete
-                                </p>
+                                    <div className="flex justify-between items-start mb-2">
+                                      <div>
+                                        <h4 className="font-medium">{pkg.name}</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                          Sesiones: {pkg.sessions}
+                                        </p>
+                                      </div>
+                                      <Button
+                                        onClick={() =>
+                                          setSelectedPackages(
+                                            selectedPackages.filter(
+                                              (p) => p.id !== pkg.id,
+                                            ),
+                                          )
+                                        }
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                                      >
+                                        <Trash className="w-4 h-4" />
+                                      </Button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-medium text-primary">
+                                        S/ {pkg.price?.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
 
                               <div className="pt-3 border-t">
                                 <div className="flex justify-between items-center">
                                   <span className="font-bold">
-                                    Costo paquete:
+                                    Total paquetes:
                                   </span>
-                                  <span className="font-bold text-lg text-green-600">
-                                    Incluido
+                                  <span className="font-bold text-lg text-primary">
+                                    S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0).toFixed(2)}
                                   </span>
                                 </div>
                               </div>
@@ -1954,7 +1711,7 @@ export function CreateAppointment() {
                           ) : (
                             <div className="text-center py-8 text-muted-foreground">
                               <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                              <p>No hay paquete seleccionado</p>
+                              <p>No hay paquetes seleccionados</p>
                               <p className="text-sm">
                                 Ve a la pestaña "Paquete" para asignar
                               </p>
@@ -2063,7 +1820,7 @@ export function CreateAppointment() {
 
                     {/* Total Cost Summary - Always at bottom */}
                     {(selectedProducts.length > 0 ||
-                      (selectedPackage && usePackageSession) ||
+                      (selectedPackages.length > 0) ||
                       (formData.treatmentPrice &&
                         formData.treatmentPrice > 0)) && (
                         <div className="p-4 border-t bg-gradient-to-r from-green-50 to-emerald-50">
@@ -2100,11 +1857,11 @@ export function CreateAppointment() {
                                 </span>
                               </div>
                             )}
-                            {selectedPackage && usePackageSession && (
+                            {selectedPackages.length > 0 && (
                               <div className="flex justify-between">
-                                <span className="text-sm">Total paquete:</span>
+                                <span className="text-sm">Total paquetes:</span>
                                 <span className="text-sm font-medium text-green-600">
-                                  S/ {selectedPackage.price?.toFixed(2)}
+                                  S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0).toFixed(2)}
                                 </span>
                               </div>
                             )}
