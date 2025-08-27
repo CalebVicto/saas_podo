@@ -612,6 +612,34 @@ export function CreateAppointment() {
               })),
             );
           }
+          // Normalize packages from appointment response (support old packageIds: string[] and new packages: [{id, abono}])
+          if ((appt as any).packages || (appt as any).packageIds) {
+            const pkgsRaw: any[] = Array.isArray((appt as any).packages)
+              ? (appt as any).packages
+              : Array.isArray((appt as any).packageIds)
+              ? (appt as any).packageIds.map((id: any) => ({ id }))
+              : [];
+            const normalizedPkgs: Package[] = pkgsRaw.map((p) => {
+              // p may be { id } or { id, abono } or nested object
+              const id = p.id || (typeof p === "string" ? p : undefined) || (p.packageId && (p.packageId.id || p.packageId));
+              const name = p.name || (p.package && p.package.name) || undefined;
+              const price = Number(p.price ?? p.packagePrice ?? (p.package && p.package.price) ?? 0) || undefined;
+              return { id, name, price } as Package;
+            }).filter((pp) => pp.id);
+            if (normalizedPkgs.length > 0) {
+              setSelectedPackages(normalizedPkgs);
+              // If API returned amounts/abonos, populate packageSessionAmounts
+              const amounts: Record<string, number> = {};
+              pkgsRaw.forEach((raw) => {
+                const pid = raw.id || (typeof raw === 'string' ? raw : (raw.packageId && (raw.packageId.id || raw.packageId)));
+                const abonoVal = raw.abono ?? raw.amount ?? raw.paymentAmount ?? raw.monto ?? undefined;
+                if (pid) {
+                  amounts[pid] = typeof abonoVal !== 'undefined' ? Number(abonoVal) : (packageSessionAmounts[pid] ?? 0);
+                }
+              });
+              setPackageSessionAmounts((prev) => ({ ...prev, ...amounts }));
+            }
+          }
         } catch (error) {
           console.error("Error loading appointment:", error);
           toast({
@@ -740,7 +768,8 @@ export function CreateAppointment() {
         treatmentPrice: formData.treatmentPrice || 0,
         patientId: formData.patientId,
         products: productsPayload,
-        packageIds: selectedPackages.map((p) => p.id),
+  // Enviar paquetes como arreglo de objetos: [{ id: string, payment: number }]
+  packages: selectedPackages.map((p) => ({ id: p.id, payment: Number(packageSessionAmounts[p.id] ?? 0) })),
         appointmentPrice,
         date: formData.dateTime,
       };
@@ -2198,7 +2227,7 @@ export function CreateAppointment() {
                                   </div>
                                   <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium text-primary">
-                                      S/ {pkg.price?.toFixed(2)}
+                                      Abono: S/ {(typeof packageSessionAmounts[pkg.id] !== 'undefined' ? packageSessionAmounts[pkg.id] : (pkg.price || 0)).toFixed(2)}
                                     </span>
                                   </div>
                                 </div>
