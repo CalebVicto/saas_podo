@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -64,7 +64,6 @@ import { PatientRepository } from "@/lib/api/patient";
 import { WorkerRepository } from "@/lib/api/worker";
 import Layout from "@/components/Layout";
 import { Pagination } from "@/components/ui/pagination";
-
 // Predefined diagnosis options
 const PREDEFINED_DIAGNOSES = [
   "Onicomicosis",
@@ -103,7 +102,6 @@ const PREDEFINED_TREATMENTS = [
   "Tratamiento con láser",
   "Crioterapia",
 ];
-
 interface SearchableSelectProps {
   items: (Patient | Worker)[];
   value: string;
@@ -112,6 +110,7 @@ interface SearchableSelectProps {
   displayField: (item: Patient | Worker) => string;
   searchFields: (item: Patient | Worker) => string[];
   emptyText: string;
+  fetchItems?: (search: string) => Promise<(Patient | Worker)[]>;
 }
 
 function SearchableSelect({
@@ -122,11 +121,69 @@ function SearchableSelect({
   displayField,
   searchFields,
   emptyText,
+  fetchItems,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [remoteItems, setRemoteItems] = useState<(Patient | Worker)[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const latestSearchRef = useRef(0);
+  const searchDebounceRef = useRef<number | null>(null);
+
+  const doRemoteSearch = useCallback(
+    async (term: string) => {
+      if (!fetchItems) return;
+      const start = ++latestSearchRef.current;
+      setIsSearching(true);
+      try {
+        const items = await fetchItems(term);
+        // ignore out-of-order responses
+        if (start === latestSearchRef.current) {
+          setRemoteItems(items);
+        }
+      } catch (err) {
+        console.error("SearchableSelect remote search error:", err);
+        if (start === latestSearchRef.current) setRemoteItems([]);
+      } finally {
+        if (start === latestSearchRef.current) setIsSearching(false);
+      }
+    },
+    [fetchItems],
+  );
+
+  useEffect(() => {
+    if (!fetchItems) return;
+    // clear previous debounce
+    if (searchDebounceRef.current) {
+      window.clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+
+    // if no search term, clear remote items
+    if (!searchTerm) {
+      latestSearchRef.current += 1;
+      setRemoteItems([]);
+      setIsSearching(false);
+      return;
+    }
+
+    // debounce remote calls by 300ms
+    searchDebounceRef.current = window.setTimeout(() => {
+      doRemoteSearch(searchTerm.trim());
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        window.clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [searchTerm, fetchItems, doRemoteSearch]);
 
   const filteredItems = useMemo(() => {
+    // If a remote fetch function is provided and there is a search term,
+    // prefer remote results (so users can find patients not in the local list).
+    if (fetchItems && searchTerm) return remoteItems;
     if (!searchTerm) return items;
 
     return items.filter((item) =>
@@ -134,7 +191,7 @@ function SearchableSelect({
         field.toLowerCase().includes(searchTerm.toLowerCase()),
       ),
     );
-  }, [items, searchTerm, searchFields]);
+  }, [items, remoteItems, searchTerm, searchFields, fetchItems]);
 
   const selectedItem = items.find((item) => item.id === value);
 
@@ -166,7 +223,7 @@ function SearchableSelect({
 
           <div className="space-y-4 py-4">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
                 value={searchTerm}
@@ -175,10 +232,13 @@ function SearchableSelect({
                 autoFocus
               />
             </div>
+            <div className="max-h-[300px] space-y-2 overflow-y-auto">
+              {fetchItems && searchTerm && isSearching && (
+                <div className="py-6 text-center text-muted-foreground">Buscando...</div>
+              )}
 
-            <div className="max-h-[300px] overflow-y-auto space-y-2">
-              {filteredItems.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {!isSearching && filteredItems.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
                   {emptyText}
                 </div>
               ) : (
@@ -211,7 +271,7 @@ function SearchableSelect({
                         )}
                       </div>
                       {value === item.id && (
-                        <Check className="w-5 h-5 text-primary" />
+                        <Check className="h-5 w-5 text-primary" />
                       )}
                     </div>
                   </div>
@@ -291,7 +351,7 @@ function SearchableTextInput({
           className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
           onClick={() => setIsOpen(true)}
         >
-          <Search className="w-4 h-4 text-muted-foreground" />
+          <Search className="h-4 w-4 text-muted-foreground" />
         </Button>
       </div>
 
@@ -303,7 +363,7 @@ function SearchableTextInput({
 
           <div className="space-y-4 py-4">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
               <Input
                 placeholder={`Buscar ${label.toLowerCase()}...`}
                 value={searchTerm}
@@ -312,10 +372,10 @@ function SearchableTextInput({
               />
             </div>
 
-            <div className="max-h-64 overflow-y-auto space-y-1">
+            <div className="max-h-64 space-y-1 overflow-y-auto">
               {filteredOptions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <div className="py-8 text-center text-muted-foreground">
+                  <FileText className="mx-auto mb-4 h-12 w-12 opacity-50" />
                   <p>No se encontraron opciones</p>
                   <p className="text-sm">
                     Puedes escribir un valor personalizado
@@ -326,12 +386,12 @@ function SearchableTextInput({
                   <div
                     key={index}
                     onClick={() => handleOptionSelect(option)}
-                    className="p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer transition-colors"
+                    className="cursor-pointer rounded-lg border border-border p-3 transition-colors hover:bg-muted/30"
                   >
                     <div className="flex items-center justify-between">
                       <span>{option}</span>
                       {value === option && (
-                        <Check className="w-4 h-4 text-primary" />
+                        <Check className="h-4 w-4 text-primary" />
                       )}
                     </div>
                   </div>
@@ -339,7 +399,7 @@ function SearchableTextInput({
               )}
             </div>
 
-            <div className="text-xs text-muted-foreground text-center">
+            <div className="text-center text-xs text-muted-foreground">
               También puedes escribir un valor personalizado directamente en el
               campo
             </div>
@@ -395,6 +455,8 @@ export function CreateAppointment() {
 
   // Package state
   const [selectedPackages, setSelectedPackages] = useState<Package[]>([]);
+  // Monto que se aplicará por sesión para cada paquete seleccionado (packageId -> monto)
+  const [packageSessionAmounts, setPackageSessionAmounts] = useState<Record<string, number>>({});
 
   // Abonos state
   const [selectedAbonos, setSelectedAbonos] = useState<
@@ -416,6 +478,9 @@ export function CreateAppointment() {
   const [productsApiTotal, setProductsApiTotal] = useState(0);
   const [packagesApiTotal, setPackagesApiTotal] = useState(0);
 
+  // UI: which package view to show when patient has packages
+  const [packageView, setPackageView] = useState<'inuse' | 'more'>('more');
+
   useEffect(() => {
     loadData();
     loadPackages();
@@ -428,8 +493,16 @@ export function CreateAppointment() {
         setPackages([]);
         return;
       }
-      const apiData = resp.data?.data;
-      setPackages(apiData?.data || []);
+      // Normalizar el payload del API y asignar siempre un array
+      const apiPayload = resp as any;
+      const extracted = Array.isArray(apiPayload?.data)
+        ? apiPayload.data
+        : Array.isArray(apiPayload?.data?.data)
+          ? apiPayload.data.data
+          : Array.isArray(apiPayload?.data?.data?.data)
+            ? apiPayload.data.data.data
+            : [];
+      setPackages(extracted || []);
     } catch (error) {
       console.error("Error cargando paquetes:", error);
       setPackages([]);
@@ -598,6 +671,7 @@ export function CreateAppointment() {
         treatmentPrice: formData.treatmentPrice || 0,
         patientId: formData.patientId,
         products: productsPayload,
+        packageIds: selectedPackages.map((p) => p.id),
         appointmentPrice,
       };
       if (isEditMode && id) {
@@ -677,6 +751,7 @@ export function CreateAppointment() {
   // Package functions
   const getAvailablePackages = (): PatientPackage[] => {
     if (!formData.patientId) return [];
+    debugger
     return patientPackages.filter(
       (pp) =>
         pp.patientId === formData.patientId &&
@@ -726,7 +801,10 @@ export function CreateAppointment() {
       (sum, sp) => sum + sp.product.price * sp.quantity,
       0,
     );
-    const packageCost = selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0);
+    const packageCost = selectedPackages.reduce((sum, pkg) => {
+      const amt = typeof packageSessionAmounts[pkg.id] !== 'undefined' ? packageSessionAmounts[pkg.id] : (pkg.price || 0);
+      return sum + Number(amt || 0);
+    }, 0);
     return treatmentCost + productsCost + packageCost;
   };
 
@@ -757,12 +835,67 @@ export function CreateAppointment() {
   );
   const totalProductPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
 
-  // Paquetes paginados
-  const paginatedPackages = packages.slice(
-    (packagePage - 1) * PACKAGES_PER_PAGE,
-    packagePage * PACKAGES_PER_PAGE
-  );
-  const totalPackagePages = Math.ceil(packages.length / PACKAGES_PER_PAGE);
+  // Ajustar página cuando cambian búsqueda/categoría o si la página actual queda fuera de rango
+  useEffect(() => {
+    // reset al cambiar filtros para mostrar siempre la primera página
+    setProductPage(1);
+  }, [productSearch, selectedCategory]);
+
+  useEffect(() => {
+    if (productPage > totalProductPages && totalProductPages > 0) {
+      setProductPage(totalProductPages);
+    }
+  }, [totalProductPages]);
+
+  // Paquetes paginados (cuando usamos paginación del backend, `packages` ya contiene la página actual)
+  const paginatedPackages = packages; // packages viene de la API por página
+  // calcular total de páginas basadas en el total proporcionado por el API
+  const totalPackagePages = Math.max(1, Math.ceil((packagesApiTotal || 0) / PACKAGES_API_LIMIT));
+
+  // Si cambió la página del API, sincronizamos el page cliente (opcional) o reseteamos estado relacionado
+  useEffect(() => {
+    // si la API devolvió menos páginas y la page actual queda fuera, ajustarla
+    if (packageApiPage > totalPackagePages && totalPackagePages > 0) {
+      setPackageApiPage(totalPackagePages);
+    }
+  }, [totalPackagePages, packageApiPage]);
+
+  // Paquetes disponibles para el paciente seleccionado (filtrados desde patientPackages)
+  // Paquetes del paciente filtrados (si corresponde)
+  const patientPackagesForPatient = useMemo(() => {
+    return patientPackages.filter((pp) => pp.patientId === formData.patientId && pp.remainingSessions > 0);
+  }, [patientPackages, formData.patientId]);
+
+  // Si el paciente tiene paquetes activos, por defecto mostramos 'inuse'
+  useEffect(() => {
+    if (patientPackagesForPatient.length > 0) setPackageView('inuse');
+    else setPackageView('more');
+  }, [patientPackagesForPatient]);
+
+  // Build a homogeneous list to render using packages from the API and annotate if patient owns them
+  const itemsForPackageView = useMemo(() => {
+    return packages.map((p) => {
+      const pp = patientPackages.find((x) => {
+        const pid = (x.packageId as any)?.id || x.packageId;
+        return pid === p.id;
+      });
+      return { pkg: p, pp } as { pkg: Package; pp?: PatientPackage };
+    });
+  }, [packages, patientPackages]);
+
+  // Items to display depending on the small package-tabs (inuse / more)
+  const visiblePackageItems = useMemo(() => {
+    if (packageView === 'inuse') {
+      // Build list from patientPackagesForPatient so it's not limited by API pagination
+      return patientPackagesForPatient.map((pp) => {
+        const pid = (pp.packageId as any)?.id || pp.packageId;
+        // If patientPackage includes nested package info, use it; otherwise try to find in current API page
+        const pkgFromPP = (pp.packageId && typeof pp.packageId === "object") ? (pp.packageId as any) : packages.find((p) => p.id === pid) || { id: pid, name: (pp as any)?.name || "Paquete", price: Number((pp as any)?.packagePrice ?? 0), sessions: Number((pp as any)?.sessions ?? (pp as any)?.remainingSessions ?? 1) };
+        return { pkg: pkgFromPP as Package, pp } as { pkg: Package; pp: PatientPackage };
+      }).filter(x => Number((x.pp as any)?.remainingSessions ?? 0) > 0);
+    }
+    return itemsForPackageView;
+  }, [itemsForPackageView, packageView, patientPackagesForPatient, packages]);
 
   // Cargar productos paginados del API
   useEffect(() => {
@@ -778,8 +911,16 @@ export function CreateAppointment() {
   useEffect(() => {
     const fetchPackages = async () => {
       const resp = await apiGet<ApiResponse<{ data: Package[]; total: number; page: number; limit: number }>>(`/package?page=${packageApiPage}&limit=${PACKAGES_API_LIMIT}`);
-      setPackages(resp.data?.data.data || []);
-      setPackagesApiTotal(resp.data?.data.total || 0);
+      const apiPayload = resp as any;
+      const extracted = Array.isArray(apiPayload?.data)
+        ? apiPayload.data
+        : Array.isArray(apiPayload?.data?.data)
+          ? apiPayload.data.data
+          : Array.isArray(apiPayload?.data?.data?.data)
+            ? apiPayload.data.data.data
+            : [];
+      setPackages(extracted || []);
+      setPackagesApiTotal(apiPayload?.data?.total || apiPayload?.data?.data?.total || 0);
     };
     fetchPackages();
   }, [packageApiPage]);
@@ -795,7 +936,7 @@ export function CreateAppointment() {
         }
       >
         <div className="p-6">
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="mx-auto max-w-4xl space-y-6">
             <div className="space-y-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="loading-shimmer h-16 rounded"></div>
@@ -816,8 +957,8 @@ export function CreateAppointment() {
           : "Programar nueva cita médica"
       }
     >
-      <div className="h-full flex flex-col">
-        <div className="p-6 flex-1 space-y-6">
+      <div className="flex h-full flex-col">
+        <div className="flex-1 space-y-6 p-6">
           {/* Header Actions */}
           <div className="flex items-center gap-4">
             <Button
@@ -825,69 +966,69 @@ export function CreateAppointment() {
               onClick={() => navigate("/appointments")}
               className="flex items-center gap-2"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="h-4 w-4" />
               Volver a Citas
             </Button>
           </div>
 
           {/* Form */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Main Form */}
             <div className="lg:col-span-2">
-              <Card className="card-modern h-full shadow-lg border-0 bg-gradient-to-br from-white to-gray-50/50">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-primary/20">
+              <Card className="card-modern h-full border-0 bg-gradient-to-br from-white to-gray-50/50 shadow-lg">
+                <CardHeader className="border-b border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10">
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="w-6 h-6 text-primary" />
+                    <Calendar className="h-6 w-6 text-primary" />
                     {isEditMode ? "Editar Cita Médica" : "Nueva Cita Médica"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
                   <Tabs defaultValue="general" className="w-full">
                     <div className="relative">
-                      <TabsList className="flex w-full bg-muted/50 p-1 rounded-lg overflow-x-auto scrollbar-thin">
+                      <TabsList className="scrollbar-thin flex w-full overflow-x-auto rounded-lg bg-muted/50 p-1">
                         <TabsTrigger
                           value="general"
-                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                          className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-3 py-2 text-sm transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md sm:gap-2"
                         >
-                          <Stethoscope className="w-4 h-4" />
+                          <Stethoscope className="h-4 w-4" />
                           <span className="hidden sm:inline">General</span>
                           <span className="sm:hidden">Gen</span>
                           {/* Punto indicador si hay datos principales llenos */}
                           {(formData.patientId || formData.workerId || formData.dateTime) && (
-                            <span className="ml-1 w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                            <span className="ml-1 inline-block h-2 w-2 rounded-full bg-green-500"></span>
                           )}
                         </TabsTrigger>
                         <TabsTrigger
                           value="products"
-                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                          className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-3 py-2 text-sm transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md sm:gap-2"
                         >
-                          <Pill className="w-4 h-4" />
+                          <Pill className="h-4 w-4" />
                           <span className="hidden sm:inline">Productos</span>
                           <span className="sm:hidden">Prod</span>
                           {selectedProducts.length > 0 && (
-                            <span className="ml-1 w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                            <span className="ml-1 inline-block h-2 w-2 rounded-full bg-blue-500"></span>
                           )}
                         </TabsTrigger>
                         <TabsTrigger
                           value="package"
-                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                          className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-3 py-2 text-sm transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md sm:gap-2"
                         >
-                          <PackageOpen className="w-4 h-4" />
+                          <PackageOpen className="h-4 w-4" />
                           <span className="hidden sm:inline">Paquete</span>
                           <span className="sm:hidden">Paq</span>
                           {selectedPackages.length > 0 && (
-                            <span className="ml-1 w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                            <span className="ml-1 inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
                           )}
                         </TabsTrigger>
                         <TabsTrigger
                           value="payment"
-                          className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md whitespace-nowrap flex-shrink-0 text-sm px-3 py-2"
+                          className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-3 py-2 text-sm transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-md sm:gap-2"
                         >
-                          <Wallet className="w-4 h-4" />
+                          <Wallet className="h-4 w-4" />
                           <span className="hidden sm:inline">Pago</span>
                           <span className="sm:hidden">Pag</span>
                           {selectedAbonos.length > 0 && (
-                            <span className="ml-1 w-2 h-2 rounded-full bg-yellow-500 inline-block"></span>
+                            <span className="ml-1 inline-block h-2 w-2 rounded-full bg-yellow-500"></span>
                           )}
                         </TabsTrigger>
                       </TabsList>
@@ -896,10 +1037,10 @@ export function CreateAppointment() {
                     {/* General Tab */}
                     <TabsContent
                       value="general"
-                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                      className="mt-6 space-y-6 duration-300 animate-in fade-in-50"
                     >
                       {/* Patient and Worker Selection */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2">
                           <Label>Paciente *</Label>
                           <SearchableSelect
@@ -927,6 +1068,20 @@ export function CreateAppointment() {
                               ];
                             }}
                             emptyText="No se encontraron pacientes"
+                            fetchItems={async (search: string) => {
+                              // Use patientRepository to query backend when searching
+                              try {
+                                const resp = await patientRepository.getAll({
+                                  page: 1,
+                                  limit: 10,
+                                  search,
+                                });
+                                return resp.items;
+                              } catch (err) {
+                                console.error("Error buscando pacientes:", err);
+                                return [];
+                              }
+                            }}
                           />
                           {errors.patientId && (
                             <p className="text-sm text-destructive">
@@ -971,7 +1126,7 @@ export function CreateAppointment() {
                       </div>
 
                       {/* Date, Time and Duration */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2">
                           <Label htmlFor="dateTime">Fecha y Hora *</Label>
                           <Input
@@ -1080,7 +1235,7 @@ export function CreateAppointment() {
                           Precio del Tratamiento (opcional)
                         </Label>
                         <div className="relative">
-                          <DollarSign className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                          <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                           <Input
                             id="treatmentPrice"
                             type="number"
@@ -1123,7 +1278,7 @@ export function CreateAppointment() {
                     {/* Products Tab */}
                     <TabsContent
                       value="products"
-                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                      className="mt-6 space-y-6 duration-300 animate-in fade-in-50"
                     >
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -1136,10 +1291,10 @@ export function CreateAppointment() {
                         </div>
 
                         {/* Search and Filter Controls */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           {/* Search Input */}
                           <div className="relative">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                             <Input
                               placeholder="Buscar productos..."
                               value={productSearch}
@@ -1173,60 +1328,107 @@ export function CreateAppointment() {
                         </div>
 
                         {/* Product Selection Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {products.length > 0 ? (
-                            products.map((product) => (
-                              <div
-                                key={product.id}
-                                className="border rounded-lg p-6 hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex flex-col items-start justify-between mb-2">
-                                      {product.category && (
-                                        <Badge
-                                          variant="secondary"
-                                          className="text-xs mb-3"
-                                        >
-                                          {product.category.name}
-                                        </Badge>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          {filteredProducts.length > 0 ? (
+                            paginatedProducts.map((product) => {
+                              const cartItem = selectedProducts.find(
+                                (sp) => sp.product.id === product.id,
+                              );
+                              const isSelected = Boolean(cartItem);
+                              return (
+                                <div
+                                  key={product.id}
+                                  className={cn(
+                                    "rounded-lg border p-6 transition-all duration-300",
+                                    "hover:scale-[1.02] hover:shadow-md",
+                                    isSelected
+                                      ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md"
+                                      : "hover:bg-muted/30",
+                                  )}
+                                >
+                                  {/* Indicador de cantidad en carrito */}
+                                  {isSelected && (
+                                    <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs text-white">
+                                      <Check className="h-3 w-3" />
+                                      <span>{cartItem?.quantity}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="mb-2 flex flex-col items-start justify-between">
+                                        {product.category && (
+                                          <Badge
+                                            variant="secondary"
+                                            className="mb-3 text-xs"
+                                          >
+                                            {product.category.name}
+                                          </Badge>
+                                        )}
+                                        <h4 className="font-medium">
+                                          {product.name}
+                                        </h4>
+                                      </div>
+                                      {product.description && (
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                          {product.description}
+                                        </p>
                                       )}
-                                      <h4 className="font-medium">
-                                        {product.name}
-                                      </h4>
-                                    </div>
-                                    {product.description && (
-                                      <p className="text-sm text-muted-foreground mt-1">
-                                        {product.description}
+                                      <div className="mt-2 flex items-center justify-between">
+                                        <p className="text-sm font-medium text-primary">
+                                          S/ {product.price.toFixed(2)}
+                                        </p>
+                                      </div>
+                                      <p className="mt-1 text-xs text-muted-foreground">
+                                        Stock: {product.stock}
                                       </p>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 flex justify-end">
+                                    {isSelected ? (
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          onClick={() => updateProductQuantity(product.id, (cartItem?.quantity || 1) - 1)}
+                                          size="sm"
+                                          variant="outline"
+                                          className="flex h-8 w-8 items-center justify-center p-0"
+                                        >
+                                          <Minus className="h-4 w-4" />
+                                        </Button>
+
+                                        <span className="min-w-[2.5rem] text-center font-medium">
+                                          {cartItem?.quantity}
+                                        </span>
+
+                                        <Button
+                                          onClick={() => updateProductQuantity(product.id, (cartItem?.quantity || 0) + 1)}
+                                          size="sm"
+                                          variant="default"
+                                          disabled={product.stock === 0}
+                                          className="flex h-8 w-8 items-center justify-center p-0"
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        onClick={() => addProduct(product)}
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={product.stock === 0}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                        Agregar
+                                      </Button>
                                     )}
-                                    <div className="mt-2 flex items-center justify-between">
-                                      <p className="text-sm font-medium text-primary">
-                                        S/ {product.price.toFixed(2)}
-                                      </p>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Stock: {product.stock}
-                                    </p>
                                   </div>
                                 </div>
-                                <div className="mt-3 flex justify-end">
-                                  <Button
-                                    onClick={() => addProduct(product)}
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={product.stock === 0}
-                                    className="flex items-center gap-1"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                    Agregar
-                                  </Button>
-                                </div>
-                              </div>
-                            ))
+                              );
+                            })
                           ) : (
-                            <div className="col-span-2 text-center py-8 text-muted-foreground">
-                              <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <div className="col-span-2 py-8 text-center text-muted-foreground">
+                              <PackageIcon className="mx-auto mb-4 h-12 w-12 opacity-50" />
                               <p>No se encontraron productos</p>
                               <p className="text-sm">
                                 Intenta ajustar tu búsqueda o filtro
@@ -1235,7 +1437,7 @@ export function CreateAppointment() {
                           )}
                         </div>
                         {totalProductPages > 1 && (
-                          <div className="flex justify-center mt-4 gap-2">
+                          <div className="mt-4 flex justify-center gap-2">
                             <Button size="sm" variant="outline" disabled={productPage === 1} onClick={() => setProductPage(productPage - 1)}>
                               &lt;
                             </Button>
@@ -1261,115 +1463,261 @@ export function CreateAppointment() {
                     {/* Package Tab */}
                     <TabsContent
                       value="package"
-                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                      className="mt-6 space-y-6 duration-300 animate-in fade-in-50"
                     >
                       <div className="space-y-4">
                         <Label className="text-base font-semibold">
-                          Paquetes Disponibles para este Paciente
+                          Paquetes Disponibles
                         </Label>
-                        {packages.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>No hay paquetes disponibles</p>
+
+                        {/* Resumen de paquetes seleccionados */}
+                        {selectedPackages.length > 0 && (
+                          <div className="mt-4 rounded-lg border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 shadow-sm duration-500 animate-in fade-in-50">
+                            <div className="mb-2 flex items-center gap-2">
+                              <Check className="h-5 w-5 text-green-600" />
+                              <span className="font-medium text-green-800">
+                                {selectedPackages.length} paquete{selectedPackages.length > 1 ? 's' : ''} seleccionado{selectedPackages.length > 1 ? 's' : ''} —
+                                Total: <span className="font-bold text-primary">S/ {selectedPackages.reduce((sum, pkg) => {
+                                  const amt = typeof packageSessionAmounts[pkg.id] !== 'undefined' ? packageSessionAmounts[pkg.id] : (pkg.price || 0);
+                                  return sum + Number(amt || 0);
+                                }, 0).toFixed(2)}</span>
+                              </span>
+                              <Button
+                                onClick={() => setSelectedPackages([])}
+                                size="sm"
+                                variant="ghost"
+                                className="ml-auto h-6 w-6 p-0 text-red-600 hover:bg-red-100 hover:text-red-700"
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        ) : (
-                          <>
-                            {/* Resumen de paquetes seleccionados */}
-                            {selectedPackages.length > 0 && (
-                              <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg shadow-sm animate-in fade-in-50 duration-500 mt-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Check className="w-5 h-5 text-green-600" />
-                                  <span className="font-medium text-green-800">
-                                    {selectedPackages.length} paquete{selectedPackages.length > 1 ? 's' : ''} seleccionado{selectedPackages.length > 1 ? 's' : ''} —
-                                    Total: <span className="font-bold text-primary">S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price * pkg.sessions || 0), 0).toFixed(2)}</span>
-                                  </span>
-                                  <Button
-                                    onClick={() => setSelectedPackages([])}
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 ml-auto"
-                                  >
-                                    <Trash className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                            {/* Grid de selección múltiple de paquetes */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {packages.length > 0 ? (
-                                packages.map((pkg) => {
-                                  const isSelected = selectedPackages.some(p => p.id === pkg.id);
-                                  return (
-                                    <div
-                                      key={pkg.id}
-                                      className={cn(
-                                        "border rounded-lg p-4 cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-[1.02]",
-                                        isSelected
-                                          ? "bg-gradient-to-r from-primary/10 to-primary/5 border-primary shadow-md scale-[1.02]"
-                                          : "hover:bg-muted/30",
-                                      )}
-                                      onClick={() => {
-                                        if (isSelected) {
-                                          setSelectedPackages(selectedPackages.filter(p => p.id !== pkg.id));
-                                        } else {
-                                          setSelectedPackages([...selectedPackages, pkg]);
-                                        }
-                                      }}
-                                    >
-                                      <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                          <h4 className="font-medium mb-2">{pkg.name}</h4>
-                                          <p className="text-sm text-muted-foreground mb-1">
-                                            Sesiones: {pkg.sessions}
-                                          </p>
-                                          <p className="text-lg font-bold text-primary mb-1">
-                                            S/ {pkg.price?.toFixed(2)}
-                                          </p>
-                                          {pkg.description && (
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                              {pkg.description}
-                                            </p>
-                                          )}
-                                        </div>
-                                        {isSelected && (
-                                          <Badge variant="default">Seleccionado</Badge>
+                        )}
+
+                        {/* Grid de paquetes - siempre una columna (mobile-first) */}
+                        {patientPackagesForPatient.length > 0 && (
+                          <div className="flex gap-2">
+                            <Button size="sm" variant={packageView === 'inuse' ? 'default' : 'ghost'} onClick={() => setPackageView('inuse')}>
+                              Paquetes en uso ({patientPackagesForPatient.filter((pp) => Number((pp as any)?.remainingSessions ?? 0) > 0).length})
+                            </Button>
+                            <Button size="sm" variant={packageView === 'more' ? 'default' : 'ghost'} onClick={() => setPackageView('more')}>
+                              Más paquetes ({itemsForPackageView.length})
+                            </Button>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-4">
+                          {visiblePackageItems.length > 0 ? (
+                            visiblePackageItems.map(({ pkg, pp }) => {
+                              const isOwned = !!pp;
+                              const isSelected = selectedPackages.some((p) => p.id === pkg.id);
+
+                              const remaining = Number((pp as any)?.remainingSessions ?? 0);
+                              const totalPrice = Number((pp as any)?.packagePrice ?? (pkg as any).price ?? 0); // packagePrice = costo total del paquete
+                              const totalSessions = Number((pkg as any).sessions ?? (pp as any)?.remainingSessions ?? 1);
+                              const pricePerSession = totalSessions > 0 ? totalPrice / totalSessions : 0;
+                              const usedSessions = Math.max(0, Number(totalSessions) - Number(remaining));
+                              const usedPercent = totalSessions > 0 ? Math.max(0, Math.min(100, Math.round((usedSessions / totalSessions) * 100))) : 0;
+                              const debt = typeof (pp as any)?.debt !== 'undefined' ? Number((pp as any).debt) : undefined;
+                              const appliedAmount = packageSessionAmounts[pkg.id];
+
+                              return (
+                                <div
+                                  key={pkg.id || pkg.name}
+                                  className={cn(
+                                    "rounded-lg p-4 transition-all duration-200 bg-white border shadow-sm flex flex-col justify-between h-full",
+                                    isSelected
+                                      ? "border-primary/30 shadow-lg border-l-4 border-l-primary"
+                                      : "hover:shadow-md",
+                                  )}
+                                >
+                                  {/* Header: title + price */}
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex min-w-0 items-start gap-3">
+                                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                        <PackageIcon className="h-5 w-5" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <h4 className="truncate text-sm font-medium text-slate-800">{pkg.name}</h4>
+                                        {pkg.description && (
+                                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground" title={pkg.description}>{pkg.description}</p>
                                         )}
                                       </div>
                                     </div>
-                                  );
-                                })
-                              ) : (
-                                <div className="text-center py-8 text-muted-foreground">
-                                  <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                  <p>No hay paquetes disponibles</p>
-                                  <p className="text-sm">
-                                    Intenta ajustar tu búsqueda o filtro
-                                  </p>
+
+                                    <div className="flex-shrink-0 text-right">
+                                      <div className="text-xs text-slate-500">Total</div>
+                                      <div className="text-lg font-bold text-primary">S/ {totalPrice.toFixed(2)}</div>
+                                    </div>
+                                  </div>
+
+                                  {/* Body: badges + optional debt + progress */}
+                                      <div className="mt-3">
+                                    {packageView === 'more' ? (
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700">Totales: {totalSessions}</div>
+                                        <div className="text-xs text-slate-500">Total paquete: S/ {totalPrice.toFixed(2)}</div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="flex items-center justify-between gap-3">
+                                          <div className="flex items-center gap-2">
+                                            {/* Remaining sessions (highlighted for the client) */}
+                                            <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-emerald-200" title={`Sesiones restantes`}>
+                                              {remaining} sesiones
+                                            </span>
+
+                                            {/* Total sessions (secondary) */}
+                                            <span className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700" title={`Total de sesiones`}>
+                                              Totales: {totalSessions}
+                                            </span>
+
+                                            <span className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700" title={`S/ ${pricePerSession.toFixed(2)} por sesión`}>
+                                              S/ {pricePerSession.toFixed(2)} /ses
+                                            </span>
+
+                                            {typeof debt !== 'undefined' && (
+                                              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs", debt > 0 ? "bg-destructive text-white" : "bg-secondary text-white")}>
+                                                Deuda: S/ {debt?.toFixed(2)}
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div className="text-xs text-slate-500">Total paquete: S/ {totalPrice.toFixed(2)}</div>
+                                        </div>
+
+                                        {/* Progress bar showing used sessions */}
+                                        <div className="mt-2 w-full">
+                                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted/30">
+                                            <div
+                                              className="h-2 rounded-full bg-emerald-500 transition-all"
+                                              style={{ width: `${usedPercent}%` }}
+                                              title={`${usedSessions} usadas — ${usedPercent}%`}
+                                            />
+                                          </div>
+                                          <div className="mt-1 text-xs text-slate-500">Usadas: {usedSessions} · Disponibles: {remaining}</div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  {/* Footer: amount */}
+                                  <div className="mt-8 flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                          {isSelected && (
+                                        <>
+                                          <div className="text-lg text-slate-600">Abono:</div>
+                                          <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">S/</span>
+                                            <Input
+                                              type="number"
+                                              step="0.01"
+                                              min={0}
+                                              value={(() => {
+                                                const maxAllowed = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                                const defaultAmount = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                                return appliedAmount !== undefined ? appliedAmount : Number(defaultAmount.toFixed(2));
+                                              })()}
+                                              onChange={(e) => {
+                                                const raw = e.target.value;
+                                                let val = raw ? parseFloat(raw) : 0;
+                                                const maxAllowed = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                                if (isNaN(val)) val = 0;
+                                                if (val > maxAllowed) val = maxAllowed;
+                                                if (val < 0) val = 0;
+                                                setPackageSessionAmounts((prev) => ({ ...prev, [pkg.id]: Number(val.toFixed(2)) }));
+                                              }}
+                                              className="w-28 pl-10"
+                                            />
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    <div className="flex-shrink-0">
+                                      {isOwned && packageView === 'more' && remaining > 0 ? (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled
+                                          className="flex cursor-not-allowed items-center gap-2 opacity-70"
+                                        >
+                                          <Trash className="h-4 w-4 text-red-400" />
+                                          <span>El paquete ya está siendo usado por el cliente</span>
+                                        </Button>
+                                      ) : (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant={isSelected ? "outline" : "default"}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isSelected) {
+                                              setSelectedPackages(selectedPackages.filter((p) => p.id !== pkg.id));
+                                              setPackageSessionAmounts((prev) => {
+                                                const copy = { ...prev };
+                                                delete copy[pkg.id];
+                                                return copy;
+                                              });
+                                            } else {
+                                              setSelectedPackages([...selectedPackages, pkg]);
+                                              // Default abono: si el paquete es del cliente usar la deuda (si existe), si no usar el precio total
+                                              const defaultAbono = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                              setPackageSessionAmounts((prev) => ({ ...prev, [pkg.id]: Number(defaultAbono.toFixed(2)) }));
+                                            }
+                                          }}
+                                          className={cn(
+                                            "flex items-center gap-2",
+                                            isSelected ? "bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-700 border border-red-200" : "",
+                                          )}
+                                        >
+                                          {isSelected ? (
+                                            <>
+                                              <Trash className="h-4 w-4 text-red-600" />
+                                              <span>Quitar</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus className="h-4 w-4" />
+                                              Usar
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
+                              );
+                            })
+              ) : (
+                            <div className="py-8 text-center text-muted-foreground">
+                              <PackageIcon className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                <p>No hay paquetes disponibles en esta sección</p>
+                              <p className="text-sm">Puedes cambiar de pestaña o crear paquetes desde la sección de Paquetes</p>
                             </div>
-                            {totalPackagePages > 1 && (
-                              <div className="flex justify-center mt-4 gap-2">
-                                <Button size="sm" variant="outline" disabled={packagePage === 1} onClick={() => setPackagePage(packagePage - 1)}>
-                                  &lt;
-                                </Button>
-                                {Array.from({ length: totalPackagePages }).map((_, i) => (
-                                  <Button
-                                    key={i}
-                                    size="sm"
-                                    variant={packagePage === i + 1 ? "default" : "ghost"}
-                                    onClick={() => setPackagePage(i + 1)}
-                                    className={packagePage === i + 1 ? "bg-pink-400 text-white" : ""}
-                                  >
-                                    {i + 1}
-                                  </Button>
-                                ))}
-                                <Button size="sm" variant="outline" disabled={packagePage === totalPackagePages} onClick={() => setPackagePage(packagePage + 1)}>
-                                  &gt;
-                                </Button>
-                              </div>
-                            )}
-                          </>
+                          )}
+                        </div>
+                        {packageView === 'more' && totalPackagePages > 1 && (
+                          <div className="mt-4 flex justify-center gap-2">
+                            <Button size="sm" variant="outline" disabled={packageApiPage === 1} onClick={() => setPackageApiPage(packageApiPage - 1)}>
+                              &lt;
+                            </Button>
+                            {Array.from({ length: totalPackagePages }).map((_, i) => (
+                              <Button
+                                key={i}
+                                size="sm"
+                                variant={packageApiPage === i + 1 ? "default" : "ghost"}
+                                onClick={() => setPackageApiPage(i + 1)}
+                                className={packageApiPage === i + 1 ? "bg-pink-400 text-white" : ""}
+                              >
+                                {i + 1}
+                              </Button>
+                            ))}
+                            <Button size="sm" variant="outline" disabled={packageApiPage === totalPackagePages} onClick={() => setPackageApiPage(packageApiPage + 1)}>
+                              &gt;
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </TabsContent>
@@ -1377,15 +1725,15 @@ export function CreateAppointment() {
                     {/* Payment Tab */}
                     <TabsContent
                       value="payment"
-                      className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
+                      className="mt-6 space-y-6 duration-300 animate-in fade-in-50"
                     >
                       <div className="space-y-4">
                         <Label className="text-base font-semibold">
                           Resumen de Pago
                         </Label>
                         {selectedAbonos.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <div className="py-8 text-center text-muted-foreground">
+                            <Wallet className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             <p>No hay abonos seleccionados</p>
                             <p className="text-sm">
                               Ve a la pestaña "Abonos" para agregar
@@ -1396,9 +1744,9 @@ export function CreateAppointment() {
                             {selectedAbonos.map(({ abono, amountToUse }) => (
                               <div
                                 key={abono.id}
-                                className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200"
+                                className="rounded-lg border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-3"
                               >
-                                <div className="flex justify-between items-start">
+                                <div className="flex items-start justify-between">
                                   <div>
                                     <p className="font-medium text-green-800">
                                       {abono.method.toUpperCase()}
@@ -1427,23 +1775,23 @@ export function CreateAppointment() {
 
             {/* Enhanced Summary Panel with Tabs */}
             <div className="lg:col-span-1">
-              <div className="lg:sticky lg:top-6 space-y-4">
+              <div className="space-y-4 lg:sticky lg:top-6">
                 {/* Action Buttons - Always visible at top */}
                 <div className="flex flex-col gap-3">
                   <Button
                     onClick={handleSave}
                     disabled={isSaving}
                     size="lg"
-                    className="btn-primary flex items-center gap-3 w-full shadow-lg hover:shadow-xl transition-all duration-300 mb-2"
+                    className="btn-primary mb-2 flex w-full items-center gap-3 shadow-lg transition-all duration-300 hover:shadow-xl"
                   >
                     {isSaving ? (
                       <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                         {isEditMode ? "Actualizando..." : "Guardando..."}
                       </>
                     ) : (
                       <>
-                        <Check className="w-5 h-5" />
+                        <Check className="h-5 w-5" />
                         {isEditMode ? "Actualizar Cita" : "Registrar Cita"}
                       </>
                     )}
@@ -1457,9 +1805,9 @@ export function CreateAppointment() {
                     }}
                     disabled={isSaving}
                     size="lg"
-                    className="flex items-center gap-3 w-full shadow-md hover:shadow-lg transition-all duration-300"
+                    className="flex w-full items-center gap-3 shadow-md transition-all duration-300 hover:shadow-lg"
                   >
-                    <Save className="w-5 h-5" />
+                    <Save className="h-5 w-5" />
                     Guardar Borrador
                   </Button> */}
                 </div>
@@ -1468,33 +1816,33 @@ export function CreateAppointment() {
                 <Card className="card-modern shadow-lg">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
+                      <FileText className="h-5 w-5 text-primary" />
                       Resumen de la Cita
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-0 overflow-hidden">
+                  <CardContent className="overflow-hidden p-0">
                     <Tabs defaultValue="general" className="w-full">
                       <div className="relative m-4 mb-0">
-                        <TabsList className="flex w-full bg-muted/50 p-1 rounded-lg overflow-x-auto scrollbar-thin">
+                        <TabsList className="scrollbar-thin flex w-full overflow-x-auto rounded-lg bg-muted/50 p-1">
                           <TabsTrigger
                             value="general"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                            className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-2 text-xs transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm sm:gap-2 sm:px-3 sm:text-sm"
                           >
-                            <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
                             <span className="hidden sm:inline">General</span>
                             <span className="sm:hidden">Gen</span>
                           </TabsTrigger>
                           <TabsTrigger
                             value="products"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                            className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-2 text-xs transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm sm:gap-2 sm:px-3 sm:text-sm"
                           >
-                            <ShoppingBag className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <ShoppingBag className="h-3 w-3 sm:h-4 sm:w-4" />
                             <span className="hidden sm:inline">Productos</span>
                             <span className="sm:hidden">Prod</span>
                             {selectedProducts.length > 0 && (
                               <Badge
                                 variant="secondary"
-                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                                className="ml-1 flex h-4 min-w-[1rem] items-center justify-center px-1 text-xs"
                               >
                                 {selectedProducts.length}
                               </Badge>
@@ -1502,15 +1850,15 @@ export function CreateAppointment() {
                           </TabsTrigger>
                           <TabsTrigger
                             value="package"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                            className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-2 text-xs transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm sm:gap-2 sm:px-3 sm:text-sm"
                           >
-                            <PackageIcon className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <PackageIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                             <span className="hidden sm:inline">Paquete</span>
                             <span className="sm:hidden">Paq</span>
                             {selectedPackages.length > 0 && (
                               <Badge
                                 variant="secondary"
-                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                                className="ml-1 flex h-4 min-w-[1rem] items-center justify-center px-1 text-xs"
                               >
                                 {selectedPackages.length}
                               </Badge>
@@ -1518,15 +1866,15 @@ export function CreateAppointment() {
                           </TabsTrigger>
                           <TabsTrigger
                             value="payment"
-                            className="flex items-center gap-1 sm:gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm whitespace-nowrap flex-shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                            className="flex flex-shrink-0 items-center gap-1 whitespace-nowrap px-2 text-xs transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm sm:gap-2 sm:px-3 sm:text-sm"
                           >
-                            <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Wallet className="h-3 w-3 sm:h-4 sm:w-4" />
                             <span className="hidden sm:inline">Pago</span>
                             <span className="sm:hidden">Pag</span>
                             {selectedAbonos.length > 0 && (
                               <Badge
                                 variant="secondary"
-                                className="ml-1 h-4 text-xs px-1 min-w-[1rem] flex items-center justify-center"
+                                className="ml-1 flex h-4 min-w-[1rem] items-center justify-center px-1 text-xs"
                               >
                                 {selectedAbonos.length}
                               </Badge>
@@ -1538,14 +1886,14 @@ export function CreateAppointment() {
                       {/* General Tab */}
                       <TabsContent
                         value="general"
-                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                        className="max-w-full space-y-3 overflow-hidden p-3 duration-300 animate-in fade-in-50 sm:space-y-4 sm:p-4"
                       >
                         {formData.patientId && (
-                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20 transition-all duration-300 min-w-0">
-                            <User className="w-5 h-5 text-primary flex-shrink-0" />
+                          <div className="flex min-w-0 items-center gap-3 rounded-lg border border-primary/20 bg-gradient-to-r from-primary/10 to-primary/5 p-3 transition-all duration-300">
+                            <User className="h-5 w-5 flex-shrink-0 text-primary" />
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-sm">Paciente</p>
-                              <p className="text-sm text-muted-foreground truncate">
+                              <p className="text-sm font-medium">Paciente</p>
+                              <p className="truncate text-sm text-muted-foreground">
                                 {(() => {
                                   const patient = patients.find(
                                     (p) => p.id === formData.patientId,
@@ -1560,11 +1908,11 @@ export function CreateAppointment() {
                         )}
 
                         {formData.workerId && (
-                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-secondary/10 to-secondary/5 rounded-lg border border-secondary/20 transition-all duration-300 min-w-0">
-                            <Users className="w-5 h-5 text-secondary flex-shrink-0" />
+                          <div className="flex min-w-0 items-center gap-3 rounded-lg border border-secondary/20 bg-gradient-to-r from-secondary/10 to-secondary/5 p-3 transition-all duration-300">
+                            <Users className="h-5 w-5 flex-shrink-0 text-secondary" />
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-sm">Trabajador</p>
-                              <p className="text-sm text-muted-foreground truncate">
+                              <p className="text-sm font-medium">Trabajador</p>
+                              <p className="truncate text-sm text-muted-foreground">
                                 {(() => {
                                   const worker = workers.find(
                                     (w) => w.id === formData.workerId,
@@ -1579,13 +1927,13 @@ export function CreateAppointment() {
                         )}
 
                         {formData.dateTime && (
-                          <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-accent/10 to-accent/5 rounded-lg border border-accent/20 transition-all duration-300 min-w-0">
-                            <Clock className="w-5 h-5 text-accent flex-shrink-0" />
+                          <div className="flex min-w-0 items-center gap-3 rounded-lg border border-accent/20 bg-gradient-to-r from-accent/10 to-accent/5 p-3 transition-all duration-300">
+                            <Clock className="h-5 w-5 flex-shrink-0 text-accent" />
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-sm">
+                              <p className="text-sm font-medium">
                                 Fecha y Hora
                               </p>
-                              <p className="text-sm text-muted-foreground break-words">
+                              <p className="break-words text-sm text-muted-foreground">
                                 {new Date(formData.dateTime).toLocaleString(
                                   "es-ES",
                                   {
@@ -1604,8 +1952,8 @@ export function CreateAppointment() {
                         )}
 
                         {formData.diagnosis && (
-                          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                            <Stethoscope className="w-5 h-5 text-blue-600 mt-0.5" />
+                          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                            <Stethoscope className="mt-0.5 h-5 w-5 text-blue-600" />
                             <div>
                               <p className="font-medium text-blue-800">
                                 Diagnóstico
@@ -1618,8 +1966,8 @@ export function CreateAppointment() {
                         )}
 
                         {formData.treatmentNotes && (
-                          <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                            <FileEdit className="w-5 h-5 text-green-600 mt-0.5" />
+                          <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                            <FileEdit className="mt-0.5 h-5 w-5 text-green-600" />
                             <div>
                               <p className="font-medium text-green-800">
                                 Tratamiento
@@ -1633,8 +1981,8 @@ export function CreateAppointment() {
 
                         {formData.treatmentPrice &&
                           formData.treatmentPrice > 0 && (
-                            <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                              <DollarSign className="w-5 h-5 text-emerald-600 mt-0.5" />
+                            <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                              <DollarSign className="mt-0.5 h-5 w-5 text-emerald-600" />
                               <div>
                                 <p className="font-medium text-emerald-800">
                                   Precio del Tratamiento
@@ -1647,8 +1995,8 @@ export function CreateAppointment() {
                           )}
 
                         {formData.observation && (
-                          <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                            <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
+                          <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <FileText className="mt-0.5 h-5 w-5 text-amber-600" />
                             <div>
                               <p className="font-medium text-amber-800">
                                 Observaciones
@@ -1663,8 +2011,8 @@ export function CreateAppointment() {
                         {!formData.patientId &&
                           !formData.workerId &&
                           !formData.dateTime && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <div className="py-8 text-center text-muted-foreground">
+                              <FileText className="mx-auto mb-4 h-12 w-12 opacity-50" />
                               <p>Completa los datos para ver el resumen</p>
                             </div>
                           )}
@@ -1673,7 +2021,7 @@ export function CreateAppointment() {
                       {/* Products Tab */}
                       <TabsContent
                         value="products"
-                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                        className="max-w-full space-y-3 overflow-hidden p-3 duration-300 animate-in fade-in-50 sm:space-y-4 sm:p-4"
                       >
                         {selectedProducts.length > 0 ? (
                           <div className="space-y-3">
@@ -1690,11 +2038,11 @@ export function CreateAppointment() {
                               {selectedProducts.map(({ product, quantity }) => (
                                 <div
                                   key={product.id}
-                                  className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm min-w-0"
+                                  className="min-w-0 rounded-lg border bg-gradient-to-r from-muted/30 to-muted/20 p-3 transition-all duration-300 hover:shadow-sm"
                                 >
-                                  <div className="flex justify-between items-start mb-2 min-w-0">
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="font-medium text-sm truncate">
+                                  <div className="mb-2 flex min-w-0 items-start justify-between">
+                                    <div className="min-w-0 flex-1">
+                                      <h4 className="truncate text-sm font-medium">
                                         {product.name}
                                       </h4>
                                       <p className="text-xs text-muted-foreground">
@@ -1705,9 +2053,9 @@ export function CreateAppointment() {
                                       onClick={() => removeProduct(product.id)}
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
+                                      className="ml-2 h-6 w-6 flex-shrink-0 p-0 text-red-600 hover:bg-red-100 hover:text-red-700"
                                     >
-                                      <Trash className="w-4 h-4" />
+                                      <Trash className="h-4 w-4" />
                                     </Button>
                                   </div>
                                   <div className="flex items-center justify-between">
@@ -1723,9 +2071,9 @@ export function CreateAppointment() {
                                         variant="outline"
                                         className="h-6 w-6 p-0"
                                       >
-                                        <Minus className="w-3 h-3" />
+                                        <Minus className="h-3 w-3" />
                                       </Button>
-                                      <span className="text-sm font-medium w-8 text-center">
+                                      <span className="w-8 text-center text-sm font-medium">
                                         {quantity}
                                       </span>
                                       <Button
@@ -1739,7 +2087,7 @@ export function CreateAppointment() {
                                         variant="outline"
                                         className="h-6 w-6 p-0"
                                       >
-                                        <Plus className="w-3 h-3" />
+                                        <Plus className="h-3 w-3" />
                                       </Button>
                                     </div>
                                     <span className="font-bold text-primary">
@@ -1750,12 +2098,12 @@ export function CreateAppointment() {
                               ))}
                             </div>
 
-                            <div className="pt-3 border-t">
-                              <div className="flex justify-between items-center">
+                            <div className="border-t pt-3">
+                              <div className="flex items-center justify-between">
                                 <span className="font-bold">
                                   Total productos:
                                 </span>
-                                <span className="font-bold text-lg text-primary">
+                                <span className="text-lg font-bold text-primary">
                                   S/{" "}
                                   {selectedProducts
                                     .reduce(
@@ -1769,8 +2117,8 @@ export function CreateAppointment() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <div className="py-8 text-center text-muted-foreground">
+                            <ShoppingBag className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             <p>No hay productos seleccionados</p>
                             <p className="text-sm">
                               Ve a la pestaña "Productos" para agregar
@@ -1782,7 +2130,7 @@ export function CreateAppointment() {
                       {/* Package Tab */}
                       <TabsContent
                         value="package"
-                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                        className="max-w-full space-y-3 overflow-hidden p-3 duration-300 animate-in fade-in-50 sm:space-y-4 sm:p-4"
                       >
                         {selectedPackages.length > 0 ? (
                           <div className="space-y-3">
@@ -1799,9 +2147,9 @@ export function CreateAppointment() {
                               {selectedPackages.map((pkg) => (
                                 <div
                                   key={pkg.id}
-                                  className="p-3 bg-gradient-to-r from-muted/30 to-muted/20 rounded-lg border transition-all duration-300 hover:shadow-sm"
+                                  className="rounded-lg border bg-gradient-to-r from-muted/30 to-muted/20 p-3 transition-all duration-300 hover:shadow-sm"
                                 >
-                                  <div className="flex justify-between items-start mb-2">
+                                  <div className="mb-2 flex items-start justify-between">
                                     <div>
                                       <h4 className="font-medium">{pkg.name}</h4>
                                       <p className="text-sm text-muted-foreground">
@@ -1818,9 +2166,9 @@ export function CreateAppointment() {
                                       }
                                       size="sm"
                                       variant="ghost"
-                                      className="h-6 w-6 p-0 hover:bg-red-100 text-red-600 hover:text-red-700"
+                                      className="h-6 w-6 p-0 text-red-600 hover:bg-red-100 hover:text-red-700"
                                     >
-                                      <Trash className="w-4 h-4" />
+                                      <Trash className="h-4 w-4" />
                                     </Button>
                                   </div>
                                   <div className="flex items-center justify-between">
@@ -1832,20 +2180,23 @@ export function CreateAppointment() {
                               ))}
                             </div>
 
-                            <div className="pt-3 border-t">
-                              <div className="flex justify-between items-center">
+                            <div className="border-t pt-3">
+                              <div className="flex items-center justify-between">
                                 <span className="font-bold">
                                   Total paquetes:
                                 </span>
-                                <span className="font-bold text-lg text-primary">
-                                  S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0).toFixed(2)}
+                                <span className="text-lg font-bold text-primary">
+                                  S/ {selectedPackages.reduce((sum, pkg) => {
+                                    const amt = typeof packageSessionAmounts[pkg.id] !== 'undefined' ? packageSessionAmounts[pkg.id] : (pkg.price || 0);
+                                    return sum + Number(amt || 0);
+                                  }, 0).toFixed(2)}
                                 </span>
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <PackageIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <div className="py-8 text-center text-muted-foreground">
+                            <PackageIcon className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             <p>No hay paquetes seleccionados</p>
                             <p className="text-sm">
                               Ve a la pestaña "Paquete" para asignar
@@ -1857,7 +2208,7 @@ export function CreateAppointment() {
                       {/* Payment Tab */}
                       <TabsContent
                         value="payment"
-                        className="p-3 sm:p-4 space-y-3 sm:space-y-4 animate-in fade-in-50 duration-300 max-w-full overflow-hidden"
+                        className="max-w-full space-y-3 overflow-hidden p-3 duration-300 animate-in fade-in-50 sm:space-y-4 sm:p-4"
                       >
                         {getTotalCost() > 0 ? (
                           <div className="space-y-3">
@@ -1866,7 +2217,7 @@ export function CreateAppointment() {
                             </div>
 
                             {/* Cost Breakdown */}
-                            <div className="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                            <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
                               <div className="flex justify-between text-sm">
                                 <span>Costo total:</span>
                                 <span className="font-medium">
@@ -1881,11 +2232,11 @@ export function CreateAppointment() {
                                   </span>
                                 </div>
                               )}
-                              <div className="flex justify-between pt-2 border-t border-blue-300">
+                              <div className="flex justify-between border-t border-blue-300 pt-2">
                                 <span className="font-bold">
                                   Saldo restante:
                                 </span>
-                                <span className="font-bold text-lg text-blue-800">
+                                <span className="text-lg font-bold text-blue-800">
                                   S/ {getRemainingBalance().toFixed(2)}
                                 </span>
                               </div>
@@ -1901,9 +2252,9 @@ export function CreateAppointment() {
                                   ({ abono, amountToUse }) => (
                                     <div
                                       key={abono.id}
-                                      className="p-3 bg-green-50 rounded-lg border border-green-200"
+                                      className="rounded-lg border border-green-200 bg-green-50 p-3"
                                     >
-                                      <div className="flex justify-between items-start">
+                                      <div className="flex items-start justify-between">
                                         <div>
                                           <p className="font-medium text-green-800">
                                             {abono.method.toUpperCase()}
@@ -1927,12 +2278,12 @@ export function CreateAppointment() {
 
                             {/* Payment Methods Suggestion */}
                             {getRemainingBalance() > 0 && (
-                              <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                                 <p className="text-sm text-amber-800">
                                   <strong>Saldo pendiente:</strong> S/{" "}
                                   {getRemainingBalance().toFixed(2)}
                                 </p>
-                                <p className="text-xs text-amber-600 mt-1">
+                                <p className="mt-1 text-xs text-amber-600">
                                   Deberá ser pagado con efectivo, tarjeta u otro
                                   método al momento de la cita.
                                 </p>
@@ -1940,8 +2291,8 @@ export function CreateAppointment() {
                             )}
                           </div>
                         ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Wallet className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          <div className="py-8 text-center text-muted-foreground">
+                            <Wallet className="mx-auto mb-4 h-12 w-12 opacity-50" />
                             <p>No hay costos que mostrar</p>
                             <p className="text-sm">
                               Agrega productos o precio de tratamiento
@@ -1956,9 +2307,9 @@ export function CreateAppointment() {
                       (selectedPackages.length > 0) ||
                       (formData.treatmentPrice &&
                         formData.treatmentPrice > 0)) && (
-                        <div className="p-4 border-t bg-gradient-to-r from-green-50 to-emerald-50">
-                          <div className="flex items-center gap-2 mb-3">
-                            <DollarSign className="w-5 h-5 text-green-600" />
+                        <div className="border-t bg-gradient-to-r from-green-50 to-emerald-50 p-4">
+                          <div className="mb-3 flex items-center gap-2">
+                            <DollarSign className="h-5 w-5 text-green-600" />
                             <h3 className="font-bold text-green-800">
                               Resumen de Costos
                             </h3>
@@ -1994,15 +2345,18 @@ export function CreateAppointment() {
                               <div className="flex justify-between">
                                 <span className="text-sm">Total paquetes:</span>
                                 <span className="text-sm font-medium text-green-600">
-                                  S/ {selectedPackages.reduce((sum, pkg) => sum + (pkg.price || 0), 0).toFixed(2)}
+                                  S/ {selectedPackages.reduce((sum, pkg) => {
+                                    const amt = typeof packageSessionAmounts[pkg.id] !== 'undefined' ? packageSessionAmounts[pkg.id] : (pkg.price || 0);
+                                    return sum + Number(amt || 0);
+                                  }, 0).toFixed(2)}
                                 </span>
                               </div>
                             )}
-                            <div className="flex justify-between pt-2 border-t border-green-300">
+                            <div className="flex justify-between border-t border-green-300 pt-2">
                               <span className="font-bold text-green-800">
                                 Total estimado:
                               </span>
-                              <span className="font-bold text-xl text-green-800">
+                              <span className="text-xl font-bold text-green-800">
                                 S/ {getTotalCost().toFixed(2)}
                               </span>
                             </div>
