@@ -110,6 +110,7 @@ interface SearchableSelectProps {
   displayField: (item: Patient | Worker) => string;
   searchFields: (item: Patient | Worker) => string[];
   emptyText: string;
+  selectedItem?: Patient | Worker | null;
   fetchItems?: (search: string) => Promise<(Patient | Worker)[]>;
 }
 
@@ -121,6 +122,7 @@ function SearchableSelect({
   displayField,
   searchFields,
   emptyText,
+  selectedItem,
   fetchItems,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -202,11 +204,19 @@ function SearchableSelect({
     }
     const all = [...items, ...remoteItems];
     const found = all.find((it) => it && (it as any).id === value) || null;
-    setItemSelected(found as Patient | Worker | null);
+    if (found) {
+      setItemSelected(found as Patient | Worker | null);
+    } else if (selectedItem && (selectedItem as any).id === value) {
+      // fallback to external selected item passed by parent
+      setItemSelected(selectedItem as Patient | Worker | null);
+    } else {
+      setItemSelected(null);
+    }
   }, [value, items, remoteItems]);
 
   const handleSelect = (item: Patient | Worker) => {
     setItemSelected(item);
+    console.log("Selected item:", item);
     onValueChange(item.id, item);
     setIsOpen(false);
     setSearchTerm("");
@@ -219,8 +229,8 @@ function SearchableSelect({
         onClick={() => setIsOpen(true)}
         className="w-full justify-start font-normal"
       >
-        {itemSelected ? (
-          <span className="truncate">{displayField(itemSelected)}</span>
+        {itemSelected || selectedItem ? (
+          <span className="truncate">{displayField(itemSelected ?? (selectedItem as Patient | Worker))}</span>
         ) : (
           <span className="text-muted-foreground">{placeholder}</span>
         )}
@@ -1115,6 +1125,7 @@ export function CreateAppointment() {
                                 setErrors({ ...errors, patientId: "" });
                               }
                             }}
+                            selectedItem={selectedPatient}
                             placeholder="Seleccionar paciente"
                             displayField={(item) => {
                               const patient = item as Patient;
