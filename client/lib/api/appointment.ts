@@ -68,7 +68,7 @@ export class AppointmentRepository {
       patient: item.patientId,
       workerId: item.userId?.id,
       worker: item.userId,
-      dateTime: item.createdAt,
+      date: item.createdAt,
     } as Appointment;
   }
 

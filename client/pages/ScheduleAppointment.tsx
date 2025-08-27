@@ -779,7 +779,6 @@ export function ScheduleAppointment() {
     patientId: "",
     workerId: user?.role === "worker" ? user.id : "",
     date: "",
-    duration: 60,
     reason: "",
     treatmentNotes: "",
     additionalObservations: "",
@@ -874,8 +873,9 @@ export function ScheduleAppointment() {
   // Calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return filteredAppointments.map((appointment) => {
-      const start = new Date(appointment.dateTime);
-      const end = new Date(start.getTime() + appointment.duration * 60000);
+  const start = new Date(appointment.date);
+  const DEFAULT_APPOINTMENT_MINUTES = 60;
+  const end = new Date(start.getTime() + DEFAULT_APPOINTMENT_MINUTES * 60000);
       const patientName = `${appointment.patient?.firstName ?? ""} ${appointment.patient?.paternalSurname ?? ""} ${appointment.patient?.maternalSurname ?? ""}`.trim();
       return {
         id: appointment.id,
@@ -896,7 +896,7 @@ export function ScheduleAppointment() {
           patient: patients.find((p) => p.id === apt.patientId),
           worker: getWorkerById(apt.workerId),
         }))
-        .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()),
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
     [dailyAppointments, patients, getWorkerById],
   );
 
@@ -928,11 +928,10 @@ export function ScheduleAppointment() {
         const created = await appointmentRepo.create(formData);
         setRawAppointments((prev) => [created, ...prev]);
       }
-      setFormData({
+  setFormData({
         patientId: "",
         workerId: user?.role === "worker" ? user.id : "",
         date: "",
-        duration: 60,
         reason: "",
         treatmentNotes: "",
         additionalObservations: "",
@@ -955,8 +954,7 @@ export function ScheduleAppointment() {
     setFormData({
       patientId: appointment.patientId,
       workerId: appointment.workerId,
-      date: appointment.dateTime,
-      duration: appointment.duration,
+      date: appointment.date,
       reason: appointment.reason,
       treatmentNotes: appointment.treatmentNotes || "",
       additionalObservations: appointment.observation || "",
@@ -973,7 +971,6 @@ export function ScheduleAppointment() {
       patientId: "",
       workerId: user?.role === "worker" ? user.id : "",
       date: "",
-      duration: 60,
       reason: "",
       treatmentNotes: "",
       additionalObservations: "",
@@ -1283,23 +1280,6 @@ export function ScheduleAppointment() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="space-y-2">
-                            <Label htmlFor="duration">Duración *</Label>
-                            <Select
-                              value={formData.duration.toString()}
-                              onValueChange={(value) => setFormData({ ...formData, duration: parseInt(value) })}
-                            >
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="30">30 minutos</SelectItem>
-                                <SelectItem value="45">45 minutos</SelectItem>
-                                <SelectItem value="60">60 minutos</SelectItem>
-                                <SelectItem value="90">90 minutos</SelectItem>
-                                <SelectItem value="120">120 minutos</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-2">
                             <Label htmlFor="priority">Prioridad</Label>
                             <Select
                               value={formData.priority}
@@ -1476,8 +1456,7 @@ export function ScheduleAppointment() {
                                   day: "numeric",
                                   hour: "2-digit",
                                   minute: "2-digit",
-                                })}{" "}
-                                ({formData.duration} min)
+                                })}
                               </p>
                             </div>
                           </div>
@@ -1665,10 +1644,10 @@ export function ScheduleAppointment() {
                             >
                               <div className="flex flex-col items-center gap-1 min-w-16">
                                 <div className="text-lg font-bold text-primary">
-                                  {format(new Date(appointment.dateTime), "HH:mm")}
+                                  {format(new Date(appointment.date), "HH:mm")}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  {appointment.duration}min
+                                  
                                 </div>
                               </div>
 
@@ -1786,7 +1765,7 @@ export function ScheduleAppointment() {
                   <Label className="font-medium text-accent">Fecha y Hora</Label>
                   <div className="p-3 bg-accent/5 rounded-lg">
                     <p className="font-medium">
-                      {new Date(selectedAppointment.dateTime).toLocaleDateString("es-ES", {
+                      {new Date(selectedAppointment.date).toLocaleDateString("es-ES", {
                         weekday: "long",
                         year: "numeric",
                         month: "long",
@@ -1794,11 +1773,10 @@ export function ScheduleAppointment() {
                       })}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(selectedAppointment.dateTime).toLocaleTimeString("es-ES", {
+                      {new Date(selectedAppointment.date).toLocaleTimeString("es-ES", {
                         hour: "2-digit",
                         minute: "2-digit",
-                      })}{" "}
-                      ({selectedAppointment.duration} minutos)
+                      })}
                     </p>
                   </div>
                 </div>

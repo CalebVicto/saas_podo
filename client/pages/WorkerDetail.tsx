@@ -234,7 +234,7 @@ export function WorkerDetail() {
 
   const getRecentAppointments = () => {
     return [...appointments]
-      .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
   };
 
@@ -693,7 +693,6 @@ export function WorkerDetail() {
                         <TableRow>
                           <TableHead>Paciente</TableHead>
                           <TableHead>Fecha</TableHead>
-                          <TableHead>Duración</TableHead>
                           <TableHead>Estado</TableHead>
                           <TableHead>Tratamiento</TableHead>
                           <TableHead className="text-right">Ingreso</TableHead>
@@ -719,10 +718,10 @@ export function WorkerDetail() {
                               <TableCell>
                                 <div>
                                   <p className="font-medium">
-                                    {new Date(appointment.dateTime).toLocaleDateString()}
+                                    {new Date(appointment.date).toLocaleDateString()}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    {new Date(appointment.dateTime).toLocaleTimeString([], {
+                                    {new Date(appointment.date).toLocaleTimeString([], {
                                       hour: "2-digit",
                                       minute: "2-digit",
                                     })}
@@ -731,7 +730,7 @@ export function WorkerDetail() {
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="text-xs">
-                                  {appointment.duration} min
+                                  
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -809,10 +808,7 @@ export function WorkerDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Tiempo Promedio por Cita</span>
-                    <span className="font-semibold">{Number(stats.averageAppointmentDuration || 0)} min</span>
-                  </div>
+                  {/* average appointment duration removed */}
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Pacientes Únicos</span>
                     <span className="font-semibold">{Number(stats.uniquePatients || 0)}</span>

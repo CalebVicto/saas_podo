@@ -644,12 +644,7 @@ export function PatientDetail() {
                                     </div>
                                   )}
 
-                                  {appointment.duration && (
-                                    <div>
-                                      <p className="text-muted-foreground">Duración:</p>
-                                      <p className="font-medium">{appointment.duration} minutos</p>
-                                    </div>
-                                  )}
+
 
                                   {appointment.diagnosis && (
                                     <div>

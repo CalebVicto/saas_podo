@@ -1797,7 +1797,7 @@ export function Sales() {
                     )}
                     {(() => {
                       const dateTime =
-                        saleToDelete.appointment.dateTime ||
+                        saleToDelete.appointment.date ||
                         saleToDelete.appointment.createdAt;
                       if (dateTime) {
                         const { date, time } = formatDateTime(dateTime);

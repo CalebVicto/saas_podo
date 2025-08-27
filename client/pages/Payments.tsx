@@ -921,7 +921,7 @@ export function Payments() {
                               {appointment.patient?.paternalSurname}{" "}
                               {appointment.patient?.maternalSurname} -{" "}
                               {new Date(
-                                appointment.dateTime,
+                                appointment.date,
                               ).toLocaleDateString()}
                             </SelectItem>
                           ))}

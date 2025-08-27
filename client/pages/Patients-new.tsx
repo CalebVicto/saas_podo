@@ -290,8 +290,8 @@ export function Patients() {
                 const appointments = getPatientAppointments(patient.id);
                 const lastAppointment = appointments.sort(
                   (a, b) =>
-                    new Date(b.dateTime).getTime() -
-                    new Date(a.dateTime).getTime(),
+                    new Date(b.date).getTime() -
+                    new Date(a.date).getTime(),
                 )[0];
 
                 return (
@@ -345,7 +345,7 @@ export function Patients() {
                             </span>
                             <span className="font-medium">
                               {new Date(
-                                lastAppointment.dateTime,
+                                lastAppointment.date,
                               ).toLocaleDateString()}
                             </span>
                           </div>
@@ -821,8 +821,8 @@ export function Patients() {
                     )
                       .sort(
                         (a, b) =>
-                          new Date(b.dateTime).getTime() -
-                          new Date(a.dateTime).getTime(),
+                          new Date(b.date).getTime() -
+                          new Date(a.date).getTime(),
                       )
                       .slice(0, 5);
 
@@ -836,7 +836,7 @@ export function Patients() {
                             <div>
                               <p className="font-medium text-sm">
                                 {new Date(
-                                  appointment.dateTime,
+                                  appointment.date,
                                 ).toLocaleDateString()}
                               </p>
                               <p className="text-muted-foreground text-xs">

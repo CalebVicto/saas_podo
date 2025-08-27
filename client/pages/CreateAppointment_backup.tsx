@@ -357,7 +357,6 @@ export function CreateAppointment() {
     patientId: "",
     workerId: "",
     dateTime: "",
-    duration: 60,
     treatmentNotes: "",
     diagnosis: "",
     observation: "",
@@ -592,8 +591,8 @@ export function CreateAppointment() {
                       className="space-y-6 mt-6 animate-in fade-in-50 duration-300"
                     >
                       {/* Patient and Worker Selection */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
                           <Label>Paciente *</Label>
                           <SearchableSelect
                             items={patients}
@@ -607,13 +606,13 @@ export function CreateAppointment() {
                             placeholder="Seleccionar paciente"
                             displayField={(item) => {
                               const patient = item as Patient;
-                              return `${patient.firstName} ${patient.lastName}`;
+                              return `${patient.firstName} ${patient.paternalSurname || ''} ${patient.maternalSurname || ''}`.trim();
                             }}
                             searchFields={(item) => {
                               const patient = item as Patient;
                               return [
                                 patient.firstName,
-                                patient.lastName,
+                                patient.paternalSurname,
                                 patient.documentId,
                                 patient.phone,
                               ];
@@ -691,29 +690,7 @@ export function CreateAppointment() {
                           )}
                         </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="duration">Duración *</Label>
-                          <Select
-                            value={formData.duration.toString()}
-                            onValueChange={(value) =>
-                              setFormData({
-                                ...formData,
-                                duration: parseInt(value),
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="30">30 minutos</SelectItem>
-                              <SelectItem value="45">45 minutos</SelectItem>
-                              <SelectItem value="60">60 minutos</SelectItem>
-                              <SelectItem value="90">90 minutos</SelectItem>
-                              <SelectItem value="120">120 minutos</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <div className="space-y-2">{/* duration removed */}</div>
                       </div>
 
                       {/* Diagnosis */}
@@ -1046,7 +1023,7 @@ export function CreateAppointment() {
                                 (p) => p.id === formData.patientId,
                               );
                               return patient
-                                ? `${patient.firstName} ${patient.lastName}`
+                                ? `${patient.firstName} ${patient.paternalSurname || ''} ${patient.maternalSurname || ''}`.trim()
                                 : "";
                             })()}
                           </p>
@@ -1090,7 +1067,7 @@ export function CreateAppointment() {
                                 minute: "2-digit",
                               },
                             )}{" "}
-                            ({formData.duration} min)
+                            {/* duration removed */}
                           </p>
                         </div>
                       </div>

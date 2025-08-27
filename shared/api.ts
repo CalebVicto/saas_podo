@@ -107,8 +107,7 @@ export interface Appointment {
   id: string;
   patientId: string;
   workerId: string;
-  dateTime?: string;
-  duration?: number; // in minutes
+  date?: string;
   treatmentNotes?: string;
   diagnosis?: string;
   treatment?: string;
@@ -129,7 +128,6 @@ export interface CreateAppointmentRequest {
   patientId: string;
   workerId: string;
   dateTime: string;
-  duration: number;
   treatmentNotes?: string;
   diagnosis?: string;
   observation?: string;
@@ -140,7 +138,6 @@ export interface ScheduleAppointmentRequest {
   patientId: string;
   workerId: string;
   date: string;
-  duration: number;
   reason: string;
   treatmentNotes?: string;
   additionalObservations?: string;

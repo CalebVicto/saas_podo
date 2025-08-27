@@ -142,7 +142,7 @@ export function Reports() {
 
       // Filter appointments by date range and worker
       let filteredAppointments = appointments.filter((appointment) => {
-        const appointmentDate = new Date(appointment.dateTime);
+        const appointmentDate = new Date(appointment.date);
         const dateMatch =
           appointmentDate >= startDate && appointmentDate <= endDate;
         const workerMatch =
@@ -158,7 +158,7 @@ export function Reports() {
         const dateStr = currentDate.toISOString().split("T")[0];
 
         const dayAppointments = filteredAppointments.filter((apt) =>
-          apt.dateTime.startsWith(dateStr),
+          apt.date.startsWith(dateStr),
         );
 
         const dayPayments = filteredPayments.filter((payment) => {

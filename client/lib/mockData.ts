@@ -286,8 +286,7 @@ export const mockAppointments: Appointment[] = [
     id: "1",
     patientId: "1",
     workerId: "1",
-    dateTime: "2024-01-25T09:00:00Z",
-    duration: 60,
+    date: "2024-01-25T09:00:00Z",
     treatmentNotes: "Tratamiento de callos plantares y revisión general",
     diagnosis: "Hiperqueratosis plantar bilateral",
     status: "completed",
@@ -300,8 +299,7 @@ export const mockAppointments: Appointment[] = [
     id: "2",
     patientId: "2",
     workerId: "2",
-    dateTime: "2024-01-25T11:30:00Z",
-    duration: 45,
+    date: "2024-01-25T11:30:00Z",
     treatmentNotes: "Revisión de fascitis plantar y ajuste de plantillas",
     diagnosis: "Fascitis plantar crónica",
     status: "completed",
@@ -314,8 +312,7 @@ export const mockAppointments: Appointment[] = [
     id: "3",
     patientId: "3",
     workerId: "1",
-    dateTime: "2024-01-26T10:00:00Z",
-    duration: 30,
+    date: "2024-01-26T10:00:00Z",
     treatmentNotes: "Tratamiento de uña encarnada",
     diagnosis: "Onicocriptosis en hallux derecho",
     status: "scheduled",
@@ -328,8 +325,7 @@ export const mockAppointments: Appointment[] = [
     id: "4",
     patientId: "4",
     workerId: "3",
-    dateTime: "2024-01-26T14:00:00Z",
-    duration: 60,
+    date: "2024-01-26T14:00:00Z",
     treatmentNotes: "Limpieza general y tratamiento de durezas",
     status: "scheduled",
     createdAt: "2024-01-23T16:20:00Z",
@@ -341,8 +337,7 @@ export const mockAppointments: Appointment[] = [
     id: "5",
     patientId: "5",
     workerId: "2",
-    dateTime: "2024-01-27T09:30:00Z",
-    duration: 45,
+    date: "2024-01-27T09:30:00Z",
     treatmentNotes: "Control de tratamiento antimicótico",
     diagnosis: "Onicomicosis en tratamiento",
     status: "scheduled",
@@ -910,7 +905,7 @@ export const getPatientStats = () => ({
 export const getAppointmentStats = () => {
   const today = new Date().toDateString();
   const todayAppointments = mockAppointments.filter(
-    (a) => new Date(a.dateTime).toDateString() === today,
+    (a) => new Date(a.date).toDateString() === today,
   );
 
   return {

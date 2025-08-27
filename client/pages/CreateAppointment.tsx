@@ -105,7 +105,7 @@ const PREDEFINED_TREATMENTS = [
 interface SearchableSelectProps {
   items: (Patient | Worker)[];
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: (value: string, item: Patient | Worker) => void;
   placeholder: string;
   displayField: (item: Patient | Worker) => string;
   searchFields: (item: Patient | Worker) => string[];
@@ -129,6 +129,7 @@ function SearchableSelect({
   const [isSearching, setIsSearching] = useState(false);
   const latestSearchRef = useRef(0);
   const searchDebounceRef = useRef<number | null>(null);
+  const [itemSelected, setItemSelected] = useState<Patient | Worker | null>(null);
 
   const doRemoteSearch = useCallback(
     async (term: string) => {
@@ -193,10 +194,20 @@ function SearchableSelect({
     );
   }, [items, remoteItems, searchTerm, searchFields, fetchItems]);
 
-  const selectedItem = items.find((item) => item.id === value);
+  // Keep internal selected item in sync with external `value` and available items
+  useEffect(() => {
+    if (!value) {
+      setItemSelected(null);
+      return;
+    }
+    const all = [...items, ...remoteItems];
+    const found = all.find((it) => it && (it as any).id === value) || null;
+    setItemSelected(found as Patient | Worker | null);
+  }, [value, items, remoteItems]);
 
   const handleSelect = (item: Patient | Worker) => {
-    onValueChange(item.id);
+    setItemSelected(item);
+    onValueChange(item.id, item);
     setIsOpen(false);
     setSearchTerm("");
   };
@@ -208,8 +219,8 @@ function SearchableSelect({
         onClick={() => setIsOpen(true)}
         className="w-full justify-start font-normal"
       >
-        {selectedItem ? (
-          <span className="truncate">{displayField(selectedItem)}</span>
+        {itemSelected ? (
+          <span className="truncate">{displayField(itemSelected)}</span>
         ) : (
           <span className="text-muted-foreground">{placeholder}</span>
         )}
@@ -430,7 +441,6 @@ export function CreateAppointment() {
     patientId: "",
     workerId: "",
     dateTime: getPeruDateTimeLocalNow(),
-    duration: 60,
     treatmentNotes: "",
     diagnosis: "",
     observation: "",
@@ -445,6 +455,9 @@ export function CreateAppointment() {
     const localISOTime = new Date(now.getTime() - tzOffset).toISOString().slice(0, 16);
     return localISOTime;
   }
+
+  // Selected patient state
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
   // Products state
   const [selectedProducts, setSelectedProducts] = useState<
@@ -515,18 +528,62 @@ export function CreateAppointment() {
         setIsLoading(true);
         try {
           const appt = await appointmentRepository.getById(id);
+          // Normalize patientId / workerId because backend may return nested objects
+          const patientIdStr = appt.patientId
+            ? typeof appt.patientId === "string"
+              ? appt.patientId
+              : (appt.patientId as any).id || ""
+            : "";
+          const workerIdStr = (appt as any).userId
+            ? typeof (appt as any).userId === "string"
+              ? (appt as any).userId
+              : (appt as any).userId.id || (appt as any).userId?.userId || ""
+            : appt.workerId || "";
+
           setFormData({
-            patientId: appt.patientId || "",
-            workerId: appt.workerId || "",
-            dateTime: appt.dateTime
-              ? appt.dateTime.slice(0, 16)
+            patientId: patientIdStr,
+            workerId: workerIdStr,
+            dateTime: appt.date
+              ? appt.date.slice(0, 16)
               : getPeruDateTimeLocalNow(),
-            duration: appt.duration || 60,
             treatmentNotes: appt.treatment || "",
             diagnosis: appt.diagnosis || "",
             observation: appt.observation || "",
             treatmentPrice: appt.treatmentPrice,
           });
+
+          // If the API returned the full patient object, set it so the SearchableSelect shows
+          if (appt.patientId && typeof appt.patientId === "object") {
+            try {
+              setSelectedPatient(appt.patientId as Patient);
+            } catch (e) {
+              // ignore if shape differs
+            }
+          }
+          // Ensure patients list contains the loaded patient so SearchableSelect can render it
+          if (appt.patientId && typeof appt.patientId === "object") {
+            const incomingPatient = appt.patientId as Patient;
+            setPatients((prev) => {
+              if (prev.some((p) => p.id === (incomingPatient as any).id)) return prev;
+              return [...prev, incomingPatient];
+            });
+          }
+
+          // If API returned a user/worker object (e.g. userId), ensure workers list contains it
+          const workerObj = (appt as any).userId || (appt as any).user;
+          if (workerObj && typeof workerObj === "object") {
+            const incomingWorker = {
+              id: workerObj.id || workerObj._id || "",
+              firstName: workerObj.firstName || workerObj.name || "",
+              lastName: workerObj.lastName || workerObj.surname || "",
+              email: workerObj.email || "",
+              specialization: workerObj.specialization || "",
+            } as Worker;
+            setWorkers((prev) => {
+              if (prev.some((w) => w.id === incomingWorker.id)) return prev;
+              return [...prev, incomingWorker];
+            });
+          }
           if (appt.products) {
             setSelectedProducts(
               appt.products.map((p: any) => ({
@@ -620,6 +677,8 @@ export function CreateAppointment() {
     }
   };
 
+  // ...existing code...
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -673,11 +732,11 @@ export function CreateAppointment() {
         products: productsPayload,
         packageIds: selectedPackages.map((p) => p.id),
         appointmentPrice,
+        date: formData.dateTime,
       };
       if (isEditMode && id) {
         await appointmentRepository.update(id, payload);
       } else {
-        payload.date = formData.dateTime.split("T")[0];
         await appointmentRepository.create(payload);
       }
       navigate("/appointments");
@@ -1019,6 +1078,9 @@ export function CreateAppointment() {
                           {selectedPackages.length > 0 && (
                             <span className="ml-1 inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
                           )}
+                          {patientPackagesForPatient.length > 0 && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-green-400 px-2 text-[10px] font-semibold text-white">{patientPackagesForPatient.filter((pp) => Number((pp as any)?.remainingSessions ?? 0) > 0).length}</span>
+                          )}
                         </TabsTrigger>
                         <TabsTrigger
                           value="payment"
@@ -1046,7 +1108,8 @@ export function CreateAppointment() {
                           <SearchableSelect
                             items={patients}
                             value={formData.patientId}
-                            onValueChange={(value) => {
+                            onValueChange={(value, item) => {
+                              setSelectedPatient(item as Patient);
                               setFormData({ ...formData, patientId: value });
                               if (errors.patientId) {
                                 setErrors({ ...errors, patientId: "" });
@@ -1055,16 +1118,16 @@ export function CreateAppointment() {
                             placeholder="Seleccionar paciente"
                             displayField={(item) => {
                               const patient = item as Patient;
-                              return `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname} - ${patient.documentType.toLocaleUpperCase()}: ${patient.documentNumber}`;
+                              return `${patient?.firstName} ${patient?.paternalSurname} ${patient?.maternalSurname} - ${patient?.documentType.toLocaleUpperCase()}: ${patient?.documentNumber}`;
                             }}
                             searchFields={(item) => {
                               const patient = item as Patient;
                               return [
-                                patient.firstName,
-                                patient.paternalSurname,
-                                patient.maternalSurname,
-                                patient.documentNumber,
-                                patient.phone,
+                                patient?.firstName,
+                                patient?.paternalSurname,
+                                patient?.maternalSurname,
+                                patient?.documentNumber,
+                                patient?.phone,
                               ];
                             }}
                             emptyText="No se encontraron pacientes"
@@ -1154,29 +1217,7 @@ export function CreateAppointment() {
                           )}
                         </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="duration">Duración *</Label>
-                          <Select
-                            value={formData.duration.toString()}
-                            onValueChange={(value) =>
-                              setFormData({
-                                ...formData,
-                                duration: parseInt(value),
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="30">30 minutos</SelectItem>
-                              <SelectItem value="45">45 minutos</SelectItem>
-                              <SelectItem value="60">60 minutos</SelectItem>
-                              <SelectItem value="90">90 minutos</SelectItem>
-                              <SelectItem value="120">120 minutos</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {/* duration field removed */}
                       </div>
 
                       {/* Diagnosis */}
@@ -1236,24 +1277,24 @@ export function CreateAppointment() {
                         </Label>
                         <div className="relative">
                           <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
-                          <Input
-                            id="treatmentPrice"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.treatmentPrice || ""}
-                            onChange={(e) => {
-                              const value = e.target.value
-                                ? parseFloat(e.target.value)
-                                : undefined;
-                              setFormData({
-                                ...formData,
-                                treatmentPrice: value,
-                              });
-                            }}
-                            placeholder="0.00"
-                            className="pl-10"
-                          />
+                            <Input
+                              id="treatmentPrice"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={formData.treatmentPrice || ""}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                  ? parseFloat(e.target.value)
+                                  : undefined;
+                                setFormData({
+                                  ...formData,
+                                  treatmentPrice: value,
+                                });
+                              }}
+                              placeholder="0.00"
+                              className="pl-10"
+                            />
                         </div>
                       </div>
 
@@ -1470,30 +1511,6 @@ export function CreateAppointment() {
                           Paquetes Disponibles
                         </Label>
 
-                        {/* Resumen de paquetes seleccionados */}
-                        {selectedPackages.length > 0 && (
-                          <div className="mt-4 rounded-lg border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 shadow-sm duration-500 animate-in fade-in-50">
-                            <div className="mb-2 flex items-center gap-2">
-                              <Check className="h-5 w-5 text-green-600" />
-                              <span className="font-medium text-green-800">
-                                {selectedPackages.length} paquete{selectedPackages.length > 1 ? 's' : ''} seleccionado{selectedPackages.length > 1 ? 's' : ''} —
-                                Total: <span className="font-bold text-primary">S/ {selectedPackages.reduce((sum, pkg) => {
-                                  const amt = typeof packageSessionAmounts[pkg.id] !== 'undefined' ? packageSessionAmounts[pkg.id] : (pkg.price || 0);
-                                  return sum + Number(amt || 0);
-                                }, 0).toFixed(2)}</span>
-                              </span>
-                              <Button
-                                onClick={() => setSelectedPackages([])}
-                                size="sm"
-                                variant="ghost"
-                                className="ml-auto h-6 w-6 p-0 text-red-600 hover:bg-red-100 hover:text-red-700"
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Grid de paquetes - siempre una columna (mobile-first) */}
                         {patientPackagesForPatient.length > 0 && (
                           <div className="flex gap-2">
@@ -1569,7 +1586,7 @@ export function CreateAppointment() {
 
                                             {/* Total sessions (secondary) */}
                                             <span className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700" title={`Total de sesiones`}>
-                                              Totales: {totalSessions}
+                                              Total de Sesiones: {totalSessions}
                                             </span>
 
                                             <span className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700" title={`S/ ${pricePerSession.toFixed(2)} por sesión`}>
@@ -1895,9 +1912,7 @@ export function CreateAppointment() {
                               <p className="text-sm font-medium">Paciente</p>
                               <p className="truncate text-sm text-muted-foreground">
                                 {(() => {
-                                  const patient = patients.find(
-                                    (p) => p.id === formData.patientId,
-                                  );
+                                  const patient = selectedPatient;
                                   return patient
                                     ? `${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`
                                     : "";
@@ -1944,8 +1959,7 @@ export function CreateAppointment() {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   },
-                                )}{" "}
-                                ({formData.duration} min)
+                                )}
                               </p>
                             </div>
                           </div>

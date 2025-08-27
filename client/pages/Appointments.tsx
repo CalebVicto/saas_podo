@@ -136,7 +136,6 @@ export function Appointments() {
     patientId: "",
     workerId: "",
     dateTime: "",
-    duration: 60,
     treatmentNotes: "",
     diagnosis: "",
   });
@@ -295,7 +294,6 @@ export function Appointments() {
       patientId: "",
       workerId: "",
       dateTime: "",
-      duration: 60,
       treatmentNotes: "",
       diagnosis: "",
     });
@@ -339,12 +337,12 @@ export function Appointments() {
       title="Gestión de Citas"
       subtitle="Programa y administra las citas de tus pacientes"
     >
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         {/* ===== Header Actions ===== */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-primary" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <Calendar className="h-6 w-6 text-primary" />
             </div>
           </div>
 
@@ -352,23 +350,23 @@ export function Appointments() {
             onClick={() => navigate("/appointments/new")}
             className="btn-primary flex items-center gap-2"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="h-5 w-5" />
             Nueva Cita
           </Button>
         </div>
 
         {/* ===== Quick Stats ===== */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card className="card-modern">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Calendar className="w-5 h-5 text-primary" />
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <Calendar className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Hoy</p>
                   <p className="font-semibold">
-                    {appointments.filter((a) => a.dateTime?.startsWith(today)).length} citas
+                    {appointments.filter((a) => a.date?.startsWith(today)).length} citas
                   </p>
                 </div>
               </div>
@@ -378,8 +376,8 @@ export function Appointments() {
           <Card className="card-modern">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-secondary/10 rounded-lg">
-                  <CheckCircle className="w-5 h-5 text-secondary" />
+                <div className="rounded-lg bg-secondary/10 p-2">
+                  <CheckCircle className="h-5 w-5 text-secondary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Pagadas</p>
@@ -394,8 +392,8 @@ export function Appointments() {
           <Card className="card-modern">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-warning/10 rounded-lg">
-                  <Clock className="w-5 h-5 text-warning" />
+                <div className="rounded-lg bg-warning/10 p-2">
+                  <Clock className="h-5 w-5 text-warning" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Registradas</p>
@@ -410,8 +408,8 @@ export function Appointments() {
           <Card className="card-modern">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-destructive/10 rounded-lg">
-                  <XCircle className="w-5 h-5 text-destructive" />
+                <div className="rounded-lg bg-destructive/10 p-2">
+                  <XCircle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Canceladas</p>
@@ -427,9 +425,9 @@ export function Appointments() {
         {/* ===== Filtros ===== */}
         <Card className="card-modern">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
               <div className="relative">
-                <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
                 <Input
                   placeholder="Buscar paciente, trabajador..."
                   value={pagination.searchTerm}
@@ -501,12 +499,12 @@ export function Appointments() {
                 ))}
               </div>
             ) : pagination.data.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">
+              <div className="py-12 text-center">
+                <Calendar className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+                <h3 className="mb-2 text-xl font-semibold text-foreground">
                   No hay citas
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="mb-6 text-muted-foreground">
                   {pagination.searchTerm || statusFilter !== "all" || dateFilter
                     ? "No se encontraron citas con los filtros aplicados"
                     : "No hay citas programadas"}
@@ -515,8 +513,8 @@ export function Appointments() {
                   onClick={() => navigate("/appointments/new")}
                   className="btn-primary"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Programar Primera Cita
+                  <Plus className="mr-2 h-4 w-4" />
+                  Agregar Cita
                 </Button>
               </div>
             ) : (
@@ -549,7 +547,7 @@ export function Appointments() {
                     <TableBody>
                       {pagination.data.map((appointment) => {
                         const { date, time } = formatDateTime(
-                          appointment.dateTime || appointment.createdAt,
+                          appointment.date || appointment.createdAt,
                         );
                         const statusInfo = statusConfig[appointment.status];
                         const StatusIcon = statusInfo?.icon || Clock;
@@ -571,8 +569,8 @@ export function Appointments() {
 
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                                  <User className="w-4 h-4 text-primary" />
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                                  <User className="h-4 w-4 text-primary" />
                                 </div>
                                 <div>
                                   <p className="font-medium">
@@ -607,7 +605,7 @@ export function Appointments() {
                                 variant="outline"
                                 className={cn("gap-1", statusInfo?.className || "")}
                               >
-                                <StatusIcon className="w-3 h-3" />
+                                <StatusIcon className="h-3 w-3" />
                                 {statusInfo?.label || "Desconocido"}
                               </Badge>
                             </TableCell>
@@ -619,36 +617,43 @@ export function Appointments() {
                                   variant="outline"
                                   size="sm"
                                 >
-                                  <Eye className="w-4 h-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
 
-                                {appointment.status === "registered" && (
+                                {(appointment.status === "registered" || appointment.appointmentPrice == 0) && (
                                   <>
-                                    <Button
-                                      onClick={() => openEditDialog(appointment)}
-                                      variant="outline"
-                                      size="sm"
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
 
-                                    <Button
-                                      onClick={() => openPaymentDialog(appointment)}
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-green-600 border-green-600 hover:bg-green-600 hover:text-white"
-                                    >
-                                      <DollarSign className="w-4 h-4" />
-                                    </Button>
+                                    {appointment.status !== "canceled" &&
+                                      <Button
+                                        onClick={() => openEditDialog(appointment)}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    }
 
-                                    <Button
-                                      onClick={() => handleDeleteAppointment(appointment.id)}
-                                      variant="outline"
-                                      size="sm"
-                                      className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                    >
-                                      <XCircle className="w-4 h-4" />
-                                    </Button>
+                                    {
+                                      appointment.appointmentPrice > 0 &&
+                                      <Button
+                                        onClick={() => openPaymentDialog(appointment)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+                                      >
+                                        <DollarSign className="h-4 w-4" />
+                                      </Button>}
+
+                                    {appointment.status !== "canceled" &&
+                                      <Button
+                                        onClick={() => handleDeleteAppointment(appointment.id)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                      >
+                                        <XCircle className="h-4 w-4" />
+                                      </Button>
+                                    }
                                   </>
                                 )}
                               </div>
@@ -669,14 +674,14 @@ export function Appointments() {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
+                <Calendar className="h-5 w-5 text-primary" />
                 Nueva Cita
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="patientId">Paciente *</Label>
                   <Select
                     value={formData.patientId}
@@ -720,7 +725,7 @@ export function Appointments() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dateTime">Fecha y Hora *</Label>
                   <Input
@@ -732,27 +737,6 @@ export function Appointments() {
                     }
                     required
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="duration">Duración (minutos) *</Label>
-                  <Select
-                    value={formData.duration.toString()}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, duration: parseInt(value) })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 minutos</SelectItem>
-                      <SelectItem value="45">45 minutos</SelectItem>
-                      <SelectItem value="60">60 minutos</SelectItem>
-                      <SelectItem value="90">90 minutos</SelectItem>
-                      <SelectItem value="120">120 minutos</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 
@@ -799,7 +783,7 @@ export function Appointments() {
                   !formData.patientId || !formData.workerId || !formData.dateTime
                 }
               >
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 Programar Cita
               </Button>
             </div>
@@ -811,14 +795,14 @@ export function Appointments() {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Edit className="w-5 h-5 text-primary" />
+                <Edit className="h-5 w-5 text-primary" />
                 Editar Cita
               </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="editPatientId">Paciente *</Label>
                   <Select
                     value={formData.patientId}
@@ -861,7 +845,7 @@ export function Appointments() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="editDateTime">Fecha y Hora *</Label>
                   <Input
@@ -873,27 +857,6 @@ export function Appointments() {
                     }
                     required
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="editDuration">Duración (minutos) *</Label>
-                  <Select
-                    value={formData.duration.toString()}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, duration: parseInt(value) })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 minutos</SelectItem>
-                      <SelectItem value="45">45 minutos</SelectItem>
-                      <SelectItem value="60">60 minutos</SelectItem>
-                      <SelectItem value="90">90 minutos</SelectItem>
-                      <SelectItem value="120">120 minutos</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
 
@@ -939,7 +902,7 @@ export function Appointments() {
                   !formData.patientId || !formData.workerId || !formData.dateTime
                 }
               >
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 Actualizar
               </Button>
             </div>
@@ -949,16 +912,12 @@ export function Appointments() {
         {/* ===== Diálogo: Ver Cita ===== */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogContent
-            className="
-      w-[95vw] sm:w-full
-      sm:max-w-[980px] md:max-w-[1040px]
-      p-0
-    "
+            className="w-[95vw] p-0 sm:w-full sm:max-w-[980px] md:max-w-[1040px]"
           >
-            <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogHeader className="px-6 pb-0 pt-6">
               <DialogTitle className="flex items-center justify-between pr-6">
                 <span className="flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-primary" />
+                  <Eye className="h-5 w-5 text-primary" />
                   Detalle de Cita (Historia Clínica)
                 </span>
                 <div className="flex gap-2">
@@ -972,12 +931,12 @@ export function Appointments() {
                       }
                     }}
                   >
-                    <Edit className="w-4 h-4 mr-2" />
+                    <Edit className="mr-2 h-4 w-4" />
                     Editar
                   </Button>
                   {/* opcional */}
                   {/* <Button size="sm" onClick={() => window.print()} className="btn-primary">
-            <Save className="w-4 h-4 mr-2" />
+            <Save className="mr-2 h-4 w-4" />
             Imprimir
           </Button> */}
                 </div>
@@ -993,7 +952,7 @@ export function Appointments() {
                 />
               )}
 
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="mt-6 flex justify-end gap-3">
                 <Button
                   onClick={() => {
                     setIsViewDialogOpen(false);
@@ -1015,7 +974,7 @@ export function Appointments() {
           <DialogContent className="sm:max-w-[400px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-primary" />
+                <DollarSign className="h-5 w-5 text-primary" />
                 Registrar Pago
               </DialogTitle>
             </DialogHeader>
@@ -1023,7 +982,7 @@ export function Appointments() {
             {selectedAppointment && (
               <div className="space-y-4 py-4">
                 {/* Info de la cita */}
-                <div className="p-3 bg-muted/30 rounded-lg">
+                <div className="rounded-lg bg-muted/30 p-3">
                   <p className="font-medium">
                     {selectedAppointment.patient?.firstName}{" "}
                     {selectedAppointment.patient?.paternalSurname}{" "}
@@ -1032,9 +991,9 @@ export function Appointments() {
                     {selectedAppointment.patient?.documentNumber}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {new Date(selectedAppointment.dateTime).toLocaleDateString()}{" "}
+                    {new Date(selectedAppointment.date).toLocaleDateString()}{" "}
                     -{" "}
-                    {new Date(selectedAppointment.dateTime).toLocaleTimeString(
+                    {new Date(selectedAppointment.date).toLocaleTimeString(
                       "es-ES",
                       { hour: "2-digit", minute: "2-digit" }
                     )}
@@ -1080,7 +1039,7 @@ export function Appointments() {
                 className="btn-primary"
                 disabled={!selectedAppointment}
               >
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="mr-2 h-4 w-4" />
                 Registrar Pago
               </Button>
             </div>

@@ -77,10 +77,7 @@ export const AppointmentDetailStory: React.FC<{
                   <p className="text-xs text-muted-foreground">Hora</p>
                   <p className="font-medium">{formatTime(dateSource)}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Duración</p>
-                  <p className="font-medium">{appt.duration ?? 60} min</p>
-                </div>
+                {/* Duración removed per new requirements */}
                 <div>
                   <p className="text-xs text-muted-foreground">Estado</p>
                   <Badge
@@ -280,10 +277,7 @@ export const AppointmentDetailStory: React.FC<{
               <p className="text-muted-foreground">Hora</p>
               <p className="font-medium">{formatTime(dateSource)}</p>
             </div>
-            <div>
-              <p className="text-muted-foreground">Duración</p>
-              <p className="font-medium">{appt.duration ?? 60} min</p>
-            </div>
+            {/* Duración removed per new requirements */}
             <div>
               <p className="text-muted-foreground">Estado</p>
               <p className="font-medium"><StatusDot status={appt.status} /></p>

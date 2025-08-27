@@ -31,8 +31,7 @@ function normalizeAppointment(raw: any): ScheduledAppointment {
     patientId: raw.patientId,
     workerId: raw.workerId,
     userId: raw.userId,
-    dateTime: raw.date, // viene "2025-08-13T14:00:00.000Z"
-    duration: raw.duration ?? 60,
+    date: raw.date, // viene "2025-08-13T14:00:00.000Z"
     status: raw.status ?? "scheduled",
     reason: raw.reason ?? "",
     treatmentNotes: raw.treatmentNotes ?? "",
@@ -92,7 +91,7 @@ export class FutureAppointmentRepository {
       patientId: data.patientId,
       workerId: data.workerId,
       date: data.date, // el backend espera "date"
-      duration: data.duration,
+  // duration removed
       priority: data.priority,
       reason: data.reason,
       treatmentNotes: data.treatmentNotes,
@@ -118,7 +117,7 @@ export class FutureAppointmentRepository {
   ): Promise<ScheduledAppointment> {
     const payload: any = {
       date: data.date,
-      duration: data.duration,
+  // duration removed
       priority: data.priority,
       reason: data.reason,
       treatmentNotes: data.treatmentNotes,
