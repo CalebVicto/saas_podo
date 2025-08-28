@@ -617,8 +617,8 @@ export function CreateAppointment() {
             const pkgsRaw: any[] = Array.isArray((appt as any).packages)
               ? (appt as any).packages
               : Array.isArray((appt as any).packageIds)
-              ? (appt as any).packageIds.map((id: any) => ({ id }))
-              : [];
+                ? (appt as any).packageIds.map((id: any) => ({ id }))
+                : [];
             const normalizedPkgs: Package[] = pkgsRaw.map((p) => {
               // p may be { id } or { id, abono } or nested object
               const id = p.id || (typeof p === "string" ? p : undefined) || (p.packageId && (p.packageId.id || p.packageId));
@@ -743,6 +743,23 @@ export function CreateAppointment() {
     }
 
     setErrors(newErrors);
+    // Si hay errores en campos de la pestaña "general", cambiar a esa pestaña
+    const generalFields = [
+      'patientId',
+      'workerId',
+      'dateTime',
+      'diagnosis',
+      'treatmentNotes',
+    ];
+    const errorKeys = Object.keys(newErrors);
+  
+    // También mostrar los errores como snackbars/toasts para mayor visibilidad
+    const errorMsgs = Object.values(newErrors);
+    if (errorMsgs.length > 0) {
+      // solo muestra el primero
+      toast({ title: errorMsgs[0], variant: "destructive" });
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -768,8 +785,8 @@ export function CreateAppointment() {
         treatmentPrice: formData.treatmentPrice || 0,
         patientId: formData.patientId,
         products: productsPayload,
-  // Enviar paquetes como arreglo de objetos: [{ id: string, payment: number }]
-  packages: selectedPackages.map((p) => ({ id: p.id, payment: Number(packageSessionAmounts[p.id] ?? 0) })),
+        // Enviar paquetes como arreglo de objetos: [{ id: string, payment: number }]
+        packages: selectedPackages.map((p) => ({ id: p.id, payment: Number(packageSessionAmounts[p.id] ?? 0) })),
         appointmentPrice,
         date: formData.dateTime,
       };
@@ -1317,24 +1334,24 @@ export function CreateAppointment() {
                         </Label>
                         <div className="relative">
                           <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
-                            <Input
-                              id="treatmentPrice"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={formData.treatmentPrice || ""}
-                              onChange={(e) => {
-                                const value = e.target.value
-                                  ? parseFloat(e.target.value)
-                                  : undefined;
-                                setFormData({
-                                  ...formData,
-                                  treatmentPrice: value,
-                                });
-                              }}
-                              placeholder="0.00"
-                              className="pl-10"
-                            />
+                          <Input
+                            id="treatmentPrice"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={formData.treatmentPrice || ""}
+                            onChange={(e) => {
+                              const value = e.target.value
+                                ? parseFloat(e.target.value)
+                                : undefined;
+                              setFormData({
+                                ...formData,
+                                treatmentPrice: value,
+                              });
+                            }}
+                            placeholder="0.00"
+                            className="pl-10"
+                          />
                         </div>
                       </div>
 
@@ -1572,7 +1589,6 @@ export function CreateAppointment() {
                               const remaining = Number((pp as any)?.remainingSessions ?? 0);
                               const totalPrice = Number((pp as any)?.packagePrice ?? (pkg as any).price ?? 0); // packagePrice = costo total del paquete
                               const totalSessions = Number((pkg as any).sessions ?? (pp as any)?.remainingSessions ?? 1);
-                              const pricePerSession = totalSessions > 0 ? totalPrice / totalSessions : 0;
                               const usedSessions = Math.max(0, Number(totalSessions) - Number(remaining));
                               const usedPercent = totalSessions > 0 ? Math.max(0, Math.min(100, Math.round((usedSessions / totalSessions) * 100))) : 0;
                               const debt = typeof (pp as any)?.debt !== 'undefined' ? Number((pp as any).debt) : undefined;
@@ -1609,7 +1625,7 @@ export function CreateAppointment() {
                                   </div>
 
                                   {/* Body: badges + optional debt + progress */}
-                                      <div className="mt-3">
+                                  <div className="mt-3">
                                     {packageView === 'more' ? (
                                       <div className="flex items-center justify-between gap-3">
                                         <div className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700">Totales: {totalSessions}</div>
@@ -1619,19 +1635,17 @@ export function CreateAppointment() {
                                       <>
                                         <div className="flex items-center justify-between gap-3">
                                           <div className="flex items-center gap-2">
-                                            {/* Remaining sessions (highlighted for the client) */}
-                                            <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-emerald-200" title={`Sesiones restantes`}>
-                                              {remaining} sesiones
-                                            </span>
 
                                             {/* Total sessions (secondary) */}
                                             <span className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700" title={`Total de sesiones`}>
                                               Total de Sesiones: {totalSessions}
                                             </span>
 
-                                            <span className="inline-flex items-center rounded-full border bg-white px-2 py-0.5 text-xs text-slate-700" title={`S/ ${pricePerSession.toFixed(2)} por sesión`}>
-                                              S/ {pricePerSession.toFixed(2)} /ses
+                                            {/* Remaining sessions (highlighted for the client) */}
+                                            <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white ring-1 ring-emerald-200" title={`Sesiones restantes`}>
+                                              {remaining} sesiones
                                             </span>
+
 
                                             {typeof debt !== 'undefined' && (
                                               <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs", debt > 0 ? "bg-destructive text-white" : "bg-secondary text-white")}>
@@ -1661,34 +1675,40 @@ export function CreateAppointment() {
                                   {/* Footer: amount */}
                                   <div className="mt-8 flex items-center justify-between gap-3">
                                     <div className="flex items-center gap-2">
-                                          {isSelected && (
-                                        <>
-                                          <div className="text-lg text-slate-600">Abono:</div>
-                                          <div className="relative">
-                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">S/</span>
-                                            <Input
-                                              type="number"
-                                              step="0.01"
-                                              min={0}
-                                              value={(() => {
-                                                const maxAllowed = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
-                                                const defaultAmount = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
-                                                return appliedAmount !== undefined ? appliedAmount : Number(defaultAmount.toFixed(2));
-                                              })()}
-                                              onChange={(e) => {
-                                                const raw = e.target.value;
-                                                let val = raw ? parseFloat(raw) : 0;
-                                                const maxAllowed = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
-                                                if (isNaN(val)) val = 0;
-                                                if (val > maxAllowed) val = maxAllowed;
-                                                if (val < 0) val = 0;
-                                                setPackageSessionAmounts((prev) => ({ ...prev, [pkg.id]: Number(val.toFixed(2)) }));
-                                              }}
-                                              className="w-28 pl-10"
-                                            />
-                                          </div>
-                                        </>
-                                      )}
+                                      {
+                                        isOwned && packageView === 'more' && remaining > 0 ?
+                                          null :
+                                          (isSelected) && (
+                                            debt == 0 ?
+                                              <div className="text-lg text-slate-600">El paquete esta pagado.</div>
+                                              :
+                                              <>
+                                                <div className="text-lg text-slate-600">Abono:</div>
+                                                <div className="relative">
+                                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">S/</span>
+                                                  <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    min={0}
+                                                    value={(() => {
+                                                      const maxAllowed = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                                      const defaultAmount = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                                      return appliedAmount !== undefined ? appliedAmount : Number(defaultAmount.toFixed(2));
+                                                    })()}
+                                                    onChange={(e) => {
+                                                      const raw = e.target.value;
+                                                      let val = raw ? parseFloat(raw) : 0;
+                                                      const maxAllowed = isOwned ? (typeof debt !== 'undefined' ? debt : totalPrice) : totalPrice;
+                                                      if (isNaN(val)) val = 0;
+                                                      if (val > maxAllowed) val = maxAllowed;
+                                                      if (val < 0) val = 0;
+                                                      setPackageSessionAmounts((prev) => ({ ...prev, [pkg.id]: Number(val.toFixed(2)) }));
+                                                    }}
+                                                    className="w-28 pl-10"
+                                                  />
+                                                </div>
+                                              </>
+                                          )}
                                     </div>
 
                                     <div className="flex-shrink-0">
@@ -1747,10 +1767,10 @@ export function CreateAppointment() {
                                 </div>
                               );
                             })
-              ) : (
+                          ) : (
                             <div className="py-8 text-center text-muted-foreground">
                               <PackageIcon className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                <p>No hay paquetes disponibles en esta sección</p>
+                              <p>No hay paquetes disponibles en esta sección</p>
                               <p className="text-sm">Puedes cambiar de pestaña o crear paquetes desde la sección de Paquetes</p>
                             </div>
                           )}
@@ -2424,7 +2444,7 @@ export function CreateAppointment() {
           </div>
         </div>
       </div>
-    </Layout>
+    </Layout >
   );
 }
 

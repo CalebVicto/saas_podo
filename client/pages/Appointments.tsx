@@ -310,17 +310,24 @@ export function Appointments() {
 
   const formatDateTime = (dateTime: string) => {
     const date = new Date(dateTime);
-    return {
-      date: date.toLocaleDateString("es-ES", {
-        weekday: "short",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-      time: date.toLocaleTimeString("es-ES", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+    // opcional: permitir mostrar en UTC cuando la fuente es UTC (termina en Z)
+    // o cuando explícitamente se solicita useUTC = true.
+    return function format(opts?: { useUTC?: boolean }) {
+      const timeZone = opts?.useUTC ? "UTC" : undefined;
+      return {
+        date: date.toLocaleDateString("es-ES", {
+          weekday: "short",
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          ...(timeZone ? { timeZone } : {}),
+        }),
+        time: date.toLocaleTimeString("es-ES", {
+          hour: "2-digit",
+          minute: "2-digit",
+          ...(timeZone ? { timeZone } : {}),
+        }),
+      };
     };
   };
 
@@ -546,9 +553,9 @@ export function Appointments() {
                     </TableHeader>
                     <TableBody>
                       {pagination.data.map((appointment) => {
-                        const { date, time } = formatDateTime(
-                          appointment.date || appointment.createdAt,
-                        );
+                        const rawDateStr = appointment.date || appointment.createdAt;
+                        const isUTCString = typeof rawDateStr === "string" && rawDateStr.endsWith("Z");
+                        const { date, time } = formatDateTime(rawDateStr)({ useUTC: isUTCString });
                         const statusInfo = statusConfig[appointment.status];
                         const StatusIcon = statusInfo?.icon || Clock;
 
