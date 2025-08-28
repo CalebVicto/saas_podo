@@ -284,7 +284,7 @@ export function PatientDetail() {
             config.color === "yellow" && "bg-yellow-100 text-yellow-800",
           )}
         >
-          <config.icon className="w-3 h-3 mr-1" />
+          <config.icon className="mr-1 h-3 w-3" />
           {config.label}
         </Badge>
       );
@@ -294,21 +294,21 @@ export function PatientDetail() {
     if (status === "active") {
       return (
         <Badge variant="default" className="text-xs">
-          <CheckCircle className="w-3 h-3 mr-1" />
+          <CheckCircle className="mr-1 h-3 w-3" />
           Activo
         </Badge>
       );
     } else if (status === "completed") {
       return (
         <Badge variant="secondary" className="text-xs">
-          <CheckCircle className="w-3 h-3 mr-1" />
+          <CheckCircle className="mr-1 h-3 w-3" />
           Completado
         </Badge>
       );
     } else if (status === "expired") {
       return (
         <Badge variant="outline" className="text-xs">
-          <XCircle className="w-3 h-3 mr-1" />
+          <XCircle className="mr-1 h-3 w-3" />
           Expirado
         </Badge>
       );
@@ -338,15 +338,15 @@ export function PatientDetail() {
         <div className="p-6">
           <Card>
             <CardContent className="p-8 text-center">
-              <User className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">
+              <User className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+              <h3 className="mb-2 text-lg font-semibold">
                 Paciente no encontrado
               </h3>
-              <p className="text-muted-foreground mb-4">
+              <p className="mb-4 text-muted-foreground">
                 El paciente que buscas no existe o ha sido eliminado.
               </p>
               <Button onClick={() => navigate("/patients")}>
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Volver a Pacientes
               </Button>
             </CardContent>
@@ -361,7 +361,7 @@ export function PatientDetail() {
       title={`${patient.firstName} ${patient.paternalSurname} ${patient.maternalSurname}`}
       subtitle="Historial completo del paciente"
     >
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         {/* Header with Back Button */}
         <div className="flex items-center gap-4">
           <Button
@@ -369,7 +369,7 @@ export function PatientDetail() {
             onClick={() => navigate("/patients")}
             className="flex items-center gap-2"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             Volver a Pacientes
           </Button>
           <Button
@@ -377,19 +377,27 @@ export function PatientDetail() {
             onClick={() => navigate(`/patients/${patient.id}/edit`)}
             className="flex items-center gap-2"
           >
-            <Edit className="w-4 h-4" />
+            <Edit className="h-4 w-4" />
             Editar
+          </Button>
+          <Button
+            onClick={() => navigate(`/appointments/new?patientId=${patient.id}`)}
+            size="sm"
+            className="btn-primary"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Cita
           </Button>
         </div>
 
         {/* Patient Basic Information */}
         <Card className="card-modern shadow-lg">
           <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex flex-col gap-6 lg:flex-row">
               {/* Avatar and Basic Info */}
               <div className="flex items-start gap-4">
-                <Avatar className="w-20 h-20">
-                  <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                <Avatar className="h-20 w-20">
+                  <AvatarFallback className="bg-primary text-xl text-primary-foreground">
                     {patient.firstName.charAt(0)}
                     {patient.paternalSurname.charAt(0)}
                   </AvatarFallback>
@@ -400,28 +408,28 @@ export function PatientDetail() {
                   </h1>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
-                      <BadgeIcon className="w-4 h-4 text-muted-foreground" />
+                      <BadgeIcon className="h-4 w-4 text-muted-foreground" />
                       <span>{patient.documentType} {patient.documentNumber}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <Phone className="h-4 w-4 text-muted-foreground" />
                       <span>{patient.phone}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>
                         {calculateAge(patient.birthDate)} años (
                         {formatDate(patient.birthDate)})
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-muted-foreground" />
+                      <User className="h-4 w-4 text-muted-foreground" />
                       <span className="capitalize">{patient.gender == "m" ? "Masculino" : "Femenino"}</span>
                     </div>
                   </div>
 
                   {/* Tags */}
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {getPatientTags().map((tag, index) => (
                       <Badge
                         key={index}
@@ -435,7 +443,7 @@ export function PatientDetail() {
                           "bg-orange-100 text-orange-800",
                         )}
                       >
-                        <Tag className="w-3 h-3 mr-1" />
+                        <Tag className="mr-1 h-3 w-3" />
                         {tag.label}
                       </Badge>
                     ))}
@@ -444,11 +452,11 @@ export function PatientDetail() {
               </div>
 
               {/* Statistics Cards */}
-              <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm text-blue-800 font-medium">
+              <div className="grid flex-1 grid-cols-2 gap-4 lg:grid-cols-4">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
                       Citas
                     </span>
                   </div>
@@ -460,10 +468,10 @@ export function PatientDetail() {
                   </p>
                 </div>
 
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Wallet className="w-4 h-4 text-green-600" />
-                    <span className="text-sm text-green-800 font-medium">
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-800">
                       Saldo
                     </span>
                   </div>
@@ -473,10 +481,10 @@ export function PatientDetail() {
                   <p className="text-xs text-green-600">Abonos disponibles</p>
                 </div>
 
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Package className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm text-purple-800 font-medium">
+                <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm font-medium text-purple-800">
                       Paquetes
                     </span>
                   </div>
@@ -486,10 +494,10 @@ export function PatientDetail() {
                   <p className="text-xs text-purple-600">Activos</p>
                 </div>
 
-                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm text-orange-800 font-medium">
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                  <div className="mb-1 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-800">
                       Total
                     </span>
                   </div>
@@ -503,11 +511,11 @@ export function PatientDetail() {
 
             {/* Clinical Notes */}
             {patient.otherConditions && (
-              <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-2">
-                  <FileText className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <FileText className="mt-0.5 h-5 w-5 text-amber-600" />
                   <div>
-                    <h4 className="font-medium text-amber-800 mb-1">
+                    <h4 className="mb-1 font-medium text-amber-800">
                       Notas Clínicas
                     </h4>
                     <p className="text-sm text-amber-700">
@@ -529,12 +537,12 @@ export function PatientDetail() {
               className="w-full"
             >
               <div className="p-6 pb-0">
-                <TabsList className="grid w-full grid-cols-4 bg-muted/50 p-1 rounded-lg">
+                <TabsList className="grid w-full grid-cols-4 rounded-lg bg-muted/50 p-1">
                   <TabsTrigger
                     value="appointments"
                     className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <Calendar className="w-4 h-4" />
+                    <Calendar className="h-4 w-4" />
                     Citas
                     {appointments.length > 0 && (
                       <Badge variant="secondary" className="ml-1 h-5 text-xs">
@@ -546,7 +554,7 @@ export function PatientDetail() {
                     value="sales"
                     className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <ShoppingBag className="w-4 h-4" />
+                    <ShoppingBag className="h-4 w-4" />
                     Ventas
                     {sales.length > 0 && (
                       <Badge variant="secondary" className="ml-1 h-5 text-xs">
@@ -558,7 +566,7 @@ export function PatientDetail() {
                     value="abonos"
                     className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <Wallet className="w-4 h-4" />
+                    <Wallet className="h-4 w-4" />
                     Abonos
                     {abonos.length > 0 && (
                       <Badge variant="secondary" className="ml-1 h-5 text-xs">
@@ -570,7 +578,7 @@ export function PatientDetail() {
                     value="packages"
                     className="flex items-center gap-2 transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <PackageOpen className="w-4 h-4" />
+                    <PackageOpen className="h-4 w-4" />
                     Paquetes
                     {patientPackages.length > 0 && (
                       <Badge variant="secondary" className="ml-1 h-5 text-xs">
@@ -582,33 +590,25 @@ export function PatientDetail() {
               </div>
 
               {/* Appointments Tab */}
-              <TabsContent value="appointments" className="p-6 pt-4 space-y-4">
+              <TabsContent value="appointments" className="space-y-4 p-6 pt-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Historial de Citas</h3>
-                  <Button
-                    onClick={() => navigate("/appointments/new")}
-                    size="sm"
-                    className="btn-primary"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nueva Cita
-                  </Button>
                 </div>
 
                 {appointments.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Calendar className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <h4 className="text-lg font-semibold mb-2">
+                  <div className="py-12 text-center">
+                    <Calendar className="mx-auto mb-4 h-16 w-16 text-muted-foreground opacity-50" />
+                    <h4 className="mb-2 text-lg font-semibold">
                       No hay citas registradas
                     </h4>
-                    <p className="text-muted-foreground mb-4">
+                    <p className="mb-4 text-muted-foreground">
                       Este paciente aún no tiene citas en el sistema.
                     </p>
                     <Button
-                      onClick={() => navigate("/appointments/new")}
+                      onClick={() => navigate(`/appointments/new?patientId=${patient.id}`)}
                       variant="outline"
                     >
-                      <Plus className="w-4 h-4 mr-2" />
+                      <Plus className="mr-2 h-4 w-4" />
                       Programar Primera Cita
                     </Button>
                   </div>
@@ -623,18 +623,18 @@ export function PatientDetail() {
                         return (
                           <div
                             key={appointment.id}
-                            className="border rounded-lg p-4 hover:bg-muted/30 transition-colors"
+                            className="rounded-lg border p-4 transition-colors hover:bg-muted/30"
                           >
-                            <div className="flex items-start justify-between relative">
+                            <div className="relative flex items-start justify-between">
                               <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
+                                <div className="mb-2 flex items-center gap-3">
                                   <h4 className="font-semibold">
                                     {formatDateTime(appointment.createdAt)}
                                   </h4>
                                   {getStatusBadge(appointment.status, "appointment")}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                                   {appointment.userId && (
                                     <div>
                                       <p className="text-muted-foreground">Trabajador:</p>
@@ -678,7 +678,7 @@ export function PatientDetail() {
                                 </div>
 
                                 {appointment.status === "paid" && (
-                                  <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                                  <div className="mt-3 rounded border border-green-200 bg-green-50 p-2">
                                     <div className="flex items-center justify-between text-sm">
                                       <span className="text-green-800">Pagado ({paymentLabel}):</span>
                                       <span className="font-bold text-green-900">
@@ -692,7 +692,7 @@ export function PatientDetail() {
                               <Button variant="ghost"
                                 onClick={() => navigate(`/appointments/${appointment.id}`)}
                                 size="sm" style={{ position: "absolute", top: "0", right: "0" }}>
-                                <Eye className="w-4 h-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
@@ -703,7 +703,7 @@ export function PatientDetail() {
               </TabsContent>
 
               {/* Sales Tab */}
-              <TabsContent value="sales" className="p-6 pt-4 space-y-4">
+              <TabsContent value="sales" className="space-y-4 p-6 pt-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Historial de Ventas</h3>
                   <Button
@@ -711,25 +711,25 @@ export function PatientDetail() {
                     size="sm"
                     variant="outline"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="mr-2 h-4 w-4" />
                     Nueva Venta
                   </Button>
                 </div>
 
                 {sales.length === 0 ? (
-                  <div className="text-center py-12">
-                    <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <h4 className="text-lg font-semibold mb-2">
+                  <div className="py-12 text-center">
+                    <ShoppingBag className="mx-auto mb-4 h-16 w-16 text-muted-foreground opacity-50" />
+                    <h4 className="mb-2 text-lg font-semibold">
                       No hay ventas registradas
                     </h4>
-                    <p className="text-muted-foreground mb-4">
+                    <p className="mb-4 text-muted-foreground">
                       Este paciente no ha realizado compras de productos.
                     </p>
                     <Button
                       onClick={() => navigate("/sales")}
                       variant="outline"
                     >
-                      <ShoppingBag className="w-4 h-4 mr-2" />
+                      <ShoppingBag className="mr-2 h-4 w-4" />
                       Registrar Venta
                     </Button>
                   </div>
@@ -759,7 +759,7 @@ export function PatientDetail() {
                               <div className="flex-1 space-y-3">
                                 {/* Fecha + Estado */}
                                 <div className="flex items-center gap-3">
-                                  <h4 className="font-semibold text-base">
+                                  <h4 className="text-base font-semibold">
                                     Venta del {formatDate(sale.date)}
                                   </h4>
                                   {sale.paymentMethod ? (
@@ -775,14 +775,14 @@ export function PatientDetail() {
 
                                 {/* Productos */}
                                 <div className="text-sm">
-                                  <p className="text-muted-foreground mb-1">
+                                  <p className="mb-1 text-muted-foreground">
                                     {totalProducts} producto(s):
                                   </p>
                                   <div className="space-y-1">
                                     {sale.saleItems.map((item: any, idx: number) => (
                                       <div
                                         key={idx}
-                                        className="flex justify-between items-center"
+                                        className="flex items-center justify-between"
                                       >
                                         <span>
                                           {item.product?.name} × {item.quantity}
@@ -804,7 +804,7 @@ export function PatientDetail() {
                                 )}
 
                                 {/* Total */}
-                                <div className="pt-2 border-t">
+                                <div className="border-t pt-2">
                                   <div className="flex justify-between font-bold">
                                     <span>Total:</span>
                                     <span className="text-primary">
@@ -817,7 +817,7 @@ export function PatientDetail() {
                               <Button variant="ghost" size="sm" style={{ position: "absolute", top: "10px", right: "10px" }}
                                 onClick={() => navigate(`/sales/${sale.id}`)}
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
@@ -828,7 +828,7 @@ export function PatientDetail() {
               </TabsContent>
 
               {/* Abonos Tab */}
-              <TabsContent value="abonos" className="p-6 pt-4 space-y-4">
+              <TabsContent value="abonos" className="space-y-4 p-6 pt-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Abonos y Saldo</h3>
                   <Button
@@ -836,7 +836,7 @@ export function PatientDetail() {
                     size="sm"
                     className="btn-primary"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="mr-2 h-4 w-4" />
                     Nuevo Abono
                   </Button>
                 </div>
@@ -844,10 +844,10 @@ export function PatientDetail() {
                 {/* Balance Summary */}
                 {stats?.currentAbonoBalance &&
                   stats.currentAbonoBalance > 0 && (
-                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                    <div className="rounded-lg border border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Wallet className="w-6 h-6 text-green-600" />
+                          <Wallet className="h-6 w-6 text-green-600" />
                           <div>
                             <h4 className="font-bold text-green-800">
                               Saldo Disponible
@@ -867,19 +867,19 @@ export function PatientDetail() {
                   )}
 
                 {abonos.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Wallet className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <h4 className="text-lg font-semibold mb-2">
+                  <div className="py-12 text-center">
+                    <Wallet className="mx-auto mb-4 h-16 w-16 text-muted-foreground opacity-50" />
+                    <h4 className="mb-2 text-lg font-semibold">
                       No hay abonos registrados
                     </h4>
-                    <p className="text-muted-foreground mb-4">
+                    <p className="mb-4 text-muted-foreground">
                       Este paciente no ha realizado prepagos.
                     </p>
                     <Button
                       onClick={() => setFormViewAddBalance(true)}
                       variant="outline"
                     >
-                      <Wallet className="w-4 h-4 mr-2" />
+                      <Wallet className="mr-2 h-4 w-4" />
                       Registrar Primer Abono
                     </Button>
                   </div>
@@ -910,13 +910,13 @@ export function PatientDetail() {
                                   <Badge variant="default" className="text-xs">
                                     {formatDate(abono.createdAt)}
                                   </Badge>
-                                  <h4 className="font-semibold text-base">
+                                  <h4 className="text-base font-semibold">
                                     {typeLabel} por <span className="uppercase">{paymentLabel}</span>
                                   </h4>
                                 </div>
 
                                 {/* Descripción y monto */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                                   <div>
                                     <p className="text-muted-foreground">Monto:</p>
                                     <p className={`font-bold text-lg ${amountColor}`}>
@@ -937,7 +937,7 @@ export function PatientDetail() {
                                 onClick={() => navigate(`/abonos/${abono.id}`)}
                                 style={{ position: "absolute", top: "10px", right: "10px" }}
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
@@ -948,7 +948,7 @@ export function PatientDetail() {
               </TabsContent>
 
               {/* Packages Tab */}
-              <TabsContent value="packages" className="p-6 pt-4 space-y-4">
+              <TabsContent value="packages" className="space-y-4 p-6 pt-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">
                     Paquetes de Sesiones
@@ -958,25 +958,25 @@ export function PatientDetail() {
                     size="sm"
                     variant="outline"
                   >
-                    <Package className="w-4 h-4 mr-2" />
+                    <Package className="mr-2 h-4 w-4" />
                     Ver Paquetes
                   </Button>
                 </div>
 
                 {patientPackages.length === 0 ? (
-                  <div className="text-center py-12">
-                    <PackageOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <h4 className="text-lg font-semibold mb-2">
+                  <div className="py-12 text-center">
+                    <PackageOpen className="mx-auto mb-4 h-16 w-16 text-muted-foreground opacity-50" />
+                    <h4 className="mb-2 text-lg font-semibold">
                       No hay paquetes asignados
                     </h4>
-                    <p className="text-muted-foreground mb-4">
+                    <p className="mb-4 text-muted-foreground">
                       Este paciente no tiene paquetes de sesiones.
                     </p>
                     <Button
                       onClick={() => navigate("/packages")}
                       variant="outline"
                     >
-                      <Package className="w-4 h-4 mr-2" />
+                      <Package className="mr-2 h-4 w-4" />
                       Explorar Paquetes
                     </Button>
                   </div>
@@ -1009,7 +1009,7 @@ export function PatientDetail() {
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
+                                <div className="mb-2 flex items-center gap-3">
                                   <h4 className="font-semibold">
                                     {patientPackage.package?.name}
                                   </h4>
@@ -1028,12 +1028,12 @@ export function PatientDetail() {
                                   </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm mb-3">
+                                <div className="mb-3 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
                                   <div>
                                     <p className="text-muted-foreground">
                                       Precio Total:
                                     </p>
-                                    <p className="font-bold text-lg">
+                                    <p className="text-lg font-bold">
                                       {formatCurrency(
                                         patientPackage.package?.price || 0,
                                       )}
@@ -1059,15 +1059,15 @@ export function PatientDetail() {
 
                                 {/* Progress Bar */}
                                 <div className="mb-3">
-                                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                                     <span>Progreso</span>
                                     <span>
                                       {Math.round(progressPercentage)}%
                                     </span>
                                   </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="h-2 w-full rounded-full bg-gray-200">
                                     <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                      className="h-2 rounded-full bg-blue-600 transition-all duration-300"
                                       style={{
                                         width: `${progressPercentage}%`,
                                       }}
@@ -1076,7 +1076,7 @@ export function PatientDetail() {
                                 </div>
 
                                 {patientPackage.package?.notes && (
-                                  <div className="mt-2 p-2 bg-muted/50 rounded text-sm">
+                                  <div className="mt-2 rounded bg-muted/50 p-2 text-sm">
                                     <p className="text-muted-foreground">
                                       Descripción:
                                     </p>
@@ -1086,7 +1086,7 @@ export function PatientDetail() {
                               </div>
 
                               <Button variant="ghost" size="sm">
-                                <Eye className="w-4 h-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
@@ -1105,7 +1105,7 @@ export function PatientDetail() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5" />
+              <Plus className="h-5 w-5" />
               Nuevo Abono
             </DialogTitle>
           </DialogHeader>
@@ -1115,7 +1115,7 @@ export function PatientDetail() {
             <div className="space-y-2">
               <Label htmlFor="amount">Monto *</Label>
               <div className="relative">
-                <DollarSign className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                 <Input
                   id="amount"
                   type="number"
@@ -1150,7 +1150,7 @@ export function PatientDetail() {
                   {Object.entries(balanceMethodConfig).map(([key, config]) => (
                     <SelectItem key={key} value={key}>
                       <div className="flex items-center gap-2">
-                        <config.icon className="w-4 h-4" />
+                        <config.icon className="h-4 w-4" />
                         {config.label}
                       </div>
                     </SelectItem>
@@ -1187,7 +1187,7 @@ export function PatientDetail() {
             <Button onClick={handleAddBalance} disabled={isSavingBalance}>
               {isSavingBalance ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>
                   Guardando...
                 </>
               ) : (

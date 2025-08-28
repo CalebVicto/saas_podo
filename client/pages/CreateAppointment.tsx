@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { toast } from "@/components/ui/use-toast";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   Calendar,
   Clock,
@@ -508,6 +508,30 @@ export function CreateAppointment() {
     loadData();
     loadPackages();
   }, []);
+
+  // If patientId is provided in the query string (from PatientDetail), preload the patient
+  const location = useLocation();
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search);
+    const patientIdFromQuery = qs.get("patientId");
+    if (!patientIdFromQuery) return;
+
+    const preloadPatient = async () => {
+      try {
+        const patient = await patientRepository.getById(patientIdFromQuery);
+        if (patient) {
+          setSelectedPatient(patient);
+          setFormData((prev) => ({ ...prev, patientId: patient.id }));
+          setPatients((prev) => (prev.some((p) => p.id === patient.id) ? prev : [...prev, patient]));
+        }
+      } catch (err) {
+        console.error("Error precargando paciente desde querystring:", err);
+      }
+    };
+
+    preloadPatient();
+    // only run when the query string changes
+  }, [location.search, patientRepository]);
   // Cargar paquetes usando apiGet igual que Packages.tsx
   const loadPackages = async () => {
     try {

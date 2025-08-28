@@ -948,7 +948,7 @@ export function Appointments() {
                   Detalle de Cita (Historia Clínica)
                 </span>
                 <div className="flex gap-2">
-                  <Button
+                  {/* <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
@@ -960,7 +960,7 @@ export function Appointments() {
                   >
                     <Edit className="mr-2 h-4 w-4" />
                     Editar
-                  </Button>
+                  </Button> */}
                   {/* opcional */}
                   {/* <Button size="sm" onClick={() => window.print()} className="btn-primary">
             <Save className="mr-2 h-4 w-4" />
