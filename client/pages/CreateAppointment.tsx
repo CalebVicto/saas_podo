@@ -640,6 +640,69 @@ export function CreateAppointment() {
               setPackageSessionAmounts((prev) => ({ ...prev, ...amounts }));
             }
           }
+          // If the appointment contains patientPackageDetails (used patient packages), map them
+          // into local `patientPackages` state and pre-select the corresponding package entries
+          // so the UI shows which patient packages were used in this appointment.
+          if ((appt as any).patientPackageDetails && Array.isArray((appt as any).patientPackageDetails)) {
+            try {
+              const ppDetails: any[] = (appt as any).patientPackageDetails;
+              // Map to PatientPackage shape used in the page (best-effort)
+              const mappedPatientPackages: PatientPackage[] = ppDetails.map((d) => {
+                // the API may nest the patientPackage under patientPackageId or patientPackage
+                const rawPP = d.patientPackageId || d.patientPackage || d.patientPackage || {};
+                const pkg = rawPP.packageId || rawPP.package || {};
+                return {
+                  id: rawPP.id || rawPP._id || rawPP.patientPackageId || String(rawPP),
+                  patientId: (rawPP.patientId && (rawPP.patientId.id || rawPP.patientId)) || formData.patientId || rawPP.patientId || "",
+                  packageId: pkg.id || pkg._id || pkg || rawPP.packageId || undefined,
+                  remainingSessions: Number(rawPP.remainingSessions ?? rawPP.sessions ?? 0),
+                  packagePrice: Number(rawPP.packagePrice ?? pkg.price ?? 0),
+                  debt: typeof rawPP.debt !== 'undefined' ? Number(rawPP.debt) : undefined,
+                  createdAt: rawPP.createdAt || rawPP.created_at || undefined,
+                  updatedAt: rawPP.updatedAt || rawPP.updated_at || undefined,
+                  // keep original raw object in case some UI needs nested access
+                  // @ts-ignore
+                  raw: rawPP,
+                } as unknown as PatientPackage;
+              });
+
+              // Merge into existing patientPackages, avoiding duplicates
+              setPatientPackages((prev) => {
+                const byId = new Map<string, PatientPackage>();
+                prev.forEach((p) => byId.set((p as any).id, p));
+                mappedPatientPackages.forEach((p) => byId.set((p as any).id, p));
+                return Array.from(byId.values());
+              });
+
+              // Pre-select packages used in appointment: use nested packageId from each patientPackageDetail
+              const preSelected: Package[] = [];
+              const amountsFromDetails: Record<string, number> = {};
+              ppDetails.forEach((d) => {
+                const rawPP = d.patientPackageId || d.patientPackage || {};
+                const pkg = rawPP.packageId || rawPP.package || d.packageId || d.package || {};
+                const pkgId = pkg.id || pkg._id || pkg;
+                if (pkgId) {
+                  preSelected.push({ id: pkgId, name: pkg.name || pkg.title || undefined, price: Number(rawPP.packagePrice ?? pkg.price ?? d.payment ?? d.abono ?? 0) } as Package);
+                  // prefer coverage/payment fields from the appointment detail
+                  const payment = d.coverage ?? d.payment ?? d.abono ?? d.amount ?? rawPP.packagePrice ?? pkg.price ?? 0;
+                  amountsFromDetails[pkgId] = Number(payment);
+                }
+              });
+
+              if (preSelected.length > 0) {
+                // avoid duplicates when merging with other selectedPackages
+                setSelectedPackages((prev) => {
+                  const map = new Map<string, Package>();
+                  prev.forEach((p) => map.set(p.id, p));
+                  preSelected.forEach((p) => map.set(p.id, p));
+                  return Array.from(map.values());
+                });
+                setPackageSessionAmounts((prev) => ({ ...prev, ...amountsFromDetails }));
+              }
+            } catch (err) {
+              console.error('Error processing patientPackageDetails:', err);
+            }
+          }
         } catch (error) {
           console.error("Error loading appointment:", error);
           toast({

@@ -152,6 +152,36 @@ export const AppointmentDetailStory: React.FC<{
                 </div>
               </div>
             </div>
+
+            <div className="rounded-xl border p-4">
+              <h3 className="font-semibold flex items-center gap-2 mb-3">
+                <FileText className="w-4 h-4 text-primary" /> Paquetes
+              </h3>
+              <div className="space-y-2">
+                {Array.isArray((appt as any).patientPackageDetails) && (appt as any).patientPackageDetails.length > 0 ? (
+                  (appt as any).patientPackageDetails.map((ppd: any) => {
+                    const pkg = ppd?.patientPackageId?.packageId || ppd?.package || null;
+                    const name = pkg?.name || "(sin paquete)";
+                    const coverage = ppd?.coverage != null ? `Cobertura: ${ppd.coverage}` : null;
+                    const debt = ppd?.debt != null ? `Deuda: S/ ${Number(ppd.debt).toFixed(2)}` : null;
+                    const totalSessions = pkg?.sessions ?? pkg?.sessionsCount ?? null;
+                    const remaining = ppd?.patientPackageId?.remainingSessions ?? ppd?.remainingSessions ?? null;
+                    const sessionsText = totalSessions != null || remaining != null
+                      ? `Sesiones: ${totalSessions ?? "?"}${remaining != null ? ` / restantes: ${remaining}` : ""}`
+                      : null;
+
+                    return (
+                      <div key={ppd.id || name} className="text-sm">
+                        <div className="font-medium">{name}</div>
+                        <div className="text-muted-foreground text-xs">{[coverage, debt, sessionsText].filter(Boolean).join(' · ') || '—'}</div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-sm text-muted-foreground">—</div>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -341,6 +371,36 @@ export const AppointmentDetailStory: React.FC<{
               <p className="text-muted-foreground">Tratamiento</p>
               <p className="font-medium">{appt.treatment || "—"}</p>
             </div>
+          </div>
+        </section>
+
+        <section className="rounded-xl border p-4">
+          <h4 className="font-semibold mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" /> Paquetes
+          </h4>
+          <div className="space-y-2">
+            {Array.isArray((appt as any).patientPackageDetails) && (appt as any).patientPackageDetails.length > 0 ? (
+              (appt as any).patientPackageDetails.map((ppd: any) => {
+                const pkg = ppd?.patientPackageId?.packageId || ppd?.package || null;
+                const name = pkg?.name || "(sin paquete)";
+                const coverage = ppd?.coverage != null ? `Cobertura: ${ppd.coverage}` : null;
+                const debt = ppd?.debt != null ? `Deuda: S/ ${Number(ppd.debt).toFixed(2)}` : null;
+                const totalSessions = pkg?.sessions ?? pkg?.sessionsCount ?? null;
+                const remaining = ppd?.patientPackageId?.remainingSessions ?? ppd?.remainingSessions ?? null;
+                const sessionsText = totalSessions != null || remaining != null
+                  ? `Sesiones: ${totalSessions ?? "?"}${remaining != null ? ` / restantes: ${remaining}` : ""}`
+                  : null;
+
+                return (
+                  <div key={ppd.id || name} className="text-sm">
+                    <div className="font-medium">{name}</div>
+                    <div className="text-muted-foreground text-xs">{[coverage, debt, sessionsText].filter(Boolean).join(' · ') || '—'}</div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-sm text-muted-foreground">—</div>
+            )}
           </div>
         </section>
 

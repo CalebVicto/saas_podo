@@ -545,6 +545,7 @@ export function Appointments() {
                         <TableHead>Fecha & Hora</TableHead>
                         <TableHead>Paciente</TableHead>
                         <TableHead>Trabajador</TableHead>
+                        <TableHead>Paquetes</TableHead>
                         <TableHead>Diagnóstico</TableHead>
                         <TableHead>Total</TableHead>
                         <TableHead>Estado</TableHead>
@@ -598,6 +599,25 @@ export function Appointments() {
                                 <p className="text-sm text-muted-foreground">
                                   {appointment.worker?.username}
                                 </p>
+                              </div>
+                            </TableCell>
+
+                            <TableCell>
+                              <div className="space-y-1">
+                                {Array.isArray((appointment as any).patientPackageDetails) && (appointment as any).patientPackageDetails.length > 0 ? (
+                                  (appointment as any).patientPackageDetails.map((ppd: any) => {
+                                    const pkg = ppd?.patientPackageId?.packageId || ppd?.package || null;
+                                    const name = pkg?.name || (ppd?.patientPackageId?.packageId?.name) || "(sin paquete)";
+                                    const coverage = ppd?.coverage != null ? ` - Cobertura: ${ppd.coverage}` : "";
+                                    return (
+                                      <div key={ppd.id || name} className="text-sm">
+                                        {name}{coverage}
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="text-sm text-muted-foreground">—</div>
+                                )}
                               </div>
                             </TableCell>
 

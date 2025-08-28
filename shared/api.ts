@@ -122,6 +122,7 @@ export interface Appointment {
   payment?: Payment;
   saleId?: string;
   products?: { id: string; name: string; price: number }[];
+  patientPackageDetails?: PatientPackageDetail[];
 }
 
 export interface CreateAppointmentRequest {
@@ -332,6 +333,18 @@ export interface PatientPackage {
   isActive: boolean;
   package?: Package;
   patient?: Patient;
+}
+
+// Represents the detail item returned as part of an appointment indicating
+// which patient-package was used, coverage, debt, etc.
+export interface PatientPackageDetail {
+  id: string;
+  coverage?: number; // percentage or amount covered
+  debt?: number; // outstanding debt related to this usage
+  // The API sometimes nests the purchased patient package under `patientPackageId`
+  patientPackageId?: PatientPackage & { packageId?: Package };
+  // Some APIs return the package directly on the detail
+  package?: Package;
 }
 
 export interface PackageSession {
