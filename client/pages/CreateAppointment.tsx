@@ -2141,7 +2141,7 @@ export function CreateAppointment() {
                         )}
 
                         {formData.treatmentPrice &&
-                          formData.treatmentPrice > 0 && (
+                          formData.treatmentPrice > 0 ? (
                             <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
                               <DollarSign className="mt-0.5 h-5 w-5 text-emerald-600" />
                               <div>
@@ -2153,7 +2153,8 @@ export function CreateAppointment() {
                                 </p>
                               </div>
                             </div>
-                          )}
+                          ) : null
+                        }
 
                         {formData.observation && (
                           <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -2467,7 +2468,7 @@ export function CreateAppointment() {
                     {(selectedProducts.length > 0 ||
                       (selectedPackages.length > 0) ||
                       (formData.treatmentPrice &&
-                        formData.treatmentPrice > 0)) && (
+                        formData.treatmentPrice > 0)) ? (
                         <div className="border-t bg-gradient-to-r from-green-50 to-emerald-50 p-4">
                           <div className="mb-3 flex items-center gap-2">
                             <DollarSign className="h-5 w-5 text-green-600" />
@@ -2523,7 +2524,7 @@ export function CreateAppointment() {
                             </div>
                           </div>
                         </div>
-                      )}
+                      ) : null}
                   </CardContent>
                 </Card>
               </div>
