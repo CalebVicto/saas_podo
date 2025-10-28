@@ -173,22 +173,9 @@ export function Payments() {
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const currentDate = new Date();
-  const startOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth(),
-    1,
-  )
-    .toISOString()
-    .split("T")[0];
-  const endOfMonth = new Date(
-    currentDate.getFullYear(),
-    currentDate.getMonth() + 1,
-    0,
-  )
-    .toISOString()
-    .split("T")[0];
-  const [dateFrom, setDateFrom] = useState<string>(startOfMonth);
-  const [dateTo, setDateTo] = useState<string>(endOfMonth);
+  const today = currentDate.toISOString().split("T")[0];
+  const [dateFrom, setDateFrom] = useState<string>(today);
+  const [dateTo, setDateTo] = useState<string>(today);
   const [amountMin, setAmountMin] = useState<string>("");
   const [amountMax, setAmountMax] = useState<string>("");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -202,8 +189,9 @@ export function Payments() {
   const [stats, setStats] = useState<PaymentStats | null>(null);
 
   // Pagination
+  const [totalItems, setTotalItems] = useState<number>(0);
   const pagination = usePagination({
-    totalItems: filteredPayments.length,
+    totalItems,
     initialPageSize: 15,
   });
 
@@ -338,6 +326,9 @@ export function Payments() {
           saleId: p.referenceTable === "Sale" ? p.referenceId : undefined,
         }));
         setPayments(items);
+        // Use server-reported total for pagination (fallback to items length)
+        const serverTotal = resp.data.data.total ?? items.length;
+        setTotalItems(serverTotal);
         setStats(resp.data.stats || null);
       }
     } catch (error) {
@@ -444,12 +435,12 @@ export function Payments() {
       title="Gestión de Pagos"
       subtitle="Administra los pagos de citas y ventas de productos"
     >
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 p-6">
         {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-              <CreditCard className="w-6 h-6 text-primary" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <CreditCard className="h-6 w-6 text-primary" />
             </div>
           </div>
 
@@ -457,26 +448,26 @@ export function Payments() {
             onClick={() => setIsAddDialogOpen(true)}
             className="btn-primary flex items-center gap-2"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="h-5 w-5" />
             Registrar Pago
           </Button>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
           <Card className="card-modern">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                  <p className="mb-1 text-sm font-medium text-muted-foreground">
                     Total Recaudado
                   </p>
                   <p className="text-3xl font-bold text-foreground">
                     S/ {totalAmount.toFixed(2)}
                   </p>
                 </div>
-                <div className="p-3 bg-primary/10 rounded-xl">
-                  <DollarSign className="w-6 h-6 text-primary" />
+                <div className="rounded-xl bg-primary/10 p-3">
+                  <DollarSign className="h-6 w-6 text-primary" />
                 </div>
               </div>
             </CardContent>
@@ -486,15 +477,15 @@ export function Payments() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                  <p className="mb-1 text-sm font-medium text-muted-foreground">
                     Ingresos Hoy
                   </p>
                   <p className="text-3xl font-bold text-foreground">
                     S/ {todayAmount.toFixed(2)}
                   </p>
                 </div>
-                <div className="p-3 bg-secondary/10 rounded-xl">
-                  <Calendar className="w-6 h-6 text-secondary" />
+                <div className="rounded-xl bg-secondary/10 p-3">
+                  <Calendar className="h-6 w-6 text-secondary" />
                 </div>
               </div>
             </CardContent>
@@ -504,15 +495,15 @@ export function Payments() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                  <p className="mb-1 text-sm font-medium text-muted-foreground">
                     Pagos Completados
                   </p>
                   <p className="text-3xl font-bold text-foreground">
                     {completedCount}
                   </p>
                 </div>
-                <div className="p-3 bg-success/10 rounded-xl">
-                  <CheckCircle className="w-6 h-6 text-success" />
+                <div className="rounded-xl bg-success/10 p-3">
+                  <CheckCircle className="h-6 w-6 text-success" />
                 </div>
               </div>
             </CardContent>
@@ -522,15 +513,15 @@ export function Payments() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                  <p className="mb-1 text-sm font-medium text-muted-foreground">
                     Pagos Pendientes
                   </p>
                   <p className="text-3xl font-bold text-foreground">
                     {pendingCount}
                   </p>
                 </div>
-                <div className="p-3 bg-warning/10 rounded-xl">
-                  <Clock className="w-6 h-6 text-warning" />
+                <div className="rounded-xl bg-warning/10 p-3">
+                  <Clock className="h-6 w-6 text-warning" />
                 </div>
               </div>
             </CardContent>
@@ -553,17 +544,17 @@ export function Payments() {
             </Badge>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             {Object.entries(paymentMethodConfig).map(([method, config]) => {
               const statsEntry = methodStats[method] || { amount: 0, count: 0 };
               const IconComponent = config.icon;
               return (
                 <Card
                   key={method}
-                  className="card-modern hover:shadow-md transition-all duration-200"
+                  className="card-modern transition-all duration-200 hover:shadow-md"
                 >
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="mb-3 flex items-center justify-between">
                       <div className={cn("p-2 rounded-lg", config.iconBg)}>
                         <IconComponent
                           className={cn("w-5 h-5", config.cardColor)}
@@ -601,9 +592,9 @@ export function Payments() {
         {/* Filters */}
         <Card className="card-modern">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
               <div className="relative">
-                <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-muted-foreground" />
                 <Input
                   placeholder="Buscar por monto, método..."
                   value={searchTerm}
@@ -689,10 +680,7 @@ export function Payments() {
         <Card className="card-modern">
           <CardHeader>
             <CardTitle>
-              Pagos ({filteredPayments.length}
-              {filteredPayments.length !== payments.length &&
-                ` de ${payments.length}`}
-              )
+              Pagos ({payments.length} de {totalItems})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -703,12 +691,12 @@ export function Payments() {
                 ))}
               </div>
             ) : filteredPayments.length === 0 ? (
-              <div className="text-center py-12">
-                <CreditCard className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-foreground mb-2">
+              <div className="py-12 text-center">
+                <CreditCard className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+                <h3 className="mb-2 text-xl font-semibold text-foreground">
                   No hay pagos
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="mb-6 text-muted-foreground">
                   {searchTerm ||
                     methodFilter !== "all" ||
                     statusFilter !== "all" ||
@@ -723,7 +711,7 @@ export function Payments() {
                   onClick={() => setIsAddDialogOpen(true)}
                   className="btn-primary"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="mr-2 h-4 w-4" />
                   Registrar Primer Pago
                 </Button>
               </div>
@@ -786,7 +774,7 @@ export function Payments() {
                                 variant="outline"
                                 className={cn("gap-1", methodInfo.className)}
                               >
-                                <MethodIcon className="w-3 h-3" />
+                                <MethodIcon className="h-3 w-3" />
                                 {methodInfo.label}
                               </Badge>
                             </TableCell>
@@ -795,16 +783,16 @@ export function Payments() {
                                 variant="outline"
                                 className={cn("gap-1", statusInfo.className)}
                               >
-                                <StatusIcon className="w-3 h-3" />
+                                <StatusIcon className="h-3 w-3" />
                                 {statusInfo.label}
                               </Badge>
                             </TableCell>
                             <TableCell>
                               <div>
-                                <p className="font-medium text-sm">
+                                <p className="text-sm font-medium">
                                   {source.label}
                                 </p>
-                                <p className="text-xs text-muted-foreground capitalize">
+                                <p className="text-xs capitalize text-muted-foreground">
                                   {source.type === "appointment" &&
                                     "Consulta médica"}
                                   {source.type === "sale" &&
@@ -819,7 +807,7 @@ export function Payments() {
                                 variant="outline"
                                 size="sm"
                               >
-                                <Eye className="w-4 h-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -833,7 +821,7 @@ export function Payments() {
                 <Pagination
                   currentPage={pagination.currentPage}
                   totalPages={pagination.totalPages}
-                  totalItems={filteredPayments.length}
+                  totalItems={totalItems}
                   pageSize={pagination.pageSize}
                   onPageChange={pagination.goToPage}
                   onPageSizeChange={pagination.setPageSize}
@@ -850,7 +838,7 @@ export function Payments() {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary" />
+                <CreditCard className="h-5 w-5 text-primary" />
                 Registrar Nuevo Pago
               </DialogTitle>
             </DialogHeader>
@@ -870,7 +858,7 @@ export function Payments() {
                     }
                     className="h-20 flex-col gap-2"
                   >
-                    <Calendar className="w-6 h-6" />
+                    <Calendar className="h-6 w-6" />
                     <span className="text-sm">Pago de Cita</span>
                   </Button>
                   <Button
@@ -884,7 +872,7 @@ export function Payments() {
                     }
                     className="h-20 flex-col gap-2"
                   >
-                    <DollarSign className="w-6 h-6" />
+                    <DollarSign className="h-6 w-6" />
                     <span className="text-sm">Pago de Venta</span>
                   </Button>
                 </div>
@@ -1018,7 +1006,7 @@ export function Payments() {
                 className="btn-primary"
                 disabled={formData.amount <= 0}
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="mr-2 h-4 w-4" />
                 Registrar Pago
               </Button>
             </div>
@@ -1030,10 +1018,10 @@ export function Payments() {
           open={isAppointmentDialogOpen}
           onOpenChange={setIsAppointmentDialogOpen}
         >
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
+                <Calendar className="h-5 w-5 text-primary" />
                 Detalle de la Cita
               </DialogTitle>
             </DialogHeader>
@@ -1043,7 +1031,7 @@ export function Payments() {
                 statusConfig={appointmentStatusConfig}
               />
             )}
-            <div className="flex justify-end mt-4">
+            <div className="mt-4 flex justify-end">
               <Button
                 onClick={() => setIsAppointmentDialogOpen(false)}
                 className="btn-primary"
@@ -1060,10 +1048,10 @@ export function Payments() {
           open={isSaleDialogOpen}
           onOpenChange={setIsSaleDialogOpen}
         >
-          <DialogContent className="sm:max-w-[720px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-primary" />
+                <Package className="h-5 w-5 text-primary" />
                 Detalle de la Venta
               </DialogTitle>
             </DialogHeader>
@@ -1072,10 +1060,10 @@ export function Payments() {
               <div className="space-y-6 py-4">
                 {/* Aviso de anulación */}
                 {selectedSale.state === "anulada" && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                  <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4">
                     <Badge variant="destructive" className="w-fit">Venta Anulada</Badge>
                     {selectedSale.cancelReason && (
-                      <p className="text-sm text-muted-foreground italic">
+                      <p className="text-sm italic text-muted-foreground">
                         Motivo: {selectedSale.cancelReason}
                       </p>
                     )}
@@ -1118,13 +1106,13 @@ export function Payments() {
                   </Badge>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid gap-6 md:grid-cols-2">
                   {/* Info venta */}
                   <div>
-                    <h3 className="font-semibold text-foreground mb-3">Información de la Venta</h3>
+                    <h3 className="mb-3 font-semibold text-foreground">Información de la Venta</h3>
                     <div className="space-y-3">
                       <div>
-                        <Label className="text-muted-foreground text-sm">Fecha y Hora</Label>
+                        <Label className="text-sm text-muted-foreground">Fecha y Hora</Label>
                         <p className="font-medium">
                           {new Date(
                             selectedSale.date || selectedSale.createdAt,
@@ -1133,14 +1121,14 @@ export function Payments() {
                       </div>
 
                       <div className="flex flex-col">
-                        <Label className="text-muted-foreground text-sm">Método de Pago</Label>
+                        <Label className="text-sm text-muted-foreground">Método de Pago</Label>
                         <Badge variant="outline" className="mt-1 w-fit">
                           {getPaymentMethodLabel(selectedSale.paymentMethod)}
                         </Badge>
                       </div>
 
                       <div>
-                        <Label className="text-muted-foreground text-sm">Vendedor</Label>
+                        <Label className="text-sm text-muted-foreground">Vendedor</Label>
                         <p className="font-medium">
                           {(selectedSale as any).user?.name ||
                             (selectedSale as any).user ||
@@ -1149,8 +1137,8 @@ export function Payments() {
                       </div>
 
                       <div>
-                        <Label className="text-muted-foreground text-sm">Total</Label>
-                        <p className="font-bold text-xl text-primary">
+                        <Label className="text-sm text-muted-foreground">Total</Label>
+                        <p className="text-xl font-bold text-primary">
                           S/ {selectedSale.totalAmount.toFixed(2)}
                         </p>
                       </div>
@@ -1159,24 +1147,24 @@ export function Payments() {
 
                   {/* Cliente */}
                   <div>
-                    <h3 className="font-semibold text-foreground mb-3">Cliente</h3>
+                    <h3 className="mb-3 font-semibold text-foreground">Cliente</h3>
                     <div className="space-y-4">
                       {selectedSale.patient && typeof selectedSale.patient === "object" ? (
                         <>
                           <div>
-                            <Label className="text-muted-foreground text-sm">Nombre</Label>
+                            <Label className="text-sm text-muted-foreground">Nombre</Label>
                             <p className="font-medium">
                               {selectedSale.patient.firstName} {selectedSale.patient.paternalSurname} {selectedSale.patient.maternalSurname}
                             </p>
                           </div>
                           <div>
-                            <Label className="text-muted-foreground text-sm">
+                            <Label className="text-sm text-muted-foreground">
                               {selectedSale.patient.documentType === "dni" ? "DNI" : "Documento"}
                             </Label>
                             <p className="font-medium">{selectedSale.patient.documentNumber}</p>
                           </div>
                           <div>
-                            <Label className="text-muted-foreground text-sm">Teléfono</Label>
+                            <Label className="text-sm text-muted-foreground">Teléfono</Label>
                             <p className="font-medium">{selectedSale.patient.phone || "—"}</p>
                           </div>
                         </>
@@ -1191,42 +1179,42 @@ export function Payments() {
 
                 {/* Cita vinculada */}
                 {selectedSale.appointment && (
-                  <div className="space-y-3 p-4 rounded-lg border border-primary/20">
+                  <div className="space-y-3 rounded-lg border border-primary/20 p-4">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-primary" />
+                      <Calendar className="h-4 w-4 text-primary" />
                       <h4 className="font-semibold">Cita vinculada</h4>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <Label className="text-muted-foreground text-sm">ID Cita</Label>
+                        <Label className="text-sm text-muted-foreground">ID Cita</Label>
                         <p className="font-medium">
                           {(selectedSale.appointment as any).id || (selectedSale.appointment as any)._id}
                         </p>
                       </div>
                       <div>
-                        <Label className="text-muted-foreground text-sm">Estado</Label>
+                        <Label className="text-sm text-muted-foreground">Estado</Label>
                         <p className="font-medium capitalize">{(selectedSale.appointment as any).status}</p>
                       </div>
                       {(selectedSale.appointment as any).diagnosis && (
                         <div className="md:col-span-2">
-                          <Label className="text-muted-foreground text-sm">Diagnóstico</Label>
+                          <Label className="text-sm text-muted-foreground">Diagnóstico</Label>
                           <p className="font-medium">{(selectedSale.appointment as any).diagnosis}</p>
                         </div>
                       )}
                       {(selectedSale.appointment as any).treatment && (
                         <div className="md:col-span-2">
-                          <Label className="text-muted-foreground text-sm">Tratamiento</Label>
+                          <Label className="text-sm text-muted-foreground">Tratamiento</Label>
                           <p className="font-medium">{(selectedSale.appointment as any).treatment}</p>
                         </div>
                       )}
                       <div>
-                        <Label className="text-muted-foreground text-sm">Precio Cita</Label>
+                        <Label className="text-sm text-muted-foreground">Precio Cita</Label>
                         <p className="font-medium">
                           S/ {(((selectedSale.appointment as any).appointmentPrice ?? 0)).toFixed(2)}
                         </p>
                       </div>
                       <div>
-                        <Label className="text-muted-foreground text-sm">Precio Tratamiento</Label>
+                        <Label className="text-sm text-muted-foreground">Precio Tratamiento</Label>
                         <p className="font-medium">
                           S/ {(((selectedSale.appointment as any).treatmentPrice ?? 0)).toFixed(2)}
                         </p>
@@ -1237,18 +1225,18 @@ export function Payments() {
 
                 {/* Productos */}
                 <div>
-                  <h3 className="font-semibold text-foreground mb-3">Productos Vendidos</h3>
-                  <div className="space-y-3 overflow-y-auto max-h-[300px]">
+                  <h3 className="mb-3 font-semibold text-foreground">Productos Vendidos</h3>
+                  <div className="max-h-[300px] space-y-3 overflow-y-auto">
                     {selectedSale.saleItems.map((item) => {
                       const importe = (item.price ?? 0) * (item.quantity ?? 0);
                       return (
                         <div
                           key={`${item.product?.id ?? item.product?.sku ?? Math.random()}-${item.quantity}`}
-                          className="flex items-center justify-between p-3 border border-border rounded-lg"
+                          className="flex items-center justify-between rounded-lg border border-border p-3"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                              <Package className="w-5 h-5 text-primary" />
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                              <Package className="h-5 w-5 text-primary" />
                             </div>
                             <div>
                               <p className="font-medium">{item.product?.name ?? "—"}</p>
@@ -1281,17 +1269,17 @@ export function Payments() {
                   );
                   const total = selectedSale.totalAmount ?? subtotal;
                   return (
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid gap-6 md:grid-cols-2">
                       <div>
-                        <h3 className="font-semibold text-foreground mb-3">Nota</h3>
-                        <div className="p-3 rounded-lg border bg-muted/30 text-sm">
+                        <h3 className="mb-3 font-semibold text-foreground">Nota</h3>
+                        <div className="rounded-lg border bg-muted/30 p-3 text-sm">
                           {selectedSale.note || "—"}
                         </div>
                       </div>
                       <div className="flex flex-col items-end justify-center gap-1">
                         <div className="text-sm text-muted-foreground">Subtotal</div>
                         <div className="text-lg font-bold">S/ {subtotal.toFixed(2)}</div>
-                        <div className="text-sm text-muted-foreground mt-2">Total</div>
+                        <div className="mt-2 text-sm text-muted-foreground">Total</div>
                         <div className="text-2xl font-extrabold">S/ {total.toFixed(2)}</div>
                       </div>
                     </div>
@@ -1320,7 +1308,7 @@ export function Payments() {
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-primary" />
+                <Eye className="h-5 w-5 text-primary" />
                 Detalles del Pago
               </DialogTitle>
             </DialogHeader>
@@ -1328,8 +1316,8 @@ export function Payments() {
             {selectedPayment && (
               <div className="space-y-6 py-4">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CreditCard className="w-8 h-8 text-primary" />
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                    <CreditCard className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="text-2xl font-bold text-foreground">
                     S/ {selectedPayment.amount.toFixed(2)}
@@ -1347,17 +1335,17 @@ export function Payments() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-muted-foreground text-sm">
+                    <Label className="text-sm text-muted-foreground">
                       Método de Pago
                     </Label>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="mt-1 flex items-center gap-2">
                       {(() => {
                         const methodInfo =
                           paymentMethodConfig[selectedPayment.method];
                         const MethodIcon = methodInfo.icon;
                         return (
                           <>
-                            <MethodIcon className="w-4 h-4" />
+                            <MethodIcon className="h-4 w-4" />
                             <span className="font-medium">
                               {methodInfo.label}
                             </span>
@@ -1368,10 +1356,10 @@ export function Payments() {
                   </div>
 
                   <div>
-                    <Label className="text-muted-foreground text-sm">
+                    <Label className="text-sm text-muted-foreground">
                       Fecha de Pago
                     </Label>
-                    <p className="font-medium mt-1">
+                    <p className="mt-1 font-medium">
                       {new Date(
                         selectedPayment.paidAt || selectedPayment.createdAt,
                       ).toLocaleString("es-ES")}
@@ -1380,16 +1368,16 @@ export function Payments() {
                 </div>
 
                 <div>
-                  <Label className="text-muted-foreground text-sm">
+                  <Label className="text-sm text-muted-foreground">
                     Concepto
                   </Label>
-                  <div className="bg-muted/30 p-4 rounded-lg mt-2">
+                  <div className="mt-2 rounded-lg bg-muted/30 p-4">
                     {(() => {
                       const source = getPaymentSource(selectedPayment);
                       return (
                         <div>
                           <p className="font-medium">{source.label}</p>
-                          <p className="text-sm text-muted-foreground capitalize">
+                          <p className="text-sm capitalize text-muted-foreground">
                             {source.type === "appointment" && "Consulta médica"}
                             {source.type === "sale" && "Venta de productos"}
                             {source.type === "other" && "Pago directo"}
@@ -1400,7 +1388,7 @@ export function Payments() {
                   </div>
                 </div>
 
-                <div className="text-xs text-muted-foreground text-center pt-4 border-t">
+                <div className="border-t pt-4 text-center text-xs text-muted-foreground">
                   <p>ID del pago: {selectedPayment.id}</p>
                   <p>
                     Creado el:{" "}
